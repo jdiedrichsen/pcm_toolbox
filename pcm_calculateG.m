@@ -1,5 +1,5 @@
 function [G,dGdtheta] = pcm_calculateG(M,theta,G_hat)
-% function [G,dGdtheta] = pcm_calculateG(M,theta)
+% function [G,dGdtheta] = pcm_calculateG(M,theta,G_hat)
 % This function calculates the predicted second moment matrix (G) and the
 % derivate of the second moment matrix in respect to the parameters theta. 
 % INPUT: 
