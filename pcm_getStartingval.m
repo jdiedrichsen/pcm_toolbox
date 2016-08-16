@@ -9,7 +9,7 @@ function theta0 = pcm_getStartingval(M,G_hat)
 %       theta0:     vector of model parameters 
 
 switch (M.type) 
-    case 'fixed' 
+    case 'fixed'
         theta0=[]; 
     case 'component' 
         for i=1:size(M.Gc,3)
@@ -23,5 +23,11 @@ switch (M.type)
         error('not implemented yet'); 
     case 'nonlinear' 
         error('cannot provide starting values for nonlinear models'); 
+    case 'noiseceiling'
+        if ~(isempty(M.theta))
+            theta0 = M.theta0;
+        else
+            theta0 = [];
+        end
 end; 
         

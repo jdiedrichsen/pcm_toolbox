@@ -1,10 +1,11 @@
-function [G,dGdtheta] = pcm_calculateG(M,theta)
-% function [G,dGdtheta] = pcm_calculateG(M,theta)
+function [G,dGdtheta] = pcm_calculateG(M,theta,G_hat)
+% function [G,dGdtheta] = pcm_calculateG(M,theta,G_hat)
 % This function calculates the predicted second moment matrix (G) and the
 % derivate of the second moment matrix in respect to the parameters theta. 
 % INPUT: 
 %       M:        Model structure 
 %       theta:    Vector of parameters 
+%       G_hat:    Crossvalidated second moment matrix for subject
 % OUTPUT: 
 %       G:        Second moment matrix 
 %       dGdtheta: Matrix derivatives in respect to parameters 
@@ -36,5 +37,8 @@ else
             end;                 
         case 'nonlinear'
             [G,dGdtheta]=M.modelpred(theta(1:M.numGparams));
+        case 'noiseceiling'
+            G = M.modelpred(G_hat);
+            dGdtheta = [];
     end;
 end;
