@@ -24,6 +24,10 @@ switch (M.type)
     case 'nonlinear' 
         error('cannot provide starting values for nonlinear models'); 
     case 'noiseceiling'
-        theta0 = M.theta0;
+        if ~(isempty(M.theta))
+            theta0 = M.theta0;
+        else
+            theta0 = [];
+        end
 end; 
         
