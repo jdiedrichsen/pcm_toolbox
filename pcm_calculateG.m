@@ -21,7 +21,7 @@ else
         error('M should have a type of fixed / component / squareroot / nonlinear');
     end;
     switch (M.type)
-        case 'fixed'
+        case {'fixed','noiseceiling'}
             G=M.Gc;
             dGdtheta =[]; 
         case 'component'

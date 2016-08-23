@@ -155,19 +155,26 @@ for m = 1:numModels
     if (isfield(M(m),'theta0'))
         theta0 = M(m).theta0;
     else
-        theta0 = pcm_getStartingval(M(m),mean(G_hat,3));
+        theta0 = pcm_getStartingval(M(m),mean(G_hat,3));   
     end;
     
     % Use normal linear regression to get scaling parameter for the
     % subject
-    G0            = pcm_calculateG(M(m),theta0);
-    g0            = vec(G0);
+    switch (M(m).type)
+        case 'noiseceiling'
+            G0 = mean(G_hat,3); 
+            M(m).numGparams=0; 
+            M(m).Gc = G0;
+        otherwise 
+            G0 = pcm_calculateG(M(m),theta0);
+    end; 
+    g0 = vec(G0);
     
     % Estimate starting scaling value for each subject
     for s = 1:numSubj
-        g_hat           = vec(G_hat(:,:,s));
+        g_hat         = vec(G_hat(:,:,s));
         scaling       = (g0'*g_hat)/(g0'*g0);
-        if (scaling<10-6) scaling = 10-6; end;      % Enforce positive scaling
+        if (scaling<10-6); scaling = 10-6; end;      % Enforce positive scaling
         scale0(s,m)   = log(scaling);
     end;
     
@@ -179,7 +186,11 @@ for m = 1:numModels
     end;
 
     % Now do the fitting
-    fcn = @(x) pcm_groupLikelihood(x,YY,M(m),Z,X,P,'runEffect',B,'S',S);
+    if (M(m).numGparams==0) 
+        fcn = @(x) pcm_groupLikelihood(x,YY,G0,Z,X,P,'runEffect',B,'S',S);
+    else 
+        fcn = @(x) pcm_groupLikelihood(x,YY,M(m),Z,X,P,'runEffect',B,'S',S);
+    end;
     theta0              = [theta0;scale0(:,m);noise0;run0];
     [thetaAll,fx]       = minimize(x0, fcn, MaxIteration);
     

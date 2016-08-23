@@ -9,7 +9,7 @@ function theta0 = pcm_getStartingval(M,G_hat)
 %       theta0:     vector of model parameters 
 
 switch (M.type) 
-    case 'fixed' 
+    case {'fixed','noiseceiling'}
         theta0=[]; 
     case 'component' 
         for i=1:size(M.Gc,3)
