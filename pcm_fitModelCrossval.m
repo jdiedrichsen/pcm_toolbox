@@ -60,7 +60,7 @@ function [T,M]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
 %                            error covariance matrix to reflect he removal
 %
 %   'isCheckDeriv: Check the derivative accuracy of theta params. Done using
-%                  'checkderiv'. This function compares input to finite
+%                  'pcm_checkderiv'. This function compares input to finite
 %                  differences approximations. See function documentation.
 %
 %   'MaxIteration': Number of max minimization iterations. Default is 1000.
@@ -124,19 +124,34 @@ for s = 1:numSubj
             X{s}  =  indicatorMatrix('identity_p',partitionVec{s});
             S     =  [];    % Use indentity for covariance
         case 'remove'
-            Run    =  indicatorMatrix('identity_p',partitionVec{s});
-            R      =  eye(N(s))-Run*(Run'*Run)\Run';
-            YY{s}  = (R*Y{s} * Y{s}'*R');
-            S(s).S = R*R'
-            S(s).invS = pinv(S);
-            B{s}  = [];
+            Run         =  indicatorMatrix('identity_p',partitionVec{s});
+            R           =  eye(N(s))-Run*((Run'*Run)\Run');
+            
+            % Remove redundant dimention from S and Z
+            for c=1:size(Run,2)
+                idx = find(Run(:,c)==1);
+                idxrem(c,1) = idx(1); % can be other row
+            end
+            R(idxrem,:) = [];
+            Run(idxrem,:) = [];
+            partitionVec{s}(idxrem) = [];
+            
+            % Orthogonalize Y and Z
+            Z{s} = R*Z{s};
+            Y{s} = R*Y{s};
+                        
+            YY{s}       = (Y{s} * Y{s}');
+            S(s).S      = R*R';             % Rotated noise covariance
+            S(s).invS   = pinv(S(s).S);     % Pre-calculated inverse of noise covariance
+            B{s}        = [];
+            X{s}        = [];
     end;
     
     % Estimate crossvalidated second moment matrix to get noise and run
     [G_hat(:,:,s),Sig_hat(:,:,s)] = crossval_estG(Y{s},Z{s},partitionVec{s});
-    sh = Sig_hat(:,:,s);
-    run0(s,1)     = log((sum(sum(sh))-trace(sh))/(numCond*(numCond-1)));
-    noise0(s,1)   = log(trace(sh)/numCond-exp(run0(s)));
+    sh              = Sig_hat(:,:,s);
+    run0(s,1)       = log((sum(sum(sh))-trace(sh))/(numCond*(numCond-1)));
+    noise0(s,1)     = log(trace(sh)/numCond-exp(run0(s)));
 end;
 
 % -----------------------------------------------------
@@ -174,13 +189,21 @@ for m = 1:numModels
     for s = 1:numSubj
         g_hat         = vec(G_hat(:,:,s));
         scaling       = (g0'*g_hat)/(g0'*g0);
-        if (scaling<10e-6); scaling = 10e-6; end;      % Enforce positive scaling
+        if ((scaling<10-6)|~isfinite(scaling)); scaling = 10-6; end;      % Enforce positive scaling
         scale0(s,m)   = log(scaling);
     end;
     
     % Put together the vector of starting value 
     if (strcmp(runEffect,'random'))
         x0      = [theta0;scale0(:,m);noise0;run0];
+    elseif (strcmp(runEffect,'remove'))
+        % Force initial parameters to be good
+        noise0          = real(noise0);
+        run0            = real(run0);
+        idxr            = (scale0(:,m)<eps)|(~isfinite(scale0(:,m)));
+        scale0(idxr,m)  = repmat(log(1),sum(idxr),1);
+        scale0(:,m)     = real(scale0(:,m));
+        x0              = [theta0;scale0(:,m);noise0];
     else
         x0      = [theta0;scale0(:,m);noise0];
     end;
@@ -195,10 +218,10 @@ for m = 1:numModels
     [thetaAll,fx]       = minimize(x0, fcn, MaxIteration);
     
     M(m).theta_all      = thetaAll(1:M(m).numGparams);      % Main model parameters
-    T.scale_all(:,m)    = exp(thetaAll(M(m).numGparams+1:M(m).numGparams+numSubj));
-    T.noise_all(:,m)    = exp(thetaAll(M(m).numGparams+numSubj+1:M(m).numGparams+2*numSubj));
+    T.scale_all(:,m)    = (thetaAll(M(m).numGparams+1:M(m).numGparams+numSubj));%exp(thetaAll(M(m).numGparams+1:M(m).numGparams+numSubj));
+    T.noise_all(:,m)    = (thetaAll(M(m).numGparams+numSubj+1:M(m).numGparams+2*numSubj));%exp(thetaAll(M(m).numGparams+numSubj+1:M(m).numGparams+2*numSubj));
     if (strcmp(runEffect,'random'))
-        T.run_all(:,m)  = exp(thetaAll(M(m).numGparams+2*numSubj+1:M(m).numGparams+3*numSubj));
+        T.run_all(:,m)  = (thetaAll(M(m).numGparams+2*numSubj+1:M(m).numGparams+3*numSubj));%exp(thetaAll(M(m).numGparams+2*numSubj+1:M(m).numGparams+3*numSubj));
     end;
     M(m).G_pred         = pcm_calculateG(M(m),M(m).theta_all);
     
@@ -207,7 +230,7 @@ for m = 1:numModels
     
     % This is an optional check if the dervivate calculation is correct
     if (isCheckDeriv)
-        d = checkderiv(fcn,thetaAll-0.01,0.0000001);
+        d = pcm_checkderiv(fcn,thetaAll-0.01,0.0000001);
     end;
 end;
 
