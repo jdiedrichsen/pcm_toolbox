@@ -128,9 +128,13 @@ end;
 set(gca,'XTick',[1:i-1]);
 set(gca,'XTickLabels',labels);
 ylabel('Relative Likelihood');
-title('Model Fits');
 pos = get(gcf,'Position');
 set(gcf,'Position',[pos(1) pos(2) 90*(i-1) pos(4)]);
+if length(T.SN)>1
+    title('Model Fits');
+else
+    title(sprintf('Subj %d Model Fits',T.SN));
+end
 
 % Plot grey noise ceiling 
 v = [.5,lower_ceil; .5,1; i-.5,1; i-.5,lower_ceil];
