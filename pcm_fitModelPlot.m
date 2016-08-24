@@ -7,14 +7,13 @@ function [T] = pcm_fitModelPlot(T,M,varargin)
 %
 % Likelihoods are scaled to a null model (0) and the noiseceiling model. If 
 % no model name in M matches 'null' or 'noiseceiling', the default is to 
-% scale likelihoods between the fits of the first (null) and last model fits,
-% accordingly. 
+% scale likelihoods between the fits of the first (null) and last model fits. 
 %
 % Upper bound of noise ceiling is the group fit of the noiseceiling model.
 % The lower bound is the fit of the crossvalidated nosieceiling model.
 % 
 % INPUT:
-%       M:  Model structure
+%       M:  Model structure. Accepts 'Name' field to label bars in plot.
 %       T:  Output structure of model fits from pcm_fitModelCrossval
 %
 % OPTIONS:
@@ -22,7 +21,8 @@ function [T] = pcm_fitModelPlot(T,M,varargin)
 %     'Nceil':    Noiseceiling model # (scale to 1). Default is last model
 %     'colors':   Cell of RGB cells for bar colors. Defaults included
 %     'varfcn':   Error function used for errorbars. 'sem' or 'std' (default)
-%     'mindx':    Models to plot as bars. Default is to plot all
+%     'mindx':    Models to plot as bars. Default is to plot all but those
+%                 used for scaling likelihoods.
 %
 % OUTPUT:
 %       T: Input structure returned with scaled likelihood fit fields:
@@ -52,16 +52,26 @@ switch varfcn
     otherwise
         error('Unkown variance function')
 end
-% Locate models for likelihood scaling
+% Locate models for likelihood scaling (first check type, then name)
 if isempty(Nnull) % null model
     [~,Nnull] = find(strcmp({M.type},'null'));
-    if isempty(Nnull)
-        Nnull = 1;
+    if (isempty(Nnull)) && (isfield(M,'name'))
+        [~,Nnull] = find(strcmp({M.name},'null'));
+        if isempty(Nnull)
+            Nnull = 1;
+        end
+    else
+         Nnull = 1;
     end
 end; 
 if isempty(Nceil) % noise ceiling model
     [~,Nceil] = find(strcmp({M.type},'noiseceiling'));
-    if isempty(Nceil)
+    if (isempty(Nceil)) && (isfield(M,'name'))
+        [~,Nceil] = find(strcmp({M.name},'noiseceiling'));
+        if isempty(Nceil)
+            Nceil = length(M);
+        end
+    else
         Nceil = length(M);
     end
 end;
@@ -72,7 +82,7 @@ if isempty(mindx)
 end
 % Check colors
 if length(mindx) > length(colors)
-    error('More models to be plot than colors available')
+    error('More models to be plotted than colors available')
 end;
 
 % - - - - - - -
@@ -96,7 +106,10 @@ i=1;
 for m = mindx
     Y(i) = mean(T.likelihood_norm(:,m));
     U(i) = vfcn(T.likelihood_norm(:,m));
-    labels{i} = sprintf('Model %d',m);
+    if isfield(M,'name') && (~isempty(M(m).name))
+        labels{i} = M(m).name;
+    else labels{i} = sprintf('Model %d',m);
+    end
     bar(i,Y(i),'FaceColor',colors{i},'EdgeColor',colors{i});
     i=i+1;
 end;
