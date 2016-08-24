@@ -134,7 +134,7 @@ for s = 1:numSubj
     % Now loop over models 
     for m = 1:length(M)
         if (verbose) 
-            if isfield(M,'name');
+            if (isfield(M,'name')) && (~isempty(M(m).name));
                 fprintf('fitting model:%s\n',M(m).name);
             else
                 fprintf('fitting model:%d\n',m);
@@ -142,21 +142,31 @@ for s = 1:numSubj
             tic;
         end; 
         
-        % Get starting guess for theta if not provided 
+        % Get starting guess for theta if not provided
         if (isfield(M(m),'theta0'))
-            theta0 = M(m).theta0; 
-        else 
-            theta0 = pcm_getStartingval(M(m),G_hat(:,:,s)); 
+            theta0 = M(m).theta0;
+        else
+            theta0 = pcm_getStartingval(M(m),mean(G_hat,3));   
+        end;
+
+        % Use normal linear regression to get scaling parameter for the
+        % subject
+        switch (M(m).type)
+            case 'noiseceiling'
+                G0 = mean(G_hat,3); 
+                M(m).numGparams=0; 
+                M(m).Gc = G0;
+            otherwise 
+                G0 = pcm_calculateG(M(m),theta0);
         end; 
-        
-        % Use normal linear regression to get scaling parameter for the 
-        % subject 
-        G0            = pcm_calculateG(M(m),theta0);  
-        g0            = vec(G0);
+        g0 = vec(G0);
+
+        % Estimate starting scaling value for each subject
         g_hat         = vec(G_hat(:,:,s));
         scaling       = (g0'*g_hat)/(g0'*g0);
-        if ((scaling<10e-6)||~isfinite(scaling)); scaling = 10e-6; end;      % Enforce positive scaling 
+        if ((scaling<10e-6)||~isfinite(scaling)); scaling = 10e-6; end;      % Enforce positive scaling
         scale0(s,m)   = log(scaling);
+        
 
         % Now set up the function that returns likelihood and derivative 
         if (isempty(S))
@@ -182,11 +192,11 @@ for s = 1:numSubj
             T.run(s,m)      =  exp(theta(M(m).numGparams+3)); 
         end; 
         T.likelihood(s,m) =  -fX(end);  %invert the sign 
-    end;
-    T.iterations(s,m) = i;
-    T.time(s,m)       = toc; 
-    if verbose
-        fprintf('... done!');
-        fprintf('\t Iterations %d, Elapsed time: %3.3f\n',T.iterations(s,m),T.time(s,m));
-    end; 
-end;
+        T.iterations(s,m) = i;
+        T.time(s,m)       = toc; 
+        if verbose
+            fprintf('... done!');
+            fprintf('\t Iterations %d, Elapsed time: %3.3f\n',T.iterations(s,m),T.time(s,m));
+        end; 
+    end; % for each model
+end; % for each subject
