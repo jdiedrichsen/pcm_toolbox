@@ -1,0 +1,112 @@
+function varargout = pcm_recipe_arbuckle
+% Fit series of non-linear & noise-ceiling models (see 3.3 in PCM_toolbox).
+% Non-linear models are defined by function that returns an estimated G
+% matrix and the derivatives of G with respect to theta parameters.
+% Derivitives used for gradient descent function 'minimize'.
+  
+load recipe_arbuckle.mat % loads struct I
+% Dataset contains M1 activity patterns for 4 subjects.
+% 20 conditions: Pressed one of five fingers on right hand either 2, 4, 8,
+% or 16 times (5 fingers * 4 speeds = 20 conds). 
+
+% T subfields:
+%  'betaW': Multivariate noise normalized beta patterns for each condition
+%  'tt'   : Trial type of corresponding betaW (used for G crossvalidation)
+%  'run'  : Scanning run for corresponding betaW (used for G crossvalidation)
+
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+% (1) Estimate crossvalidated G from acivity patterns
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+for s=1:length(I) % Each row of I is one subject
+    N      = length(I(s).run);      % number of condition regressors
+    Y{s}   = I(s).betaW(1:N,:);    % condition-specific activity pattern
+    conditionVec{s}  = I(s).tt;       
+    partitionVec{s}  = I(s).run;
+%     Z{s}   = indicatorMatrix('identity_p',conditionVec{s});
+%     G_hat(:,:,s) = crossval_estG(Y{s},Z{s},partitionVec{s});
+    G_hat(:,:,s) = pcm_estGCrossval(Y{s},I(s).run,I(s).tt);
+end;
+     
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+% (2) Assign starting values
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+% PCM toolbox cannot estimate starting values for nonlinear models.
+% Starting theta parameters for the additive, scaling, and combo models.
+scale_vals = [log(0.30);log(0.62);log(0.85)];
+add_vals = [log(0.2);log(0.62);log(1)];
+%   The starting values can be arbitrary but submitting values expected to
+%   be closer to best model parameters will reduce computation time.
+
+% Get the starting values for the finger structure from the highest speed
+% (results will be the same no matter what of the 4 speeds the starting
+% G-matrix is set to).
+G_mean = mean(G_hat,3);
+[Fx0,Greg,scaleParam] = ra_free_startingval(G_mean([16:20],[16:20])); 
+%   Fx0 = scaled theta params 
+%   Fx0 is scaled such that Fx0(1,1) = 1
+%   This reduces the number of free parameters to maximize by 1.
+%   Greg = positive definite of G_mean (not used in further analyses)
+%   scaleParam = value that scales thetas from original to Fx0 (so
+%               theta(1,1)=1) (not used in further analyses)
+
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+% (3) Specify Models
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+% Null model- all distances equal 
+M(1).type       = 'nonlinear'; 
+M(1).name       = 'Null';
+M(1).modelpred  = @ra_modelpred_null;
+M(1).numGparams = 1;
+M(1).theta0     = 0.3;
+%   Use likelihood fit of this model as 0 scaling point in each subject
+
+% Scaling model- distances multiplied by constant scaler dependent on number of presses
+M(2).type       = 'nonlinear'; 
+M(2).name       = 'Scaling';
+M(2).modelpred  = @ra_modelpred_scale;
+M(2).numGparams = 17; % 14 free theta params in Fx0 and 3 free scaling params
+M(2).theta0     = [Fx0;scale_vals];                 
+
+% Additive independent model- adds independent pattern that scales with the
+% number of presses (independent of the scaling model)
+M(3).type       = 'nonlinear'; 
+M(3).name       = 'Additive';
+M(3).modelpred  = @ra_modelpred_add;
+M(3).numGparams = 17;
+M(3).theta0     = [Fx0;add_vals];   
+
+% Combo model: additive independent & scaling models combined
+M(4).type       = 'nonlinear';
+M(4).name       = 'Combo';
+M(4).modelpred  = @ra_modelpred_addsc;
+M(4).numGparams = 20;
+M(4).theta0     = [Fx0;scale_vals;add_vals];   
+
+% Naive averaring model- noise ceiling
+M(5).type       = 'noiseceiling';         
+M(5).numGparams = 0; % totally fixed model- no free params
+M(5).theta0     = [];
+%   Use likelihood fit of this model as 1 scaling point in each subject
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+% (4) Fit Models and plot group lvl results
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+[T,M] = pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,'isCheckDeriv',0);
+T = pcm_fitModelPlot(T,M);
+% Returns T with subfields for scaled likelihoods (relative to null model (M1)
+% and noise ceiling (M5). 
+        
+ 
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+% (5) Fit Model to single subjects and plot fits for one subj
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+[Ti,Mi] = pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,'isCheckDeriv',0);
+sn = 4;
+sf = @(x) x(sn,:);
+S  = structfun(sf,Ti,'UniformOutput',false);
+S  = pcm_fitModelPlot(S,M);
+% No real "noise ceiling" in single subject fit plots, so bound is just 1. 
+
