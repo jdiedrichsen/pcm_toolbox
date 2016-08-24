@@ -11,6 +11,9 @@ function [T] = pcm_fitModelPlot(T,M,varargin)
 %
 % Upper bound of noise ceiling is the group fit of the noiseceiling model.
 % The lower bound is the fit of the crossvalidated nosieceiling model.
+%
+% If T contains fits for only one subject, will plot individual scaled
+% fits. Note the "noise ceiling" in this case is always 1.
 % 
 % INPUT:
 %       M:  Model structure. Accepts 'Name' field to label bars in plot.
@@ -89,14 +92,21 @@ end;
 % Scale Likelihoods 
 % - - - - - - -
 % Scale likelihoods between null and ceiling fits
-% % Scale such that null fit is 0...
-T.likelihood_norm = bsxfun(@minus,T.likelihood,T.likelihood(:,Nnull));
-T.likelihood_alln = bsxfun(@minus,T.likelihood_all,T.likelihood(:,Nnull));
-% % ...& ceiling fit is 1
-noise_ceil        = T.likelihood_alln(:,Nceil); 
-T.likelihood_norm = bsxfun(@rdivide,T.likelihood_norm,noise_ceil);
-T.likelihood_alln = bsxfun(@rdivide,T.likelihood_alln,noise_ceil);
-lower_ceil        = mean(T.likelihood_norm(:,Nceil));
+if (length(T.SN)>1) && (isfield(T,'likelihood_all')); % Plotting group level fit results
+    T.likelihood_norm = bsxfun(@minus,T.likelihood,T.likelihood(:,Nnull)); % null fit is 0
+    T.likelihood_alln = bsxfun(@minus,T.likelihood_all,T.likelihood(:,Nnull));
+    noise_ceil        = T.likelihood_alln(:,Nceil); 
+    T.likelihood_norm = bsxfun(@rdivide,T.likelihood_norm,noise_ceil);     % ceiling fit is 1
+    T.likelihood_alln = bsxfun(@rdivide,T.likelihood_alln,noise_ceil);
+    lower_ceil        = mean(T.likelihood_norm(:,Nceil));
+elseif length(T.SN)==1 % Plotting fits for individual subject
+    T.likelihood_norm = bsxfun(@minus,T.likelihood,T.likelihood(:,Nnull));
+    noise_ceil        = T.likelihood_norm(:,Nceil); 
+    T.likelihood_norm = bsxfun(@rdivide,T.likelihood_norm,noise_ceil);
+    lower_ceil        = 1;
+else
+    error('If plotting individual subject fits, please submit only one subject in T.')
+end
 
 % - - - - - - -
 % Plot scaled fits 
@@ -128,8 +138,10 @@ f = [1:4];
 patch('Vertices',v,'Faces',f,'EdgeColor',[0.9 0.9 0.9],...
     'FaceColor',[0.8 0.8 0.8],'FaceAlpha',.75);
 
-% Plot errorbars
-errorbar([1:i-1],Y,zeros(1,length(Y)),U,'LineWidth',1.25,'Color',[0 0 0],...
+% Plot errorbars (if group fits)
+if length(T.SN)>1
+    errorbar([1:i-1],Y,zeros(1,length(Y)),U,'LineWidth',1.25,'Color',[0 0 0],...
     'LineStyle','none');
+end
 hold off;
 end   
