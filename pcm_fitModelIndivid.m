@@ -155,7 +155,7 @@ for s = 1:numSubj
         g0            = vec(G0);
         g_hat         = vec(G_hat(:,:,s));
         scaling       = (g0'*g_hat)/(g0'*g0);
-        if (scaling<10-6) scaling = 10-6; end;      % Enforce positive scaling 
+        if ((scaling<10e-6)||~isfinite(scaling)); scaling = 10e-6; end;      % Enforce positive scaling 
         scale0(s,m)   = log(scaling);
 
         % Now set up the function that returns likelihood and derivative 
