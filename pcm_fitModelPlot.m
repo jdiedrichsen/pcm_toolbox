@@ -7,7 +7,8 @@ function [T] = pcm_fitModelPlot(T,M,varargin)
 %
 % Likelihoods are scaled to a null model (0) and the noiseceiling model. If 
 % no model name in M matches 'null' or 'noiseceiling', the default is to 
-% scale likelihoods between the fits of the first (null) and last model fits. 
+% scale likelihoods between the fits of the first (null) and last model fits,
+% accordingly. 
 %
 % Upper bound of noise ceiling is the group fit of the noiseceiling model.
 % The lower bound is the fit of the crossvalidated nosieceiling model.
@@ -19,7 +20,7 @@ function [T] = pcm_fitModelPlot(T,M,varargin)
 % OPTIONS:
 %     'Nnull':    Null model # (scale to 0). Default is 1
 %     'Nceil':    Noiseceiling model # (scale to 1). Default is last model
-%     'Colors':   Cell of RGB cells for bar colors. Defaults included
+%     'colors':   Cell of RGB cells for bar colors. Defaults included
 %     'varfcn':   Error function used for errorbars. 'sem' or 'std' (default)
 %     'mindx':    Models to plot as bars. Default is to plot all
 %
@@ -36,7 +37,7 @@ Nceil  = [];
 colors = {[.77 0 0],[0 0 .77],[.95 .6 0],[0 .8 0],[.8 0 .8],[.95 .95 0]};
 varfcn = 'std';
 mindx  = [];
-vararginoptions(varargin,{'m_null','m_ceil','colors','varfcn'});
+vararginoptions(varargin,{'Nnull','Nceil','colors','varfcn','mindx'});
 % - - - - - - -
 % Check inputs 
 % - - - - - - -
