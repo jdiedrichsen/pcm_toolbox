@@ -131,7 +131,7 @@ ylabel('Relative Likelihood');
 pos = get(gcf,'Position');
 set(gcf,'Position',[pos(1) pos(2) 90*(i-1) pos(4)]);
 if length(T.SN)>1
-    title('Model Fits');
+    title('Crossval Group Model Fits');
 else
     title(sprintf('Subj %d Model Fits',T.SN));
 end
