@@ -127,6 +127,10 @@ T = pcm_fitModelPlot(T,M);
 % Returns T with subfields for scaled likelihoods (relative to null model (M1)
 % and noise ceiling (M5). 
         
+% We can also plot and compare the real/observed and estimate (co-)variance
+% matrices.
+pcm_fitModelGplot(G_hat,T,M);
+        
  
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 % (5) Fit Model to single subjects and plot fits for one subj
@@ -134,7 +138,10 @@ T = pcm_fitModelPlot(T,M);
 [Ti,Mi] = pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,'isCheckDeriv',0);
 sn = 4;
 sf = @(x) x(sn,:);
-S  = structfun(sf,Ti,'UniformOutput',false);
+S  = structfun(sf,Ti,'UniformOutput',false); % take only outputs for specified subject and pass through plotting func
 S  = pcm_fitModelPlot(S,M);
 % No real "noise ceiling" in single subject fit plots, so bound is just 1. 
+
+% We can plot this subject's real and predcited G-matrices, too.
+pcm_fitModelGplot(G_hat,Ti,Mi,'Subj',sn);
 
