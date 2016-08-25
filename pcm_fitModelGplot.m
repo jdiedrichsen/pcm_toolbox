@@ -104,7 +104,11 @@ for i = 1:numG
         end
     else
         m = mindx(i-1);
-        title(M(m).name);
+        if isfield(M,'name') && (~isempty(M(m).name))
+        	title(M(m).name);
+        else
+            title(sprintf('Model %d',m));
+        end
     end
     axis equal
     yx = get(gca,'YLim');
