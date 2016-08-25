@@ -1,19 +1,50 @@
-function varargout = pcm_recipe_arbuckle
+function [T,M,Ti,Mi] = pcm_recipe_arbuckle
 % Fit series of non-linear & noise-ceiling models (see 3.3 in PCM_toolbox).
 % Non-linear models are defined by function that returns an estimated G
 % matrix and the derivatives of G with respect to theta parameters.
-% Derivitives used for gradient descent function 'minimize'.
+% Derivitives used for 'minimize' function with employs gradient descent to 
+% find theta params that yeild G with highest likelihood for that model.
+%
+%
+% Data for this recipe are from {REF}. Dataset contains M1 activity patterns 
+% for 4 subjects. The data structure is as follows:
+%   'betaW': Multivariate noise normalized beta patterns for each condition
+%   'tt'   : Trial type of corresponding betaW (used for G crossvalidation)
+%   'run'  : Scanning run for corresponding betaW (used for G crossvalidation)
+% There are 160 regressors: 8 runs of 20 conditions. The 20 conditions are
+% pressing one finger of the right hand either 2,4,8, or 16 times in 6
+% seconds (5 fingers * 4 speeds = 20 conds). 
+%
+%
+% The ratio between paired finger pattern distances remains stable as activity 
+% increases (i.e. as # of presses increase), but the distances increase. In 
+% this recipe, we attept to model how the finger patterns scaling as the
+% number of presses increases. We do this by fitting three nonlinear models
+% of interest:
+%   'Scaling':  patterns multiplicatively scaled by constant dependent
+%               on the number of presses (Y = s*f, where f are finger
+%               patterns and s is # presses scaling constant)
+%   'Additive': patterns scaled by additive constant (Y = f + a, where a is
+%               pressing-dependent background activity pattern)
+%   'Combo':    patterns scale as combo of additive and scaling functions 
+%               (Y = s*f + a). Scaling and additive models are orthogonal.
+% 
+% In addition to the three models of interest, we fit two additional
+% models:
+%   'Null':     model that returns data where all distances are equal (i.e.
+%               a bad model). This is used as the zero point when scaling 
+%               likelihoods to an interpretable value
+%   'NoiseCeiling': naive averaging model that overfits data. Uses the
+%                   observed G as a fixed model, meaning it is the best possible 
+%                   model. Likelihood of the non-crossvalidated group fit
+%                   of this model is set to be 1 when scaling likelihoods.
+% Note that these models don't predict actual pattern estimates, rather
+% their (co-)variances, but it is easier to understand the model functions
+% when described in relation to actual patterns.
+%
+% SArbuckle 2016
   
 load recipe_arbuckle.mat % loads struct I
-% Dataset contains M1 activity patterns for 4 subjects.
-% 20 conditions: Pressed one of five fingers on right hand either 2, 4, 8,
-% or 16 times (5 fingers * 4 speeds = 20 conds). 
-
-% T subfields:
-%  'betaW': Multivariate noise normalized beta patterns for each condition
-%  'tt'   : Trial type of corresponding betaW (used for G crossvalidation)
-%  'run'  : Scanning run for corresponding betaW (used for G crossvalidation)
-
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 % (1) Estimate crossvalidated G from acivity patterns
@@ -23,33 +54,30 @@ for s=1:length(I) % Each row of I is one subject
     Y{s}   = I(s).betaW(1:N,:);    % condition-specific activity pattern
     conditionVec{s}  = I(s).tt;       
     partitionVec{s}  = I(s).run;
-%     Z{s}   = indicatorMatrix('identity_p',conditionVec{s});
-%     G_hat(:,:,s) = crossval_estG(Y{s},Z{s},partitionVec{s});
     G_hat(:,:,s) = pcm_estGCrossval(Y{s},I(s).run,I(s).tt);
 end;
      
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-% (2) Assign starting values
+% (2) Guess starting theta values
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 % PCM toolbox cannot estimate starting values for nonlinear models.
-% Starting theta parameters for the additive, scaling, and combo models.
+% Starting vals can be arbitrary but can drastically increase computation
+% time.
 scale_vals = [log(0.30);log(0.62);log(0.85)];
 add_vals = [log(0.2);log(0.62);log(1)];
-%   The starting values can be arbitrary but submitting values expected to
-%   be closer to best model parameters will reduce computation time.
 
-% Get the starting values for the finger structure from the highest speed
-% (results will be the same no matter what of the 4 speeds the starting
-% G-matrix is set to).
+% Get starting values for the finger structure (Omega). Because we're interested
+% in how these patterns scale, we will take finger params of G for that
+% reflect the (co-)variances of the fingers at the same number of presses.
+% These values will be used to estimate the (co-)variances of the fingers
+% at the other three number of presses. Importantly, results will be the same 
+% no matter what of the 4 different pressing conditions are used to
+% determine the starting values. Here we take the 15 G values for 16
+% presses. We can further reduce the number of parameters to minimize by
+% scaling the parameters such that the first param is equal to 1.
 G_mean = mean(G_hat,3);
-[Fx0,Greg,scaleParam] = ra_free_startingval(G_mean([16:20],[16:20])); 
-%   Fx0 = scaled theta params 
-%   Fx0 is scaled such that Fx0(1,1) = 1
-%   This reduces the number of free parameters to maximize by 1.
-%   Greg = positive definite of G_mean (not used in further analyses)
-%   scaleParam = value that scales thetas from original to Fx0 (so
-%               theta(1,1)=1) (not used in further analyses)
+[Fx0,~,~] = ra_free_startingval(G_mean([16:20],[16:20])); 
 
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
