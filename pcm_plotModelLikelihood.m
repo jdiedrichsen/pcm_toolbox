@@ -12,8 +12,9 @@ function [T] = pcm_plotModelLikelihood(T,M,varargin)
 % Upper bound of noise ceiling is the group fit of the noiseceiling model.
 % The lower bound is the fit of the crossvalidated noiseceiling model.
 %
-% If T contains fits for only one subject, will plot individual scaled
-% fits. Note the "noise ceiling" in this case is always 1.
+% Two options to plot individual subject fits from pcm_fitModelIndivid:
+%   - submitted T structure contains info for only one subject
+%   - OR, specify subject of T structure to plot using 'Subj' option
 %
 % INPUT:
 %       M:  Model structure. Accepts 'Name' field to label bars in plot.
@@ -26,6 +27,8 @@ function [T] = pcm_plotModelLikelihood(T,M,varargin)
 %     'varfcn':   Error function used for errorbars. 'sem' or 'std' (default)
 %     'mindx':    Models to plot as bars. Default is to plot all but those
 %                 used for scaling likelihoods.
+%     'Subj':     Specify single subjcet to plot fit of. NOTE: T will still
+%                 be returned with scaled likelihoods for all subjects.
 %
 % OUTPUT:
 %       T: Input structure returned with scaled likelihood fit fields:
@@ -40,7 +43,8 @@ Nceil  = [];
 colors = {[.77 0 0],[0 0 .77],[.95 .6 0],[0 .8 0],[.8 0 .8],[.95 .95 0]};
 varfcn = 'std';
 mindx  = [];
-vararginoptions(varargin,{'Nnull','Nceil','colors','varfcn','mindx'});
+Subj   = [];
+vararginoptions(varargin,{'Nnull','Nceil','colors','varfcn','mindx','Subj'});
 % - - - - - - -
 % Check inputs
 % - - - - - - -
@@ -92,21 +96,27 @@ end;
 % Scale Likelihoods
 % - - - - - - -
 % Scale likelihoods between null and ceiling fits
-if (length(T.SN)>1) && (isfield(T,'likelihood_all')); % Plotting group level fit results
-    T.likelihood_norm = bsxfun(@minus,T.likelihood,T.likelihood(:,Nnull)); % null fit is 0
-    T.likelihood_alln = bsxfun(@minus,T.likelihood_all,T.likelihood(:,Nnull));
-    noise_ceil        = T.likelihood_alln(:,Nceil);
-    T.likelihood_norm = bsxfun(@rdivide,T.likelihood_norm,noise_ceil);     % ceiling fit is 1
-    T.likelihood_alln = bsxfun(@rdivide,T.likelihood_alln,noise_ceil);
-    lower_ceil        = mean(T.likelihood_norm(:,Nceil));
-elseif length(T.SN)==1 % Plotting fits for individual subject
-    T.likelihood_norm = bsxfun(@minus,T.likelihood,T.likelihood(:,Nnull));
-    noise_ceil        = T.likelihood_norm(:,Nceil);
-    T.likelihood_norm = bsxfun(@rdivide,T.likelihood_norm,noise_ceil);
-    lower_ceil        = 1;
+if ~isfield(T,'likelihood_norm') % do we need to scale likelihoods?
+    if (length(T.SN)>1) && (isfield(T,'likelihood_all')); % Plotting group level fit results
+        T.likelihood_norm = bsxfun(@minus,T.likelihood,T.likelihood(:,Nnull)); % null fit is 0
+        T.likelihood_alln = bsxfun(@minus,T.likelihood_all,T.likelihood(:,Nnull));
+        noise_ceil        = T.likelihood_alln(:,Nceil);
+        T.likelihood_norm = bsxfun(@rdivide,T.likelihood_norm,noise_ceil);     % ceiling fit is 1
+        T.likelihood_alln = bsxfun(@rdivide,T.likelihood_alln,noise_ceil);
+    elseif ~isfield(T,'likelihood_all') % Plotting fits for individual subject (only one subject in submitted structure)
+        T.likelihood_norm = bsxfun(@minus,T.likelihood,T.likelihood(:,Nnull));
+        noise_ceil        = T.likelihood_norm(:,Nceil);
+        T.likelihood_norm = bsxfun(@rdivide,T.likelihood_norm,noise_ceil);
+    end
+end;
+
+if (length(T.SN)>1) && (isfield(T,'likelihood_all') && isempty(Subj));
+    lower_ceil = mean(T.likelihood_norm(:,Nceil));
+elseif (~isfield(T,'likelihood_all') && (~isempty(Subj) || length(T.SN)==1))
+    lower_ceil = 1;
 else
-    error('If plotting individual subject fits, please submit only one subject in T.')
-end
+    error('If plotting individual subject fits, please submit only one subject in T or specify ''Subj'' when calling pcm_plotModelLikelihood to plot models fit with pcm_fitModelIndivid. Note that you cannot plot single subject crossvalidated model fits.')
+end;
 
 % - - - - - - -
 % Plot scaled fits
@@ -114,8 +124,13 @@ end
 figure; hold on;
 i=1;
 for m = mindx
-    Y(i) = mean(T.likelihood_norm(:,m));
-    U(i) = vfcn(T.likelihood_norm(:,m));
+    if isempty(Subj)
+        Y(i) = mean(T.likelihood_norm(:,m));
+        U(i) = vfcn(T.likelihood_norm(:,m));
+    elseif Subj
+        Y(i) = mean(T.likelihood_norm(Subj,m));
+        U(i) = vfcn(T.likelihood_norm(Subj,m));
+    end
     if isfield(M,'name') && (~isempty(M(m).name))
         labels{i} = M(m).name;
     else labels{i} = sprintf('Model %d',m);
@@ -130,11 +145,13 @@ set(gca,'XTickLabel',labels);
 ylabel('Relative Likelihood');
 pos = get(gcf,'Position');
 set(gcf,'Position',[pos(1) pos(2) 90*(i-1) pos(4)]);
-if length(T.SN)>1
+if (length(T.SN)>1 && isfield(T,'likelihood_all'))
     title('Crossval Group Model Fits');
-else
+elseif length(T.SN)==1
     title(sprintf('Subj %d Model Fits',T.SN));
-end
+elseif Subj
+    title(sprintf('Subj %d Model Fits',Subj));
+end;
 
 % Plot grey noise ceiling
 v = [0,lower_ceil; 0,1; i,1; i,lower_ceil];
@@ -143,7 +160,7 @@ patch('Vertices',v,'Faces',f,'EdgeColor',[0.9 0.9 0.9],...
     'FaceColor',[0.8 0.8 0.8],'FaceAlpha',.75);
 
 % Plot errorbars (if group fits)
-if length(T.SN)>1
+if isfield(T,'likelihood_all')
     errorbar([1:i-1],Y,zeros(1,length(Y)),U,'LineWidth',1.25,'Color',[0 0 0],...
         'LineStyle','none');
 end
