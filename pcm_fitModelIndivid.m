@@ -186,6 +186,7 @@ for s = 1:numSubj
         % Use minimize to fine maximum liklhood estimate 
         [theta,fX,i]      =  minimize(x0, fcn, MaxIteration);
         M(m).theta(:,s)   =  theta(1:M(m).numGparams);
+        M(m).G_pred       =  pcm_calculateG(M(m),M(m).theta(:,s));
         T.scale(s,m)      =  exp(theta(M(m).numGparams+1)); 
         T.noise(s,m)      =  exp(theta(M(m).numGparams+2)); 
         if strcmp(runEffect,'random')
