@@ -24,7 +24,12 @@ function [G,Sig]=pcm_estGCrossval(B,partition,conditionVec,X)
 %                regressors of no interest. If conditionVec is shorter than 
 %                N, it is assumed that all remaining numbers are 0. 
 %  X           : T x N Design matrix that is used to estimate from the first
-%                level 
+%                level. This is an optional input parameter to optimally combine the beta weights 
+%                across partitions. If temporal filtering / prewhitening is applied 
+%                to the data, this needs to be the filtered design matrix. 
+%                - If X is given, B needs to also contain the 
+%                   Coefficients of no interest. 
+%                - If X is not given, it assumes that the Beta-weights are i.i.d 
 % OUTPUT: 
 %   G          : Estimated second moment matrix
 %   Sig        : a KxK covariance matrix of the beta estimates across

@@ -1,4 +1,4 @@
-function pcm_fitModelGplot(G_hat,T,M,varargin)
+function pcm_plotFittedG(G_hat,T,M,varargin)
 % % function pcm_fitModelGplot(G_hat,M)
 % Imagescales the real and scaled model predicted second moment matrices (G) 
 % of the pattern component model(s) in M. 

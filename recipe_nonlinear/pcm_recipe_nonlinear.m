@@ -1,4 +1,4 @@
-function [T,M,Ti,Mi] = pcm_recipe_arbuckle
+function [T,M,Ti,Mi] = pcm_recipe_nonlinear
 % Fit series of non-linear & noise-ceiling models (see 3.3 in PCM_toolbox).
 % Non-linear models are defined by function that returns an estimated G
 % matrix and the derivatives of G with respect to theta parameters.
@@ -44,8 +44,10 @@ function [T,M,Ti,Mi] = pcm_recipe_arbuckle
 %
 % SArbuckle 2016
   
-load recipe_arbuckle.mat % loads struct I
-
+load data_recipe_nonlinear.mat % loads struct I
+runEffect = 'random'; % The run effect is considered a random effect with zero mean 
+                        % this is important, as we want to preserve the
+                        % information of where the baseline sits 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 % (1) Estimate crossvalidated G from acivity patterns
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -84,12 +86,10 @@ G_mean = mean(G_hat,3);
 % (3) Specify Models
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 % Null model- all distances equal 
-M(1).type       = 'nonlinear'; 
+M(1).type       = 'fixed'; 
 M(1).name       = 'Null';
-M(1).modelpred  = @ra_modelpred_null;
-M(1).numGparams = 1;
-M(1).theta0     = 0.3;
-%   Use likelihood fit of this model as 0 scaling point in each subject
+M(1).Gc         = eye(20);
+M(1).numGparams = 0;
 
 % Scaling model- distances multiplied by constant scaler dependent on number of presses
 M(2).type       = 'nonlinear'; 
@@ -122,26 +122,26 @@ M(5).theta0     = [];
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 % (4) Fit Models and plot group lvl results
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[T,M] = pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,'isCheckDeriv',0);
-T = pcm_fitModelPlot(T,M);
+[T,M] = pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,'runEffect',runEffect,'isCheckDeriv',0);
+T = pcm_plotModelLikelihood(T,M);
 % Returns T with subfields for scaled likelihoods (relative to null model (M1)
 % and noise ceiling (M5). 
         
 % We can also plot and compare the real/observed and estimate (co-)variance
 % matrices.
-pcm_fitModelGplot(G_hat,T,M);
+pcm_plotFittedG(G_hat,T,M);
         
  
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 % (5) Fit Model to single subjects and plot fits for one subj
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[Ti,Mi] = pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,'isCheckDeriv',0);
+[Ti,Mi] = pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,'runEffect',runEffect,'isCheckDeriv',0);
 sn = 4;
 sf = @(x) x(sn,:);
 S  = structfun(sf,Ti,'UniformOutput',false); % take only outputs for specified subject and pass through plotting func
-S  = pcm_fitModelPlot(S,M);
+S  = pcm_plotModelLikelihood(S,M);
 % No real "noise ceiling" in single subject fit plots, so bound is just 1. 
 
 % We can plot this subject's real and predcited G-matrices, too.
-pcm_fitModelGplot(G_hat,Ti,Mi,'Subj',sn);
+pcm_plotFittedG(G_hat,Ti,Mi,'Subj',sn);
 

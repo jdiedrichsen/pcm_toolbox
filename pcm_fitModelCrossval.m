@@ -117,12 +117,12 @@ for s = 1:numSubj
             YY{s}  = (Y{s} * Y{s}');
             B{s}   = indicatorMatrix('identity_p',partitionVec{s});
             X{s}   = [];
-            S      = [];   % Use indentity for covariance
+            S      = [];   % Use identity for covariance
         case 'fixed'
             YY{s}  = (Y{s} * Y{s}');
             B{s}  =  [];
             X{s}  =  indicatorMatrix('identity_p',partitionVec{s});
-            S     =  [];    % Use indentity for covariance
+            S     =  [];    % Use identity for covariance
         case 'remove'
             Run         =  indicatorMatrix('identity_p',partitionVec{s});
             R           =  eye(N(s))-Run*((Run'*Run)\Run');
@@ -148,7 +148,7 @@ for s = 1:numSubj
     end;
     
     % Estimate crossvalidated second moment matrix to get noise and run
-    [G_hat(:,:,s),Sig_hat(:,:,s)] = crossval_estG(Y{s},Z{s},partitionVec{s});
+    [G_hat(:,:,s),Sig_hat(:,:,s)] = pcm_estGCrossval(Y{s},partitionVec{s},conditionVec{s});
     sh              = Sig_hat(:,:,s);
     run0(s,1)       = log((sum(sum(sh))-trace(sh))/(numCond*(numCond-1)));
     noise0(s,1)     = log(trace(sh)/numCond-exp(run0(s)));
