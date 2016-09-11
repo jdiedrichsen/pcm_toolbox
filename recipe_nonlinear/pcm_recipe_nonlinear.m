@@ -119,6 +119,8 @@ M(5).numGparams = 0; % totally fixed model- no free params
 M(5).theta0     = [];
 %   Use likelihood fit of this model as 1 scaling point in each subject
 
+Mi = M; % create a copy of the model structure for use in the Individual fitting
+
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 % (4) Fit Models and plot group lvl results
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -135,13 +137,10 @@ pcm_plotFittedG(G_hat,T,M);
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 % (5) Fit Model to single subjects and plot fits for one subj
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[Ti,Mi] = pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,'runEffect',runEffect,'isCheckDeriv',0);
-sn = 4;
-sf = @(x) x(sn,:);
-S  = structfun(sf,Ti,'UniformOutput',false); % take only outputs for specified subject and pass through plotting func
-S  = pcm_plotModelLikelihood(S,M);
+[Ti,Mi] = pcm_fitModelIndivid(Y,Mi,partitionVec,conditionVec,'runEffect',runEffect,'isCheckDeriv',0);
+Ti  = pcm_plotModelLikelihood(Ti,Mi,'Subj',4);
 % No real "noise ceiling" in single subject fit plots, so bound is just 1. 
 
 % We can plot this subject's real and predcited G-matrices, too.
-pcm_plotFittedG(G_hat,Ti,Mi,'Subj',sn);
+pcm_plotFittedG(G_hat,Ti,Mi,'Subj',4);
 
