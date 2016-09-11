@@ -76,7 +76,8 @@ for i = 1:length(mindx)
     if ~isempty(Subj)
         sc = mean(T.scale(:,m));
     else
-        sc = mean(T.scale_all(:,m));    % get scaling param
+        %sc = mean(exp(T.scale_all(:,m)));    % get scaling param
+        sc = mean(T.scale_cv(:,m));     % get fitted scaling param
     end
     G{i+1} = M(m).G_pred.*sc;       % apply scaling to model predicted G
     max_G(i+1) = max(max(G{i+1}));
@@ -110,9 +111,10 @@ for i = 1:numG
             title(sprintf('Model %d',m));
         end
     end
+    % reshape imagesc plot (clean most of surrounding whitespace)
     axis equal
     yx = get(gca,'YLim');
-    set(gca,'YLim',[(yx(1)+numC+(numC*.4)) (yx(2)-numC-(numC*.4))]);
+    set(gca,'YLim',[(yx(1)+numC+1) (yx(2)-numC-1)]);
     set(gca,'XTick',[],'YTick',[]);
 end;    
 % resize figure appropriately
