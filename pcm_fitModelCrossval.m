@@ -65,11 +65,9 @@ function [T,M]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
 %
 %   'MaxIteration': Number of max minimization iterations. Default is 1000.
 %
-%    'isCheckIter': Optional flag to display the summary of function
-%                   iteration at the end of fitting. Default is 0.
-%
-%    'isCheckTime': Optional flag to display the time took for each model.
-%                   Default is 1.
+%   'verbose':      Optional flag to show display message in the command
+%                   line (e.g., elapsed time). Default is 1.
+% 
 %--------------------------------------------------------------------------
 % OUTPUT:
 %   T:      Structure with following subfields:
