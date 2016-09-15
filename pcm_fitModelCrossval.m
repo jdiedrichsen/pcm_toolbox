@@ -132,13 +132,15 @@ for s = 1:numSubj
             end
             R(idxrem,:) = [];
             Run(idxrem,:) = [];
-            partitionVec{s}(idxrem) = [];
+            % partitionVec{s}(idxrem) = []; % this also affect estG
             
             % Orthogonalize Y and Z
             Z{s} = R*Z{s};
-            Y{s} = R*Y{s};
-                        
-            YY{s}       = (Y{s} * Y{s}');
+            %Y{s} = R*Y{s}; % changing Y{s} here affects following
+            %                 calculation of G                        
+            Yrem        = R*Y{s}; % should this be kept for further use?
+            
+            YY{s}       = (Yrem * Yrem');
             S(s).S      = R*R';             % Rotated noise covariance
             S(s).invS   = pinv(S(s).S);     % Pre-calculated inverse of noise covariance
             B{s}        = [];
