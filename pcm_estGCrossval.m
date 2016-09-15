@@ -40,9 +40,11 @@ function [G,Sig]=pcm_estGCrossval(B,partition,conditionVec,X)
 [N,numVox]   = size(B); 
 part    = unique(partition)';
 part(part==0) = []; % Ignore the zero partitions 
+cond    = unique(conditionVec);
+cond(cond==0) = [];
 
 numPart = numel(part);
-numCond   = max(conditionVec); 
+numCond = numel(cond);%max(conditionVec); 
 
 % Check on design matrix 
 if (nargin>3 && ~isempty(X))  
