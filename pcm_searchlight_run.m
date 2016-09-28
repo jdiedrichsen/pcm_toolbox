@@ -64,11 +64,11 @@ if (~isempty(ImagesOut))&&(~iscell(ImagesOut))
     error('outfiles must be given in a cell array'); 
 end;
 for i=1:Nout
-    [d f t m]       = spm_fileparts(ImagesOut{i});
+    [d f t m]       = spm_fileparts(ImagesOut{i}(1,:));
     metricNames{i}  = fullfile(d, [f t]);
     metricColumn{i} = m(2:end);
     if (~strcmp(t,'.metric'))
-        error('file type must me a metric file');
+        warning('Output file extension must be .metric.');
     end;
 end
 %=== currently only allow .metric file type for output?
@@ -95,39 +95,60 @@ end
 
 %-------------------------------------------------------------------------% 
 % loop over searchlight center nodes (this loop can be parallelized)
-Result = zeros(Nnode1,Nout)*NaN;
-for i_node=1:100;%Nnode1
-    if NsubjNode(i_node) >= 0.8*sn % 80% of subjects
-        Y = cell(NsubjNode(i_node));
-        
-        c = 1;tic;        
+Result          = zeros(Nnode1,Nout)*NaN; % initialize data container
+alpha           = 1.0;
+CandidateNodes  = find(NsubjNode>=alpha*sn); % define candidate center nodes
+Ncandidate      = length(CandidateNodes);
+blocksize       = 10; % this needs to be adaptive
+Nblock          = ceil(Ncandidate/blocksize);
+isDone          = false;
+isCalc          = false(Nblock,1);
+
+if verbose==0;fprintf('Blocksize = %d\n',blocksize);end;
+
+for i=1:5;%Nblock;
+    from    = blocksize*(i-1)+1;
+    to      = min(from+blocksize-1,Ncandidate);
+    
+    candidates = CandidateNodes(from:to); % node indices
+    
+    if verbose==0
+        fprintf('Running center node %d through %d...\n',candidates(1),candidates(end));
+    end
+    
+    % get data into X
+    tic;
+    X = cell(sn,1); % initialize X
+    for s=1:sn % can be parfor?
+        LI = Searchlights(s).LI(candidates);
+        if ~isempty(LI)
+            % Sample images (time series data) for LI{i_centernode}
+            linVox    = unique(cat(2,LI{:})); % unique voxel linear indices
+            [I,J,K]   = ind2sub(Vol{s}(1).dim,linVox);
+            
+            X{s} = sparse(length(Vol{s}),double(max(linVox))); % create sparse matrix for speed and memory?
+            for i_image=1:length(Vol{s}) % sample all candidate voxels at once (can be parfor?)
+                X{s}(i_image,linVox) = spm_sample_vol(Vol{s}(i_image),double(I),double(J),double(K),0);
+            end;
+        end
+    end;toc;
+    
+    tic;
+    % run pcm for each candidate center node
+    for b=1:blocksize
+        Nsubj   = NsubjNode(candidates(b));
+        Y       = cell(Nsubj,1);
+        c       = 1;
         for s=1:sn
-            LI = Searchlights(s).LI{i_node};            
-            if ~isempty(LI)
-                % Sample images (time series data) for LI{i_centernode}
-                linVox    = unique(cat(2,LI')); % unique voxel linear indices
-                [I,J,K]   = ind2sub(Vol{s}(1).dim,linVox);
-                
-                X = sparse(length(Vol{s}),double(max(linVox))); % create sparse matrix for speed and memory?
-                for i_image=1:length(Vol{s}) % sample all candidate voxels at once
-                    X(i_image,linVox) = spm_sample_vol(Vol{s}(i_image),double(I),double(J),double(K),0);
-                end;
-                
-                % stack data (either TxP or NxP) into Y{subj}
-                Y{c} = full(X(:,LI));
-                c = c+1;                
-            end
-        end
-        toc;
-        
-        % run pcm for i_node
-        Result(i_node,:) = feval(pcmfcn,Y,params{:});        
-    else
-        if verbose==0
-            fprintf('Insufficient number of subjects. Ignoreing node# %d\n',i_node);
-        end
-    end    
+            LI = Searchlights(s).LI(candidates(b));
+            Y{c} = full(X{s}(:,LI{:}));
+            c = c+1;
+        end        
+        Result(candidates(b),:) = feval(pcmfcn,Y,params{:});    
+    end;toc
+    
 end
+varargout = {};
 
 %-------------------------------------------------------------------------% 
 % Write result into .metric file
@@ -193,8 +214,7 @@ b=1;
 % numBlocks = b-1;
 end
 
-
-%-------------------------------------------------------------------------% 
+%-------------------------------------------------------------------------%
 % Save result as .metric file
 %-------------------------------------------------------------------------% 
 function local_saveMetricFile(R,metricNames,metricColumn,Nnode)
