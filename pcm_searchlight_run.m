@@ -1,4 +1,5 @@
-function varargout = pcm_searchlight_run(Searchlights,ImagesIn,ImagesOut,pcmfcn,varargin)
+function varargout = pcm_searchlight_run(Searchlights,ImagesIn,ImagesOut,pcmfcn,...
+                                         params,varargin)
 %% function varargout = pcm_searchlight_run(Searchlights,Images,pcmfcn,varargin)
 % Run pcm on the surface for multiple subjects from raw time series image.
 % 
@@ -12,6 +13,13 @@ function varargout = pcm_searchlight_run(Searchlights,ImagesIn,ImagesOut,pcmfcn,
 %   pcmfcn:         user-difined pcm model fitting function (e.g., )
 %                   1st input argument should be;
 %                   Y: a cell array of Ndata x Nvoxel data
+% 
+%   params:         all the other parameters for pcmfcn
+% 
+% OPTIONAL INPUTS:
+%   'verbose':      if set to 1, inhibit commandline output.
+% 
+% 
 % 
 % OUTPUTS:
 % 
@@ -29,13 +37,14 @@ function varargout = pcm_searchlight_run(Searchlights,ImagesIn,ImagesOut,pcmfcn,
 
 %% Input check (cell/structure/char)
 % Options
-global verbose;
-verbose = 0;       % Control output to commandline 
-params  = {};      % Extra parameter pased to pcmfcn
-tmpDir  = {};      % Directory for tmp*.mat files (for each subject) 
+verbose     = 0;       % Control output to commandline 
+tmpDir      = {};      % Directory for tmp*.mat files (for each subject) 
+columnNames = {};
+vararginoptions(varargin,{'tmpDir','verbose','columnNames'});
 
-vararginoptions(varargin,{'params','tmpDir','verbose'});
-
+%-------------------------------------------------------------------------%
+% Checnk input
+%-------------------------------------------------------------------------%
 % Number of subjects
 sn = numel(Searchlights);
 if sn~=numel(ImagesIn);
@@ -57,11 +66,20 @@ for s=1:sn
     Searchlights(s).Good = ~isnan(Searchlights(s).vORr); % non-empty node
     NsubjNode = NsubjNode + double(Searchlights(s).Good);
 end
+% Get node id
+if ~isfield(Searchlights(1),'nodeID');
+    for s=1:sn
+        Searchlights(s).nodeID      = [1:Nnode1]';
+        Searchlights(s).num_nodes   = Nnode1;
+    end
+end
 
-% Output
+%-------------------------------------------------------------------------%
+% Check output
+%-------------------------------------------------------------------------%
 Nout = numel(ImagesOut);
 if (~isempty(ImagesOut))&&(~iscell(ImagesOut))
-    error('outfiles must be given in a cell array'); 
+    error('outfiles must be given in a cell array.'); 
 end;
 for i=1:Nout
     [d f t m]       = spm_fileparts(ImagesOut{i}(1,:));
@@ -72,6 +90,12 @@ for i=1:Nout
     end;
 end
 %=== currently only allow .metric file type for output?
+% Check output size
+for s=1:sn
+    X{s} = rand(length(ImagesIn{1}),10);
+end
+Result  = feval(pcmfcn,X,params{:});
+Ncol    = size(Result,2);
 
 if isempty(tmpDir)
    % get directory from Searchlight 
@@ -79,7 +103,7 @@ end
 
 
 
-
+%-------------------------------------------------------------------------%
 %% Main part (how can we speedup things?)
 
 %-------------------------------------------------------------------------% 
@@ -95,24 +119,26 @@ end
 
 %-------------------------------------------------------------------------% 
 % loop over searchlight center nodes (this loop can be parallelized)
-Result          = zeros(Nnode1,Nout)*NaN; % initialize data container
+nodeID          = Searchlights(1).nodeID;
+num_nodes       = Searchlights(1).num_nodes;
+Result          = zeros(sn,Ncol,num_nodes)*NaN; % initialize data container
 alpha           = 1.0;
 CandidateNodes  = find(NsubjNode>=alpha*sn); % define candidate center nodes
 Ncandidate      = length(CandidateNodes);
-blocksize       = 10; % this needs to be adaptive
+blocksize       = 1; % this needs to be adaptive
 Nblock          = ceil(Ncandidate/blocksize);
 isDone          = false;
 isCalc          = false(Nblock,1);
 
-if verbose==0;fprintf('Blocksize = %d\n',blocksize);end;
+if verbose==1;fprintf('Blocksize = %d\n',blocksize);end;
 
-for i=1:5;%Nblock;
+for i=1:Nblock;
     from    = blocksize*(i-1)+1;
     to      = min(from+blocksize-1,Ncandidate);
     
     candidates = CandidateNodes(from:to); % node indices
     
-    if verbose==0
+    if verbose==1
         fprintf('Running center node %d through %d...\n',candidates(1),candidates(end));
     end
     
@@ -134,7 +160,7 @@ for i=1:5;%Nblock;
     end;toc;
     
     tic;
-    % run pcm for each candidate center node
+    % run pcm for each candidate center node one by one
     for b=1:blocksize
         Nsubj   = NsubjNode(candidates(b));
         Y       = cell(Nsubj,1);
@@ -144,7 +170,7 @@ for i=1:5;%Nblock;
             Y{c} = full(X{s}(:,LI{:}));
             c = c+1;
         end        
-        Result(candidates(b),:) = feval(pcmfcn,Y,params{:});    
+        Result(:,:,nodeID(candidates(b))) = feval(pcmfcn,Y,params{:});
     end;toc
     
 end
@@ -152,7 +178,7 @@ varargout = {};
 
 %-------------------------------------------------------------------------% 
 % Write result into .metric file
-local_saveMetricFile(Result,metricNames,metricColumn,Nnode1);
+local_saveMetricFile(Result,metricNames,columnNames);
 
 end
 
@@ -217,50 +243,23 @@ end
 %-------------------------------------------------------------------------%
 % Save result as .metric file
 %-------------------------------------------------------------------------% 
-function local_saveMetricFile(R,metricNames,metricColumn,Nnode)
+function local_saveMetricFile(R,metricNames,column_names)
+[Nsubj,Ncol,Nnode] = size(R);
+
 %make the struct
 M = struct();
-for i=1:size(R,2)     % Loop over all rows in the MVA-result
-    j=1;
-    endwhile = numel(M);
-    while j<= endwhile                  % Loop over all existing metric files
-        if ~isfield(M, 'save_names')    % If there is no one yet, initialize the first
-            M.save_names        = metricNames{1};
-            M.column_name       = metricColumn(1);
-            M.data              = R(:,1);
-            M.num_rows          = Nnode;
-            M.num_cols          = 1;
-            minmax_colormapping = [-1 1];
-            M.column_color_mapping  = minmax_colormapping;
-            M.encoding              = {'BINARY'};
-            M.index                 = (0:(Nnode-1))';
-            j = j+1;
-            
-        elseif strcmp(M(j).save_names, metricNames{i})      % If a metric file with this name is already existing: add column
-            M(j).column_name            = [M(j).column_name, metricColumn(i)];
-            M(j).data                   = [M(j).data R(:,i)];
-            M(j).num_cols               = M(j).num_cols+1;
-            M(j).column_color_mapping   = repmat(minmax_colormapping,M(j).num_cols,1);
-            j=numel(M)+1;
-            
-        elseif j==numel(M)          % If not, generate additional metric file
-            M(j+1).save_names       = metricNames{i};
-            M(j+1).column_name      = metricColumn(i);
-            M(j+1).data             = R(:,i);
-            M(j+1).num_rows         = Nnode;
-            M(j+1).num_cols         = 1;
-            minmax_colormapping     = [-1 1];
-            M(j+1).column_color_mapping = minmax_colormapping;
-            M(j+1).encoding         = {'BINARY'};
-            M(j+1).index            = (0:(Nnode-1))';
-            j=j+1;
-        else
-            j=j+1;
-        end
-    end
-end
-for i=1:numel(M)
-    caret_savemetric(M(i).save_names, rmfield(M(i),'save_names') );   %flexible
+for i=1:Nsubj
+    M.save_names        = metricNames{i};
+    M.column_name       = column_names;
+    M.data              = permute(R(i,:,:),[3 2 1]);
+    M.num_rows          = Nnode;
+    M.num_cols          = Ncol;
+    minmax_colormapping = repmat([-1 1],Ncol,1);
+    M.column_color_mapping  = minmax_colormapping;
+    M.encoding              = {'BINARY'};
+    M.index                 = (0:(Nnode-1))';
+    
+    caret_savemetric(M.save_names, rmfield(M,'save_names') );   %flexible
 end
 
 end
