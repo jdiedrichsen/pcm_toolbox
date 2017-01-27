@@ -85,7 +85,7 @@ isCheckDeriv    = 0;
 MaxIteration    = 1000;
 Iter            = [];
 verbose         = 1; 
-vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration','verbose'});
+pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration','verbose'});
 
 numSubj     = numel(Y);
 numModels   = numel(M);
@@ -98,18 +98,18 @@ for s = 1:numSubj
     
     % Prepare matrices and data depnding on how to deal with run effect 
     [N(s,1),P(s,1)] = size(Y{s});
-    Z{s}   = indicatorMatrix('identity_p',conditionVec{s});
+    Z{s}   = pcm_indicatorMatrix('identity_p',conditionVec{s});
     numCond= size(Z{s},2);
     switch (runEffect)
         case 'random'
             YY{s}  = (Y{s} * Y{s}');
-            B{s}   = indicatorMatrix('identity_p',partitionVec{s});
+            B{s}   = pcm_indicatorMatrix('identity_p',partitionVec{s});
             X{s}   = [];
             S      = [];   % Use indentity for covariance
         case 'fixed'
             YY{s}  = (Y{s} * Y{s}');
             B{s}  =  [];
-            X{s}  =  indicatorMatrix('identity_p',partitionVec{s});
+            X{s}  =  pcm_indicatorMatrix('identity_p',partitionVec{s});
             S     =  [];    % Use indentity for covariance
         case 'remove'  % This currently doesn't work as intended - dimensionality reduction needed 
             Run    =  indicatorMatrix('identity_p',partitionVec{s});
@@ -159,15 +159,15 @@ for s = 1:numSubj
             otherwise 
                 G0 = pcm_calculateG(M(m),theta0);
         end; 
-        g0 = vec(G0);
+            g0 = G0(:);
 
         % Estimate starting scaling value for each subject
-        g_hat         = vec(G_hat(:,:,s));
+        g_hat         = G_hat(:,:,s); 
+        g_hat         = g_hat(:); 
         scaling       = (g0'*g_hat)/(g0'*g0);
         if ((scaling<10e-6)||~isfinite(scaling)); scaling = 10e-6; end;      % Enforce positive scaling
         scale0(s,m)   = log(scaling);
         
-
         % Now set up the function that returns likelihood and derivative 
         if (isempty(S))
             fcn = @(x) pcm_groupLikelihood(x,{YY{s}},M(m),{Z{s}},{X{s}},P(s),'runEffect',{B{s}});

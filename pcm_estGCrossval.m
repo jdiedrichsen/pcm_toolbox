@@ -68,7 +68,7 @@ end;
 A = zeros(numCond,numVox,numPart);           % Allocate memory 
 
 % Make second-level design matrix, pulling through the regressors of no-interest 
-Z = indicatorMatrix('identity_p',conditionVec); 
+Z = pcm_indicatorMatrix('identity_p',conditionVec); 
 numNonInterest = sum(conditionVec==0);      % Number of no-interest regressors 
 Z(conditionVec==0,end+[1:numNonInterest])=eye(numNonInterest); 
 

@@ -79,7 +79,7 @@ add_vals = [log(0.2);log(0.62);log(1)];
 % presses. We can further reduce the number of parameters to minimize by
 % scaling the parameters such that the first param is equal to 1.
 G_mean = mean(G_hat,3);
-[Fx0,~,~] = ra_free_startingval(G_mean([16:20],[16:20])); 
+[Fx0,~,~] = pcm_free_startingval(G_mean([16:20],[16:20])); 
 
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -113,8 +113,9 @@ M(4).modelpred  = @ra_modelpred_addsc;
 M(4).numGparams = 20;
 M(4).theta0     = [Fx0;scale_vals;add_vals];   
 
-% Naive averaring model- noise ceiling
-M(5).type       = 'noiseceiling';         
+% Naive averaging model- noise ceiling
+M(5).type       = 'noiseceiling';   
+M(5).name       = 'noiseceiling';
 M(5).numGparams = 0; % totally fixed model- no free params
 M(5).theta0     = [];
 %   Use likelihood fit of this model as 1 scaling point in each subject
@@ -125,12 +126,14 @@ Mi = M; % create a copy of the model structure for use in the Individual fitting
 % (4) Fit Models and plot group lvl results
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [T,M] = pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,'runEffect',runEffect,'isCheckDeriv',0);
+figure(1); 
 T = pcm_plotModelLikelihood(T,M);
 % Returns T with subfields for scaled likelihoods (relative to null model (M1)
 % and noise ceiling (M5). 
         
 % We can also plot and compare the real/observed and estimate (co-)variance
 % matrices.
+figure(2); 
 pcm_plotFittedG(G_hat,T,M);
         
  
@@ -138,9 +141,11 @@ pcm_plotFittedG(G_hat,T,M);
 % (5) Fit Model to single subjects and plot fits for one subj
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [Ti,Mi] = pcm_fitModelIndivid(Y,Mi,partitionVec,conditionVec,'runEffect',runEffect,'isCheckDeriv',0);
+figure(3); 
 Ti  = pcm_plotModelLikelihood(Ti,Mi,'Subj',4);
 % No real "noise ceiling" in single subject fit plots, so bound is just 1. 
 
 % We can plot this subject's real and predcited G-matrices, too.
+figure(4); 
 pcm_plotFittedG(G_hat,Ti,Mi,'Subj',4);
 

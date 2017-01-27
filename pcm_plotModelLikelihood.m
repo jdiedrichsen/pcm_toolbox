@@ -44,7 +44,7 @@ colors = {[.77 0 0],[0 0 .77],[.95 .6 0],[0 .8 0],[.8 0 .8],[.95 .95 0]};
 varfcn = 'std';
 mindx  = [];
 Subj   = [];
-vararginoptions(varargin,{'Nnull','Nceil','colors','varfcn','mindx','Subj'});
+pcm_vararginoptions(varargin,{'Nnull','Nceil','colors','varfcn','mindx','Subj'});
 % - - - - - - -
 % Check inputs
 % - - - - - - -
@@ -121,7 +121,7 @@ end;
 % - - - - - - -
 % Plot scaled fits
 % - - - - - - -
-figure; hold on;
+
 i=1;
 for m = mindx
     if isempty(Subj)
@@ -136,6 +136,7 @@ for m = mindx
     else labels{i} = sprintf('Model %d',m);
     end
     bar(i,Y(i),'FaceColor',colors{i},'EdgeColor',colors{i});
+    hold on; 
     i=i+1;
 end;
 

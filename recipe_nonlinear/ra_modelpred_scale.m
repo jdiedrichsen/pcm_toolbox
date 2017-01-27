@@ -1,6 +1,17 @@
 function [G,dGdtheta] = ra_modelpred_scale(theta)
-% Predicts distaces and G-matrix from the 18 parameters of the simple
-% scaling model and returns the derivative in respect to the parameters
+% function [G,dGdtheta] = ra_modelpred_scale(theta)
+% This is an example of a nonlinear pattern component model 
+% For an experiment with 5 fingers, measured at 4 different tapping
+% speeds.
+% The first 14 paramters determine the stucture of the Finger patterns
+% encoded in A. With OM = A*A'. 
+% Then there are 3 different scaling parameters for the 1-3 speed. The
+% scaling parameter for the 4th speed is fixed to one. 
+% So the prediction of the ith finger for the jth speed is 
+% y_i,j = s_j * f_i 
+% Where f_i is a full pattern and s_j a scalar.
+% It then calculates the derivative of the G matrix in respect to the
+% parameters. 
 fingerParams=theta(1:14);
 scaleParams=exp(theta(15:17));
 indx1=double(tril(true(5),0));

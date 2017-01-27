@@ -91,7 +91,7 @@ runEffect       = 'random';
 isCheckDeriv    = 0;
 MaxIteration    = 1000;
 verbose         = 1;
-vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration','verbose'});
+pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration','verbose'});
 
 numSubj     = numel(Y);
 numModels   = numel(M);
@@ -106,20 +106,20 @@ for s = 1:numSubj
     
     % Set up the main matrices
     [N(s,1),P(s,1)] = size(Y{s});
-    Z{s}   = indicatorMatrix('identity_p',conditionVec{s});
+    Z{s}   = pcm_indicatorMatrix('identity_p',conditionVec{s});
     numCond= size(Z{s},2);
     
     % Depending on the way of dealing with the run effect, set up data
     switch (runEffect)
         case 'random'
             YY{s}  = (Y{s} * Y{s}');
-            B{s}   = indicatorMatrix('identity_p',partitionVec{s});
+            B{s}   = pcm_indicatorMatrix('identity_p',partitionVec{s});
             X{s}   = [];
             S      = [];   % Use identity for covariance
         case 'fixed'
             YY{s}  = (Y{s} * Y{s}');
             B{s}  =  [];
-            X{s}  =  indicatorMatrix('identity_p',partitionVec{s});
+            X{s}  =  pcm_indicatorMatrix('identity_p',partitionVec{s});
             S     =  [];    % Use identity for covariance
         case 'remove'
             Run         =  indicatorMatrix('identity_p',partitionVec{s});
@@ -183,11 +183,12 @@ for m = 1:numModels
         otherwise 
             G0 = pcm_calculateG(M(m),theta0);
     end; 
-    g0 = vec(G0);
+    g0 = G0(:);
     
     % Estimate starting scaling value for each subject
     for s = 1:numSubj
-        g_hat         = vec(G_hat(:,:,s));
+        g_hat         = G_hat(:,:,s);
+        g_hat         = g_hat(:); 
         scaling       = (g0'*g_hat)/(g0'*g0);
         if ((scaling<10e-6)||~isfinite(scaling)); scaling = 10e-6; end;      % Enforce positive scaling
         scale0(s,m)   = log(scaling);

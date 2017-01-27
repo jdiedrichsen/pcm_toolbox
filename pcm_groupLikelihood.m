@@ -55,7 +55,7 @@ function [negLogLike,dnldtheta,L,dLdtheta] = pcm_groupLikelihood(theta,YY,M,Z,X,
 S         = [];
 verbose   = 0;
 runEffect = [];
-vararginoptions(varargin,{'S','verbose','runEffect'});
+pcm_vararginoptions(varargin,{'S','verbose','runEffect'});
 
 % Get G-matrix and derivative of G-matrix in respect to parameters 
 if (isstruct(M))
@@ -80,7 +80,7 @@ for s=1:numSubj
     if (~isempty(runEffect{s}))
         numRuns = size(runEffect{s},2);
         runParam = theta(M.numGparams+numSubj*2+s);    % Subject run effect parameter
-        Gs = blockdiag(Gs,eye(numRuns)*exp(runParam));  % Include run effect in G
+        Gs = pcm_blockdiag(Gs,eye(numRuns)*exp(runParam));  % Include run effect in G
         Z{s} = [Z{s} runEffect{s}];                 % Include run effect in design matrix
     else
         numRuns = 0;                                % No run effects modelled
@@ -132,13 +132,13 @@ for s=1:numSubj
     B     = YY{s}*A/P(s);
     % Get the derivatives for all the parameters
     for i = 1:M.numGparams
-        C{i}  = (A*blockdiag(dGdtheta(:,:,i),zeros(numRuns)));
+        C{i}  = (A*pcm_blockdiag(dGdtheta(:,:,i),zeros(numRuns)));
         dLdtheta(i,s) = -P(s)/2*(traceABtrans(C{i},Z{s})-traceABtrans(C{i},B))*exp(scaleParam);
     end
     
     % Get the derivatives for the scaling parameters
     indx             = M.numGparams+s;  % Which number parameter is it?
-    C{indx}          = A*blockdiag(G,zeros(numRuns));
+    C{indx}          = A*pcm_blockdiag(G,zeros(numRuns));
     dLdtheta(indx,s) = -P(s)/2*(traceABtrans(C{indx},Z{s})-traceABtrans(C{indx},B))*exp(scaleParam);
     
     % Get the derivatives for the Noise parameters
@@ -152,7 +152,7 @@ for s=1:numSubj
     % Get the derivatives for the block parameter
     if (~isempty(runEffect) && ~isempty(runEffect{s}))
         indx             = M.numGparams+numSubj*2+s;  % Which number parameter is it?
-        C{indx}          = A*blockdiag(zeros(size(G,1)),eye(numRuns));
+        C{indx}          = A*pcm_blockdiag(zeros(size(G,1)),eye(numRuns));
         dLdtheta(indx,s) = -P(s)/2*(traceABtrans(C{indx},Z{s})-traceABtrans(C{indx},B))*exp(runParam);
     end;
     

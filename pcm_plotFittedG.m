@@ -37,7 +37,7 @@ cmap  = 'parula';
 Subj  = [];
 mindx = [];
 clims = [];
-vararginoptions(varargin,{'cmap','Subj','mindx','clims'});
+pcm_vararginoptions(varargin,{'cmap','Subj','mindx','clims'});
 % - - - - - - -
 % Check inputs 
 % - - - - - - -
@@ -92,7 +92,6 @@ if isempty(clims)
     clims = [0 max(max_G)];
 end
 % Now plot G-matrices
-figure;
 for i = 1:numG
     subplot(1,numG,i);
     imagesc(G{i},clims); 

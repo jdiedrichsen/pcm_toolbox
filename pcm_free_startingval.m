@@ -1,4 +1,4 @@
-function [theta,G,scaleParam] = ra_free_startingval(G,varargin)
+function [theta,G,scaleParam] = pcm_free_startingval(G,varargin)
 % function [theta,G,scaleParam] = pcm_modelpred_free_startingval(G,varargin)
 % Provides startingvalues from a estimated G-matrix for the optimisation of 
 % the liklihood function using pcm_modelLike. 
@@ -19,7 +19,7 @@ function [theta,G,scaleParam] = ra_free_startingval(G,varargin)
 
 % Check if we need to add an additional theta 
 reduced = 1; 
-vararginoptions(varargin,{'reduced'}); 
+pcm_vararginoptions(varargin,{'reduced'}); 
 
 % Make the G-estimate postive definite: 
 G = (G+G')/2;        % Symmetrize 
@@ -33,10 +33,14 @@ A = real(sqrtm(G));
 if (reduced) 
     scaleParam=A(1,1).^2; 
     A=A./A(1,1); 
+else 
+    scaleParam=1; 
 end; 
 
 % Now vectorize 
-theta = rsa_vectorizeIPM(A)'; 
+n = size(A,1); 
+indx=tril(true(n),0);
+theta=A(indx);
 if (reduced) 
     theta=theta(2:end); 
 end; 
