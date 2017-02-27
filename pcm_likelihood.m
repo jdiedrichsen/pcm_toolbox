@@ -40,17 +40,13 @@ S = [];
 
 vararginoptions(varargin,{'S'}); 
 
-
-if (isstruct(Model))
-    H      = Model.numGparams+1; 
-    [G,Gc] = Model.fcn(theta(1:M.numParams)); 
-else
-    Gc    =  Model; 
-    H     =  size(Gc,3)+1;       % Number of Hyperparameters (+ 1 for noise term)
-    G     =  zeros(K);
-    for i = 1:H-1;
-        G = G + Gc(:,:,i)*exp(theta(i));
-    end
+% Get G-matrix and derivative of G-matrix in respect to parameters 
+if (isstruct(M))
+    [G,dGdtheta] = pcm_calculateG(M,theta(1:M.numGparams)); 
+else 
+    G=M;
+    M=[]; 
+    M.numGparams=0; 
 end; 
 
 % Find the inverse of V - while dropping the zero dimensions in G

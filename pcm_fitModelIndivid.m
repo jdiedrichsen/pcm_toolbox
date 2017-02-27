@@ -9,12 +9,12 @@ function [T,M,Iter,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,vara
 %            Observed/estimated beta regressors from each subject.
 %            Preferably multivariate noise-normalized beta regressors.
 %
-%        M: (#Models).subfields: Structure that defines model(s). Can
-%            define multiple models if desired. Contains subfields:
+%        M: {#Models} Cell array with structure that defines model(s). Each may contain the following 
+%                       Subfield 
 %              .type:        Type of the model to be fitted
-%                             'fixed': Fixed structure without parameter (except sale for each subject)
+%                             'fixed':     Fixed structure without parameter (except scale for each subject)
 %                             'component': G is a sum of linear components
-%                             'squareroot': G=A*A', with A a linear sum of weighted components
+%                             'feature':   G=A*A', with A a linear sum of weighted feature components
 %                             'nonlinear': Nonlinear model with own function to return derivatives
 %              .numGparams:  Scalar that defines the number of parameters
 %                             included in model.
@@ -27,15 +27,19 @@ function [T,M,Iter,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,vara
 %              .Gc:          Linear component matrices (for type 'component')
 %              .Ac           Linear component matrices (for type 'squareroot')
 %
-%   conditionVec: {#Subjects} Cell array with condition assignment vector
-%                   for each subject. Rows of conditionVec{subj} define
-%                   condition assignment of rows of Y{subj}.
-%
 %   partitionVec: {#Subjects} Cell array with partition assignment vector
 %                   for each subject. Rows of partitionVec{subj} define
 %                   partition assignment of rows of Y{subj}.
 %                   Commonly these are the scanning run #s for beta
 %                   regressors.
+%                   If a single vector is provided, it is assumed to me the
+%                   same for all subjects 
+%
+%   conditionVec: {#Subjects} Cell array with condition assignment vector
+%                   for each subject. Rows of conditionVec{subj} define
+%                   condition assignment of rows of Y{subj}.
+%                   If a single vector is provided, it is assumed to me the
+%                   same for all subjects 
 %--------------------------------------------------------------------------
 % OPTION:
 %   'runEffect': How to deal with effects that may be specific to different
@@ -63,22 +67,17 @@ function [T,M,Iter,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,vara
 % OUTPUT:
 %   T:      Structure with following subfields:
 %       SN:                 Subject number
-%       likelihood:         Crossvalidated likelihood
-%       likelihood_all:     Group-fit likelihood (with subj included)
-%       scale0:             Starting value for scale
-%       noise0:             Starting value for noise
-%       run0:               Starting value for run
-%       scale_all:
-%       noise_all:
-%       run_all:
+%       likelihood:         likelihood
+%       noise:              Noise parameter 
+%       run:                Run parameter (if run = 'random') 
 %       iterations:         Number of interations for model fit
 %       time:               Elapsed time in sec 
 %
-%   M(m):    Structure array of models - with appended fields
-%       theta_all:  Estimated parameters at the overall fitting.
-%       G_pred:     Predicted second moment matrix of model(s)
+%   M{m}:    Structure array of models - with appended fields
+%       G_pred:     Predicted second moment matrix of model: 3-D array  
+%                   with 1 slice per subject 
 %       theta:      Estimated parameters (model + scaling/noise parameters)
-%                   across the crossvalidation rounds .
+%                   for individual subjects
 
 runEffect       = 'random';
 isCheckDeriv    = 0;
@@ -96,23 +95,33 @@ T.SN = [1:numSubj]';
 % Now loop over subject and provide inidivdual fits 
 for s = 1:numSubj
     
+    % If condition and partition Vectors are not cells, assume they are the
+    % same 
+    if (iscell(conditionVec)) 
+        cV = conditionVec{s}; 
+        pV = partitionVec{s}; 
+    else 
+        cV = conditionVec; 
+        pV = partitionVec; 
+    end; 
+    
     % Prepare matrices and data depnding on how to deal with run effect 
     [N(s,1),P(s,1)] = size(Y{s});
-    Z{s}   = pcm_indicatorMatrix('identity_p',conditionVec{s});
+    Z{s}   = pcm_indicatorMatrix('identity_p',cV);
     numCond= size(Z{s},2);
     switch (runEffect)
         case 'random'
             YY{s}  = (Y{s} * Y{s}');
-            B{s}   = pcm_indicatorMatrix('identity_p',partitionVec{s});
+            B{s}   = pcm_indicatorMatrix('identity_p',pV);
             X{s}   = [];
             S      = [];   % Use indentity for covariance
         case 'fixed'
             YY{s}  = (Y{s} * Y{s}');
             B{s}  =  [];
-            X{s}  =  pcm_indicatorMatrix('identity_p',partitionVec{s});
+            X{s}  =  pcm_indicatorMatrix('identity_p',pV);
             S     =  [];    % Use indentity for covariance
         case 'remove'  % This currently doesn't work as intended - dimensionality reduction needed 
-            Run    =  indicatorMatrix('identity_p',partitionVec{s});
+            Run    =  indicatorMatrix('identity_p',pV);
             R      =  eye(N(s))-Run*((Run'*Run)\Run');
             YY{s}  = (R*Y{s} * Y{s}'*R');
             S(s).S = R*R'
@@ -121,83 +130,54 @@ for s = 1:numSubj
     end;
     
     % Estimate starting value run and the noise from a crossvalidated estimate of the second moment matrix 
-    [G_hat(:,:,s),Sig_hat(:,:,s)] = pcm_estGCrossval(Y{s},partitionVec{s},conditionVec{s});
+    [G_hat(:,:,s),Sig_hat(:,:,s)] = pcm_estGCrossval(Y{s},pV,cV);
     sh = Sig_hat(:,:,s);
-    run0(s)     = log((sum(sum(sh))-trace(sh))/(numCond*(numCond-1)));
-    noise0(s)   = log(trace(sh)/numCond-exp(run0(s)));
-    
-    % Print where we are in the fitting process 
-    if (verbose)
-        fprintf('Subj %d\n',s);
-    end; 
+    run0(s)     = real(log((sum(sum(sh))-trace(sh))/(numCond*(numCond-1))));
+    noise0(s)   = real(log(trace(sh)/numCond-exp(run0(s))));
     
     % Now loop over models 
     for m = 1:length(M)
         if (verbose) 
-            if (isfield(M,'name')) && (~isempty(M(m).name));
-                fprintf('fitting model:%s\n',M(m).name);
+            if isfield(M,'name');
+                fprintf('Fitting Subj: %d model:%s\n',s,M{m}.name);
             else
-                fprintf('fitting model:%d\n',m);
+                fprintf('Fitting Subj: %d model:%ds\n',s,m);
             end;
-            tic;
         end; 
+        tic; 
         
         % Get starting guess for theta if not provided
-        if (isfield(M(m),'theta0'))
-            theta0 = M(m).theta0;
+        if (isfield(M{m},'theta0'))
+            theta0 = M{m}.theta0;
         else
-            theta0 = pcm_getStartingval(M(m),mean(G_hat,3));   
+            theta0 = pcm_getStartingval(M{m},G_hat(:,:,s));   
         end;
-
-        % Use normal linear regression to get scaling parameter for the
-        % subject
-        switch (M(m).type)
-            case 'noiseceiling'
-                G0 = mean(G_hat,3); 
-                M(m).numGparams=0; 
-                M(m).Gc = G0;
-            otherwise 
-                G0 = pcm_calculateG(M(m),theta0);
-        end; 
-            g0 = G0(:);
-
-        % Estimate starting scaling value for each subject
-        g_hat         = G_hat(:,:,s); 
-        g_hat         = g_hat(:); 
-        scaling       = (g0'*g_hat)/(g0'*g0);
-        if ((scaling<10e-6)||~isfinite(scaling)); scaling = 10e-6; end;      % Enforce positive scaling
-        scale0(s,m)   = log(scaling);
         
         % Now set up the function that returns likelihood and derivative 
         if (isempty(S))
-            fcn = @(x) pcm_groupLikelihood(x,{YY{s}},M(m),{Z{s}},{X{s}},P(s),'runEffect',{B{s}});
+            fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
         else
-            fcn = @(x) pcm_groupLikelihood(x,{YY{s}},M(m),{Z{s}},{},P(s),'runEffect',{B{s}},'S',S(s));
+            fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},[],P(s),'runEffect',B{s},'S',S(s));
         end;
         
         % Set up overall starting values 
         switch (runEffect) 
             case {'fixed','remove'}
-                x0  = [theta0;scale0(s,m);noise0(s)];
+                x0  = [theta0;noise0(s)];
             case {'random'}
-                x0  = [theta0;scale0(s,m);noise0(s);run0(s)];
+                x0  = [theta0;noise0(s);run0(s)];
         end; 
         
         % Use minimize to fine maximum liklhood estimate 
         [theta,fX,i]      =  minimize(x0, fcn, MaxIteration);
-        M(m).theta(:,s)   =  theta(1:M(m).numGparams);
-        M(m).G_pred       =  pcm_calculateG(M(m),M(m).theta(:,s));
-        T.scale(s,m)      =  exp(theta(M(m).numGparams+1)); 
-        T.noise(s,m)      =  exp(theta(M(m).numGparams+2)); 
+        M{m}.thetaIndiv(:,s)   =  theta(1:M{m}.numGparams);
+        M{m}.G_pred       =  pcm_calculateG(M{m},M{m}.thetaIndiv(:,s));
+        T.noise(s,m)      =  exp(theta(M{m}.numGparams+1)); 
         if strcmp(runEffect,'random')
-            T.run(s,m)      =  exp(theta(M(m).numGparams+3)); 
+            T.run(s,m)      =  exp(theta(M{m}.numGparams+2)); 
         end; 
         T.likelihood(s,m) =  -fX(end);  %invert the sign 
         T.iterations(s,m) = i;
         T.time(s,m)       = toc; 
-        if verbose
-            fprintf('... done!');
-            fprintf('\t Iterations %d, Elapsed time: %3.3f\n',T.iterations(s,m),T.time(s,m));
-        end; 
     end; % for each model
 end; % for each subject

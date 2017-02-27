@@ -19,8 +19,17 @@ switch (M.type)
         h0 = pinv(X)*G_hat(:); % Use normal regression to estimate parameters 
         h0(h0<10e-6)=10e-6;        % Ensure positivity of the parameters 
         theta0 = log(h0); 
-    case 'squareroot' 
+    case {'squareroot','feature'} 
         error('not implemented yet'); 
+    case 'freechol'      % Totally free model using cholesky decomposition 
+        G_hat  = pcm_makePD(G_hat); 
+        G = (G_hat+G_hat')/2;        % Symmetrize 
+        [V,lam_G] = eig(full(G));
+        dS    = diag(lam_G);
+        dS(dS<eps) = eps; 
+        Gpd     = V*diag(dS)*V'; 
+        A      = chol(Gpd)'; 
+        theta0 = A(M.indx); 
     case 'nonlinear' 
         error('cannot provide starting values for nonlinear models'); 
 end; 

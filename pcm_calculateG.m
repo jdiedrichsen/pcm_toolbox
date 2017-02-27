@@ -15,10 +15,10 @@ if (~isstruct(M))
     dGdtheta = [];
 else
     if length(theta)~=M.numGparams
-        error('lenth of vector theta should be equal to number of G parameters'); 
+        error('lenth of column-vector theta should be equal to number of G parameters'); 
     end; 
     if (~isfield(M,'type'))
-        error('M should have a type of fixed / component / squareroot / nonlinear');
+        error('M should have a type of fixed / component / feature / nonlinear');
     end;
     switch (M.type)
         case {'fixed','noiseceiling'}
@@ -27,13 +27,23 @@ else
         case 'component'
             dGdtheta=bsxfun(@times,M.Gc,permute(exp(theta),[3 2 1]));
             G = sum(dGdtheta,3); 
-        case 'squareroot'
+        case {'feature'}
             A = bsxfun(@times,M.Ac,permute(theta,[3 2 1]));
             A = sum(A,3); 
             G = A*A'; 
             for i=1:M.numGparams
-                dGdtheta(:,:,i) = M.Ac(:,:,1)*A' + A*M.Ac(:,:,1)';     
-            end;                 
+                dA = M.Ac(:,:,i)*A';  
+                dGdtheta(:,:,i) =  dA + dA';     
+            end; 
+        case 'freechol' 
+            A         = zeros(M.numCond); 
+            A(M.indx) = theta; 
+            G = A*A';
+            dGdtheta = zeros(M.numCond,M.numCond,M.numGparams); 
+            for i=1:M.numGparams
+                dGdtheta(M.row(i),:,i)  = A(:,M.col(i))'; 
+                dGdtheta(:,:,i) = dGdtheta(:,:,i) + dGdtheta(:,:,i)';     
+            end;             
         case 'nonlinear'
             [G,dGdtheta]=M.modelpred(theta(1:M.numGparams));
     end;

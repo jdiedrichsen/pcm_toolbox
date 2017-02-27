@@ -42,7 +42,7 @@ pcm_vararginoptions(varargin,{'cmap','Subj','mindx','clims'});
 % Check inputs 
 % - - - - - - -
 % Check T and M
-if ~(isstruct(T)) || ~(isstruct(M))
+if ~(isstruct(T)) || ~(isstruct(M{1}))
     error('T or M are not pcm model structures. Check inputs.')
 end
 % Check G_hat
@@ -77,9 +77,9 @@ for i = 1:length(mindx)
         sc = mean(T.scale(:,m));
     else
         %sc = mean(exp(T.scale_all(:,m)));    % get scaling param
-        sc = mean(T.scale_cv(:,m));     % get fitted scaling param
+        sc = mean(T.scale(:,m));     % get fitted scaling param
     end
-    G{i+1} = M(m).G_pred.*sc;       % apply scaling to model predicted G
+    G{i+1} = M{m}.G_pred.*sc;       % apply scaling to model predicted G
     max_G(i+1) = max(max(G{i+1}));
 end;
 
@@ -104,8 +104,8 @@ for i = 1:numG
         end
     else
         m = mindx(i-1);
-        if isfield(M,'name') && (~isempty(M(m).name))
-        	title(M(m).name);
+        if isfield(M,'name') && (~isempty(M{m}.name))
+        	title(M{m}.name);
         else
             title(sprintf('Model %d',m));
         end

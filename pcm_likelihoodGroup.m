@@ -1,24 +1,22 @@
 function [negLogLike,dnldtheta,L,dLdtheta] = pcm_likelihoodGroup(theta,YY,M,Z,X,P,varargin);
 % function [negLogLike,dnldtheta,L,dLdtheta] = pcm_groupLikelihood(theta,YY,M,Z,X,P,varargin);
-% Returns negative log likelihood of the data from a number of subjects (YY) under the
-% representational model specified by M.
-% The representational model specifies some group-level parameters, i.e the
-% structure of the second-moment matrix is supposed to be stable across all
-% subjects.
+% Returns negative log likelihood of the data from a group of subjects under the
+% representational model specified by M. The function uses common model 
+% parameters (theta) for all subjects , i.e the structure of the second-moment 
+% matrix is supposed to be same across all subjects.
 % To link the group prediction to individual second-moment matrices, a
 % number of individual-level nuisance parameters are introduced:
 %   s:        Scaling of the data
 %   sigma2:   Noise variability
 % Additionally, if 'runEffect' is set, the effect of each imaging run is
-%   also modelled as a random effect, giving the last individual-subject
+%   also modelled as a random effect, giving the third individual-subject
 %   parameter
 % INPUT:
 %      theta:   Vector of model parameters + subject-specific nuisance parameters
 %               1...numGParams           : model parameters
-%               numGParams+1... +numSubj : log(scaling parameters)
-%               numGParams+numSubj+1...  : log(noise variance)
-%               numGParams+numSubj*2+1...: log(run effect variance)
-%                                          - used if runEffect is provided
+%               numGParams+1... +numSubj : log(noise variance)
+%               numGParams+numSubj+1...  : log(scaling parameters) - used if fitScale 
+%               numGParams+numSubj*2+1...: log(run effect variance)- used if runEffect is provided
 %      YY:      cell array {numSubj}: Y*Y': Outer product of the data (NxN)
 %      M:       Model for G (same for the whole group):
 %               a. this can either be a fixed KxK matrix (fixed model) or a
@@ -36,6 +34,8 @@ function [negLogLike,dnldtheta,L,dLdtheta] = pcm_likelihoodGroup(theta,YY,M,Z,X,
 % VARARGIN:
 %      'runEffect',B:  cell array {numSubj} of design matrices for the run effect,
 %                   which is modelled as a individual subject-specific random effect.
+%      'fitScale'   Introduce additional scaling parameter for each
+%                   participant? - default is true 
 %      'S',S:       Optional structured noise matrix - default is the identity matrix
 %                   S should be a structure-array (number of subjects) with two fields
 %                   S.S: noise structure matrix
@@ -50,12 +50,12 @@ function [negLogLike,dnldtheta,L,dLdtheta] = pcm_likelihoodGroup(theta,YY,M,Z,X,
 %      dLdtheta:    Derivate of Log likelihood for each subject
 %
 %   Joern Diedrichsen, 6/2016, joern.diedrichsen@googlemail.com
-%
 
 S         = [];
 verbose   = 0;
 runEffect = [];
-pcm_vararginoptions(varargin,{'S','verbose','runEffect'});
+fitScale  = 1; 
+pcm_vararginoptions(varargin,{'S','verbose','runEffect','fitScale'});
 
 % Get G-matrix and derivative of G-matrix in respect to parameters 
 if (isstruct(M))
@@ -69,17 +69,22 @@ end;
 % Loop over subjects
 numSubj = length(YY);
 for s=1:numSubj
+    
     % Get parameter and sizes
-    scaleParam = theta(M.numGparams+s);   % Subject Scaling Parameter
-    noiseParam = theta(M.numGparams+numSubj+s);   % Subject Noise Parameter
-    N  = size(Z{s},1);
+    noiseParam = theta(M.numGparams+s);             % Subject Noise Parameter
+    if (fitScale) 
+        scaleParam = theta(M.numGparams+numSubj+s);   % Subject Noise Parameter
+    else 
+        scaleParam = 0; 
+    end; 
     Gs = G*exp(scaleParam);         % Scale the subject G matrix up by individual scale parameter
+    N  = size(Z{s},1);
     
     % If Run effect is to ne modelled as a random effect - add to G and
     % design matrix
     if (~isempty(runEffect{s}))
         numRuns = size(runEffect{s},2);
-        runParam = theta(M.numGparams+numSubj*2+s);    % Subject run effect parameter
+        runParam = theta(M.numGparams+numSubj*(1+fitScale)+s);    % Subject run effect parameter
         Gs = pcm_blockdiag(Gs,eye(numRuns)*exp(runParam));  % Include run effect in G
         Z{s} = [Z{s} runEffect{s}];                 % Include run effect in design matrix
     else
@@ -135,23 +140,25 @@ for s=1:numSubj
         C{i}  = (A*pcm_blockdiag(dGdtheta(:,:,i),zeros(numRuns)));
         dLdtheta(i,s) = -P(s)/2*(traceABtrans(C{i},Z{s})-traceABtrans(C{i},B))*exp(scaleParam);
     end
-    
-    % Get the derivatives for the scaling parameters
-    indx             = M.numGparams+s;  % Which number parameter is it?
-    C{indx}          = A*pcm_blockdiag(G,zeros(numRuns));
-    dLdtheta(indx,s) = -P(s)/2*(traceABtrans(C{indx},Z{s})-traceABtrans(C{indx},B))*exp(scaleParam);
-    
+        
     % Get the derivatives for the Noise parameters
-    indx             = M.numGparams+numSubj+s;  % Which number parameter is it?
+    indx             = M.numGparams+s;  % Which number parameter is it?
     if (isempty(S))
         dLdtheta(indx,s)     = -P(s)/2*traceABtrans(iVr,(speye(N)-YY{s}*iVr/P(s)))*exp(noiseParam);
     else
         dLdtheta(indx,s)     = -P(s)/2*traceABtrans(iVr*S(s).S,(speye(N)-YY{s}*iVr/P(s)))*exp(noiseParam);
     end;
     
+    % Get the derivatives for the scaling parameters
+    if (fitScale) 
+        indx             = M.numGparams+numSubj+s;  % Which number parameter is it?
+        C{indx}          = A*pcm_blockdiag(G,zeros(numRuns));
+        dLdtheta(indx,s) = -P(s)/2*(traceABtrans(C{indx},Z{s})-traceABtrans(C{indx},B))*exp(scaleParam);
+    end;
+    
     % Get the derivatives for the block parameter
     if (~isempty(runEffect) && ~isempty(runEffect{s}))
-        indx             = M.numGparams+numSubj*2+s;  % Which number parameter is it?
+        indx             = M.numGparams+numSubj*(1+fitScale)+s;  % Which number parameter is it?
         C{indx}          = A*pcm_blockdiag(zeros(size(G,1)),eye(numRuns));
         dLdtheta(indx,s) = -P(s)/2*(traceABtrans(C{indx},Z{s})-traceABtrans(C{indx},B))*exp(runParam);
     end;

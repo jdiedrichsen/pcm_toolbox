@@ -86,38 +86,38 @@ G_mean = mean(G_hat,3);
 % (3) Specify Models
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 % Null model- all distances equal 
-M(1).type       = 'fixed'; 
-M(1).name       = 'Null';
-M(1).Gc         = eye(20);
-M(1).numGparams = 0;
+M{1}.type       = 'fixed'; 
+M{1}.name       = 'Null';
+M{1}.Gc         = eye(20);
+M{1}.numGparams = 0;
 
 % Scaling model- distances multiplied by constant scaler dependent on number of presses
-M(2).type       = 'nonlinear'; 
-M(2).name       = 'Scaling';
-M(2).modelpred  = @ra_modelpred_scale;
-M(2).numGparams = 17; % 14 free theta params in Fx0 and 3 free scaling params
-M(2).theta0     = [Fx0;scale_vals];                 
+M{2}.type       = 'nonlinear'; 
+M{2}.name       = 'Scaling';
+M{2}.modelpred  = @ra_modelpred_scale;
+M{2}.numGparams = 17; % 14 free theta params in Fx0 and 3 free scaling params
+M{2}.theta0     = [Fx0;scale_vals];                 
 
 % Additive independent model- adds independent pattern that scales with the
 % number of presses (independent of the scaling model)
-M(3).type       = 'nonlinear'; 
-M(3).name       = 'Additive';
-M(3).modelpred  = @ra_modelpred_add;
-M(3).numGparams = 17;
-M(3).theta0     = [Fx0;add_vals];   
+M{3}.type       = 'nonlinear'; 
+M{3}.name       = 'Additive';
+M{3}.modelpred  = @ra_modelpred_add;
+M{3}.numGparams = 17;
+M{3}.theta0     = [Fx0;add_vals];   
 
 % Combo model: additive independent & scaling models combined
-M(4).type       = 'nonlinear';
-M(4).name       = 'Combo';
-M(4).modelpred  = @ra_modelpred_addsc;
-M(4).numGparams = 20;
-M(4).theta0     = [Fx0;scale_vals;add_vals];   
+M{4}.type       = 'nonlinear';
+M{4}.name       = 'Combo';
+M{4}.modelpred  = @ra_modelpred_addsc;
+M{4}.numGparams = 20;
+M{4}.theta0     = [Fx0;scale_vals;add_vals];   
 
 % Naive averaging model- noise ceiling
-M(5).type       = 'noiseceiling';   
-M(5).name       = 'noiseceiling';
-M(5).numGparams = 0; % totally fixed model- no free params
-M(5).theta0     = [];
+M{5}.type       = 'noiseceiling';   
+M{5}.name       = 'noiseceiling';
+M{5}.numGparams = 0; % totally fixed model- no free params
+M{5}.theta0     = [];
 %   Use likelihood fit of this model as 1 scaling point in each subject
 
 Mi = M; % create a copy of the model structure for use in the Individual fitting
@@ -125,9 +125,12 @@ Mi = M; % create a copy of the model structure for use in the Individual fitting
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 % (4) Fit Models and plot group lvl results
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[T,M] = pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,'runEffect',runEffect,'isCheckDeriv',0);
+[Tgroup,M] = pcm_fitModelGroup(Y,M,partitionVec,conditionVec,...
+    'runEffect',runEffect,'isCheckDeriv',0);
+[Tcross,M] = pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,...
+    'runEffect',runEffect,'isCheckDeriv',0,'groupFit',Tgroup);
 figure(1); 
-T = pcm_plotModelLikelihood(T,M);
+T = pcm_plotModelLikelihood(Tcross,M,'upperceil',Tgroup.likelihood(:,5));
 % Returns T with subfields for scaled likelihoods (relative to null model (M1)
 % and noise ceiling (M5). 
         
@@ -140,7 +143,8 @@ pcm_plotFittedG(G_hat,T,M);
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 % (5) Fit Model to single subjects and plot fits for one subj
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[Ti,Mi] = pcm_fitModelIndivid(Y,Mi,partitionVec,conditionVec,'runEffect',runEffect,'isCheckDeriv',0);
+[Ti,Mi] = pcm_fitModelIndivid(Y,Mi,partitionVec,conditionVec,...
+    'runEffect',runEffect,'isCheckDeriv',0);
 figure(3); 
 Ti  = pcm_plotModelLikelihood(Ti,Mi,'Subj',4);
 % No real "noise ceiling" in single subject fit plots, so bound is just 1. 

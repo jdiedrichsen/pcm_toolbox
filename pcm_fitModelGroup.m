@@ -1,4 +1,4 @@
-function [T,M]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
+function [T,M]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,varargin);
 % function [T,theta_all,G_pred,theta]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
 % Fits pattern component model(s) specified by M to data from a number of
 % subjects.
@@ -11,13 +11,14 @@ function [T,M]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
 %            Observed/estimated beta regressors from each subject.
 %            Preferably multivariate noise-normalized beta regressors.
 %
-%        M: Cell array (number of models) of Models Each is a structure with subfields.
+%        M: cell arrays {#Models} of model(s) to be fitted 
+%            define multiple models if desired. Contains subfields:
 %              .type:        Type of the model to be fitted
 %                             'fixed': Fixed structure without parameter
 %                                (except scale and noise for each subject)
 %                             'component': G is a sum of linear components,
 %                                specified by Gc
-%                             'feature': G=A*A', with A a linear sum of
+%                             'squareroot': G=A*A', with A a linear sum of
 %                                 weighted components Ac
 %                             'nonlinear': Nonlinear model with own function
 %                                 to return G-matrix and derivatives
@@ -41,12 +42,13 @@ function [T,M]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
 %                   for each subject. Rows of partitionVec{subj} define
 %                   partition assignment of rows of Y{subj}.
 %                   Commonly these are the scanning run #s for beta
-%                   regressors.If 1 vector is given, then partitions are
-%                   assumed to be the same across subjects
+%                   regressors. If 1 vector is given, then partitions are 
+%                   assumed to be the same across subjects 
 %
 %   conditionVec: {#Subjects} Cell array with condition assignment vector
 %                   for each subject. Rows of conditionVec{subj} define
-%                   condition assignment of rows of Y{subj}.
+%                   condition assignment of rows of Y{subj}. If 1 vector is given, 
+%                   then conditions are  assumed to be the same across subjects 
 %--------------------------------------------------------------------------
 % OPTION:
 %   'runEffect': How to deal with effects that may be specific to different
@@ -58,39 +60,43 @@ function [T,M]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
 %                  'remove': Forced removal of the run effect before
 %                            random effects modelling - Simply adjusts the
 %                            error covariance matrix to reflect he removal
-%   'fitScale'      Introduce additional scaling parameter for each
-%                   participant? - default is true
-%   'isCheckDeriv:  Check the derivative accuracy of theta params. Done using
-%                   'pcm_checkderiv'. This function compares input to finite
-%                   differences approximations. See function documentation.
+%   'fitScale':    Fit additional scaling parameter for each of the
+%                  subjects? Defaults to 1. This makes a lot of sense, if the scaling of the 
+%                  data is not of the same intensity across subjects. 
+%                  However, when you want to test strongly against a null model that
+%                  does not predict any difference between different conditions, 
+%                  then the scaling parameter makes the alternative model
+%                  more flexible and it will more often. 
+%   'isCheckDeriv: Check the derivative accuracy of theta params. Done using
+%                  'pcm_checkderiv'. This function compares input to finite
+%                  differences approximations. See function documentation.
 %
 %   'MaxIteration': Number of max minimization iterations. Default is 1000.
 %
 %   'verbose':      Optional flag to show display message in the command
 %                   line (e.g., elapsed time). Default is 1.
-%   'groupFit',T:   Structure T from the group fit: This provides better starting
-%                   values and can speed up the computation
+% 
 %--------------------------------------------------------------------------
 % OUTPUT:
 %   T:      Structure with following subfields:
 %       SN:                 Subject number
-%       likelihood:         Crossvalidated likelihood
-%       scale:              Fitted scaling parameter - exp(theta_scale)
-%       noise:             	Fitted noise parameter - exp(theta_noise)
-%       run:               	Fitted run parameter - exp(theta_run)
+%       likelihood:     Group-fit likelihood (with subj included)
+%       noise:          Noise Variance 
+%       scale:          Scale parameter for each subject (if fitScale set to 1)  
+%       run:            Run variance (if runEffect = 'random'); 
 %
 %   M{m}:    Cell array of models - with appended fields
-%       theta:      numGParams x numSubj Matrix: Estimated parameters (model + scaling/noise parameters)
-%                   across the crossvalidation rounds.
+%       thetaGroup:  Estimated parameters at the overall fitting.
+%       Gpred:       Predicted second moment matrix for the model from group
+%                    fit
 
 runEffect       = 'random';
 isCheckDeriv    = 0;
 MaxIteration    = 1000;
-verbose         = 1;
-groupFit        = [];
-fitScale        = 1;
+verbose         = 1;    
+fitScale        = 1;   % Fit an additional scaling parameter for each subject? 
 pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration',...
-    'verbose','groupFit','fitScale'});
+                      'verbose','fitScale'});
 
 numSubj     = numel(Y);
 numModels   = numel(M);
@@ -103,14 +109,15 @@ T.SN = [1:numSubj]';
 % --------------------------------------------------------
 for s = 1:numSubj
     
-    % Get Condition and partition vector
-    if (iscell(conditionVec))
-        cV = conditionVec{s};
-        pV = partitionVec{s};
-    else
-        cV = conditionVec;
-        pV = partitionVec;
-    end;
+    % If condition and partition Vectors are not cells, assume they are the
+    % same 
+    if (iscell(conditionVec)) 
+        cV = conditionVec{s}; 
+        pV = partitionVec{s}; 
+    else 
+        cV = conditionVec; 
+        pV = partitionVec; 
+    end; 
     
     % Set up the main matrices
     [N(s,1),P(s,1)] = size(Y{s});
@@ -145,7 +152,7 @@ for s = 1:numSubj
             % Orthogonalize Y and Z
             Z{s} = R*Z{s};
             %Y{s} = R*Y{s}; % changing Y{s} here affects following
-            %                 calculation of G
+            %                 calculation of G                        
             Yrem        = R*Y{s}; % should this be kept for further use?
             
             YY{s}       = (Yrem * Yrem');
@@ -158,124 +165,86 @@ for s = 1:numSubj
     % Estimate crossvalidated second moment matrix to get noise and run
     [G_hat(:,:,s),Sig_hat(:,:,s)] = pcm_estGCrossval(Y{s},pV,cV);
     sh              = Sig_hat(:,:,s);
-    run0(s,1)       = log((sum(sum(sh))-trace(sh))/(numCond*(numCond-1)));
-    noise0(s,1)     = log(trace(sh)/numCond-exp(run0(s)));
-    
-    if (fitScale)
-        G0            = mean(G_hat,3);
-        g0            = G0(:);
-        g_hat         = G_hat(:,:,s);
-        g_hat         = g_hat(:);
-        scaling       = (g0'*g_hat)/(g0'*g0);
-        if ((scaling<10e-6)||~isfinite(scaling));
-            scaling = 10e-6;
-        end;      % Enforce positive scaling
-        scale0(s,1)   = log(scaling);
-    end;
-    
+    run0(s,1)       = real(log((sum(sum(sh))-trace(sh))/(numCond*(numCond-1))));
+    noise0(s,1)     = real(log(trace(sh)/numCond-exp(run0(s))));
 end;
 
 % -----------------------------------------------------
-% Loop over subjects and obtain crossvalidated likelihoods
+% Perform the overall group fit across all subjects
 % -----------------------------------------------------
-for s = 1:numSubj
-    % determine training set
-    notS    = [1:numSubj];
-    notS(s) = [];
-    
-    % Now loop over models
-    for m = 1:numModels
-        if (verbose)
-            if isfield(M{m},'name');
-                fprintf('Crossval Subj: %d model:%s',s,M{m}.name);
-            else
-                fprintf('Crossval Subj: %d model:%d',s,m);
-            end;
-        end;
-        tic;
-        
-        % Determine starting values for fit: If group fit is given, start
-        % with those values
-        if (~isempty(groupFit))
-            noise0 = log(groupFit.noise(:,m));
-            if (fitScale)
-                scale0 = log(groupFit.scale(:,m));
-            end;
-            if (strcmp(runEffect,'random'))
-                run0 = log(groupFit.run(:,m));
-            end;
-            theta0 = M{m}.thetaGroup;
-        else % No group fit: determine starting values
-            if (isfield(M{m},'theta0'))
-                theta0 = M{m}.theta0;
-            else
-                theta0 = pcm_getStartingval(M{m},mean(G_hat,3));
-            end;
-        end;
-        
-        % Now fit to all the subject but the left-out one
-        switch (M{m}.type)
-            case 'fixed'
-                G = M{m}.Gc;
-                i = 0;
-            case 'noiseceiling'
-                G = mean(G_hat(:,:,notS),3);    % uses the mean of all other subjects
-                G = pcm_makePD(G);
-                i = 0;
-            otherwise
-                if (isempty(S))
-                    fcn = @(x) pcm_likelihoodGroup(x,{YY{notS}},M{m},{Z{notS}},{X{notS}},P(notS(:)),...
-                        'runEffect',{B{notS}},'fitScale',fitScale);
-                else
-                    fcn = @(x) pcm_likelihoodGroup(x,{YY{notS}},M{m},{Z{notS}},{X{notS}},P(notS(:)),...
-                        'runEffect',{B{notS}},'S',S(notS),'fitScale',fitScale);
-                end;
-                
-                % Generate the starting vector
-                x0 = [theta0;noise0(notS)];
-                if (fitScale)
-                    x0 = [x0;scale0(notS)];
-                end;
-                if (strcmp(runEffect,'random'))
-                    x0  = [x0;run0(notS)];       % Start with G-params from group fit
-                end;
-                [theta,fX,i] =  minimize(x0, fcn, MaxIteration);
-                M{m}.thetaCross(:,s)=theta(1:M{m}.numGparams);
-                G   = pcm_calculateG(M{m},M{m}.thetaCross(1:M{m}.numGparams,s));
-        end;
-        
-        % Now get the fit the left-out subject
-        % (maximizing scale and noise coefficients)
-        x0 = noise0(s);
-        if fitScale
-            x0 = [x0;scale0(s)];
-        end;
-        if (strcmp(runEffect,'random'))
-            x0      = [x0;run0(s)];
-        end;
-        
-        if (isempty(S))
-            fcn     = @(x) pcm_likelihoodGroup(x,{YY{s}},G,{Z{s}},{X{s}},P(s),...
-                'runEffect',{B{s}},'fitScale',fitScale);   % Minize scaling params only
+for m = 1:numModels
+    if (verbose)
+        if isfield(M,'name');
+            fprintf('Overall fitting model:%s\n',M{m}.name);
         else
-            fcn     = @(x) pcm_likelihoodGroup(x,{YY{s}},G,{Z{s}},{X{s}},P(s),...
-                'runEffect',{B{s}},'S',S(s),'fitScale',fitScale);   % Minize scaling params only
+            fprintf('Overall fitting model:%d\n',m);
         end;
-        
-        [th{m}(:,s),fX] =  minimize(x0, fcn, MaxIteration);
-        
-        T.likelihood(s,m) = -fX(end);
-        T.iterations(s,m) = i;
-        T.time(s,m)       = toc;
-        if verbose
-            fprintf('\t Iterations %d, Elapsed time: %3.3f\n',T.iterations(s,m),T.time(s,m));
+    end;
+    
+    % Get starting guess for theta if not provided
+    if (isfield(M{m},'theta0'))
+        theta0 = M{m}.theta0;
+    else
+        theta0 = pcm_getStartingval(M{m},mean(G_hat,3));   
+    end;
+    
+    % Use normal linear regression to get scaling parameter for the
+    % subject
+    switch (M{m}.type)
+        case 'noiseceiling'
+            G0 = mean(G_hat,3); 
+            M{m}.numGparams=0; 
+            M{m}.Gc = G0;
+        otherwise 
+            G0 = pcm_calculateG(M{m},theta0);
+    end; 
+    g0 = G0(:);
+    
+    % Estimate starting scaling value for each subject
+    if (fitScale) 
+        for s = 1:numSubj
+            g_hat         = G_hat(:,:,s);
+            g_hat         = g_hat(:); 
+            scaling       = (g0'*g_hat)/(g0'*g0);
+            if ((scaling<10e-6)||~isfinite(scaling)); scaling = 10e-6; end;      % Enforce positive scaling
+            scale0(s,m)   = log(scaling);
         end;
-        T.noise(s,m) = exp(th{m}(1,s));
-        if (fitScale)
-            T.scale(s,m) = exp(th{m}(2,s));
-        end;
-        if (strcmp(runEffect,'random'))
-            T.run(s,m)   = exp(th{m}(fitScale+1,s));
-        end;
+    end; 
+    
+    % Put together the vector of starting value 
+    x0 = theta0; 
+    x0=[x0;noise0]; 
+    if(fitScale) 
+        x0 = [x0;scale0(:,m)]; 
+    end; 
+    if (strcmp(runEffect,'random'))
+        x0 = [x0;run0];
+    end; 
+    
+    % Now do the fitting
+    if (M{m}.numGparams==0) 
+        fcn = @(x) pcm_likelihoodGroup(x,YY,G0,Z,X,P,'runEffect',B,'S',S,'fitScale',fitScale);
+    else 
+        fcn = @(x) pcm_likelihoodGroup(x,YY,M{m},Z,X,P,'runEffect',B,'S',S,'fitScale',fitScale);
+    end;
+    [thetaAll,fx]       = minimize(x0, fcn, MaxIteration);
+    
+    M{m}.thetaGroup   = thetaAll(1:M{m}.numGparams);      % Main model parameters
+    T.noise(:,m)      = exp(thetaAll(M{m}.numGparams+1:M{m}.numGparams+numSubj));
+    if (fitScale) 
+        T.scale(:,m)      = exp(thetaAll(M{m}.numGparams+numSubj+1:M{m}.numGparams+2*numSubj));
+    end; 
+    if (strcmp(runEffect,'random'))
+        T.run(:,m)  = exp(thetaAll(M{m}.numGparams+(1+fitScale)*numSubj+1:M{m}.numGparams+(2+fitScale)*numSubj));
+    end;
+    
+    M{m}.G_pred         = pcm_calculateG(M{m},M{m}.thetaGroup);
+    
+    % Compute log-likelihood under the estimated parameters
+    [~,~,T.likelihood(:,m)] = fcn(thetaAll);
+    
+    % This is an optional check if the dervivate calculation is correct
+    if (isCheckDeriv)
+        d = pcm_checkderiv(fcn,thetaAll-0.01,0.0000001);
     end;
 end;
