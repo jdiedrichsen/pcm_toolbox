@@ -22,7 +22,7 @@ else
     end;
     switch (M.type)
         case {'fixed','noiseceiling'}
-            G=M.Gc;
+            G        = mean(M.Gc,3);
             dGdtheta =[]; 
         case 'component'
             dGdtheta=bsxfun(@times,M.Gc,permute(exp(theta),[3 2 1]));
