@@ -216,7 +216,11 @@ for s = 1:numSubj
         % Now fit to all the subject but the left-out one
         switch (M{m}.type)
             case 'fixed'
-                G = M{m}.Gc;
+                if size(M{m}.Gc,3)>1
+                    G = mean(M{m}.Gc(:,:,notS),3);
+                else
+                    G = M{m}.Gc;
+                end
                 i = 0;
             case 'noiseceiling'
                 G = mean(G_hat(:,:,notS),3);    % uses the mean of all other subjects
