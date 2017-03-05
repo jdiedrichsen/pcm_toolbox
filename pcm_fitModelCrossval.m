@@ -70,6 +70,9 @@ function [T,M]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
 %                   line (e.g., elapsed time). Default is 1.
 %   'groupFit',T:   Structure T from the group fit: This provides better starting
 %                   values and can speed up the computation
+% 
+%   'Z':            User specified design matrix Z for flexible modelling.
+%                   
 %--------------------------------------------------------------------------
 % OUTPUT:
 %   T:      Structure with following subfields:
@@ -89,14 +92,20 @@ MaxIteration    = 1000;
 verbose         = 1;
 groupFit        = [];
 fitScale        = 1;
+Z               = [];
 pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration',...
-    'verbose','groupFit','fitScale'});
+    'verbose','groupFit','fitScale','Z'});
 
 numSubj     = numel(Y);
 numModels   = numel(M);
 
 % Preallocate output structure
 T.SN = [1:numSubj]';
+
+% Check size of Z
+if ~isempty(Z)&&numel(Z)~=numSubj;
+    error('Invalid size of user-specified "Z" matrix!');
+end
 
 % --------------------------------------------------------
 % Figure out a starting values for the noise parameters
@@ -114,7 +123,9 @@ for s = 1:numSubj
     
     % Set up the main matrices
     [N(s,1),P(s,1)] = size(Y{s});
-    Z{s}   = pcm_indicatorMatrix('identity_p',cV);
+    if isempty(Z)||numel(Z)<numSubj
+        Z{s}   = pcm_indicatorMatrix('identity_p',cV);
+    end
     numCond= size(Z{s},2);
     
     % Depending on the way of dealing with the run effect, set up data
