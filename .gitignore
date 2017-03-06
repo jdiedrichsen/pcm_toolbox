@@ -1,7 +1,4 @@
 recipe_anova/*
-.m~
-
-
+*.m~
 recipe_anova/transformKornyData.m
-
 *.m~

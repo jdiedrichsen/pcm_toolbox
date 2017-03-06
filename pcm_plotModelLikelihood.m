@@ -130,8 +130,6 @@ end;
 set(gca,'XTick',[1:i-1]);
 set(gca,'XTickLabel',labels);
 ylabel('Relative Likelihood');
-pos = get(gcf,'Position');
-set(gcf,'Position',[pos(1) pos(2) 90*(i-1) pos(4)]);
 
 % Plot grey noise ceiling if given 
 lowerceil = T.likelihood_norm(:,Nceil); 
