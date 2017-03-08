@@ -1,4 +1,4 @@
-function [T,M]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
+function [T,M]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin);
 % function [T,theta_all,G_pred,theta]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
 % Fits pattern component model(s) specified by M to data from a number of
 % subjects.
