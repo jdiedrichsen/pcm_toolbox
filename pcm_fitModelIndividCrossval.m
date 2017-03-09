@@ -1,5 +1,5 @@
-function [T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,varargin);
-% function [T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,varargin);
+function [D,T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,varargin);
+% function [D,T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,varargin);
 % Fits pattern component model(s) specified in M to data from one (or more)
 % subjects individually, using leave-one out crossvalidation within each
 % subject.
@@ -62,7 +62,8 @@ function [T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,var
 %
 %--------------------------------------------------------------------------
 % OUTPUT:
-%   T:      Detailed crossvalidation results
+%   D:      Summary crossvalidation results (1 per subject) 
+%   T:      Detailed crossvalidation results (1 per condition) 
 %       SN:                 Subject number
 %       likelihood:         crossvalidated likelihood
 %       partition:          Partition serving as test set
@@ -201,10 +202,13 @@ for s = 1:numSubj
             
             % Evaluation criterion: Simple log-likelihood
             if (isempty(SS))
-                T.likelihood(n,m) =  pcm_likelihoodIndivid(th,YY(testIdx,testIdx),M{m},...
+                T.likelihood(n,m) =  -pcm_likelihoodIndivid(th,YY(testIdx,testIdx),M{m},...
                     Z(testIdx,:),Xtest,P,'runEffect',Btest);
+                % T.likelihood2(n,m) = -pcm_likelihoodIndivid(th,YY(traiIdx,traiIdx),M{m},...
+                %     Z(traiIdx,:),Xtrai,P,'runEffect',Btrai);
+                % T.likelihood3(n,m) = -pcm_likelihoodIndivid(th,YY,M{m},Z,X,P,'runEffect',B);
             else
-                T.likelihood(n,m) =  pcm_likelihoodIndivid(th,YY(testIdx,testIdx),M{m},...
+                T.likelihood(n,m) =  -pcm_likelihoodIndivid(th,YY(testIdx,testIdx),M{m},...
                     Z(testIdx,:),Xtest,P,'runEffect',Btest,'S',SS(testIdx,testIdx));
             end;
             %             [U,G,iV]=pcm_estimateU(th,Y{s}(traiIdx,:),M{m},...
@@ -213,4 +217,9 @@ for s = 1:numSubj
         end; % for each model
         n=n+1;
     end; % For each partition
+    % Summarize results across partitions for each subject 
+    indx = (T.SN==s); 
+    D.SN(s,1) = s; 
+    D.noise(s,:) = mean(T.noise(indx,:)); 
+    D.likelihood(s,:) = sum(T.likelihood(indx,:)); % Partitions are independent 
 end; % for each subject
