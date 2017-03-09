@@ -5,9 +5,8 @@ function [T,M]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin)
 % The model parameters are shared - the noise parameters are not.
 % If provided with a G_hat and Sig_hat, it also automatically estimates close
 % startingvalues.
-%
-% ----------------------------- Inputs ------------------------------------ 
-%
+%==========================================================================
+% INPUT:
 %        Y: {#Subjects}.[#Conditions x #Voxels]
 %            Observed/estimated beta regressors from each subject.
 %            Preferably multivariate noise-normalized beta regressors.
@@ -34,12 +33,11 @@ function [T,M]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin)
 %              .numGparams:  Scalar that defines the number of parameters
 %                             included in model.
 %              .theta0:      Vector of starting values for theta. If not given,
-%                             the function attempts to estimate these from a
-%                             crossvalidated version. Values usually estimated from
+%                              the function attempts to estimate these from a
+%                              crossvalidated version Values usually estimated from
 %                             observed second-moment matrix. Can estimate
-%                             these parameters using 'pcm_getStartingval'
-%                             (except for nonlinear models).
-%              .modelpred:   Modelling func. Must take theta values as vector
+%                             these parameters using 'pcm_modelpred_free_startingval'
+%              .modelpred':  Modelling func. Must take theta values as vector
 %                             and return predicated second moment matrix and
 %                             derivatives in respect to parameters (for nonlinear models).
 %              .Gc:          Linear component matrices (for type 'component')
@@ -59,9 +57,8 @@ function [T,M]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin)
 %                   One could also pass design matrix Z for each subject as
 %                   an element of cell array when each subject has
 %                   different design.
-%
-% ---------------------------- Options ------------------------------------
-%
+%--------------------------------------------------------------------------
+% OPTION:
 %   'runEffect': How to deal with effects that may be specific to different
 %                imaging runs:
 %                  'random': Models variance of the run effect for each subject
@@ -86,18 +83,18 @@ function [T,M]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin)
 % 
 %   'Z':            User specified design matrix Z for flexible modelling.
 %                   
-% ----------------------------- Outputs -----------------------------------
-% 
+%--------------------------------------------------------------------------
+% OUTPUT:
 %   T:      Structure with following subfields:
 %       SN:                 Subject number
 %       likelihood:         Crossvalidated likelihood
 %       scale:              Fitted scaling parameter - exp(theta_scale)
 %       noise:             	Fitted noise parameter - exp(theta_noise)
 %       run:               	Fitted run parameter - exp(theta_run)
-%   M{subject}(model):      Cell array of models - with appended fields
-%       theta:              numGParams x numSubj Matrix: Estimated parameters (model + scaling/noise parameters)
+%
+%   M{subject}(model):    Cell array of models - with appended fields
+%                       theta: numGParams x numSubj Matrix: Estimated parameters (model + scaling/noise parameters)
 %                              across the crossvalidation rounds.
-% 
 
 runEffect       = 'random';
 isCheckDeriv    = 0;
