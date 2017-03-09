@@ -1,7 +1,7 @@
 function [T,M,Iter,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
 % function [T,M,Iter,Ghat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
 % Fits pattern component model(s) specified by M to data from a number of
-% subjects .
+% subjects.
 % The model parameters are all individually fit.
 %==========================================================================
 % INPUT:

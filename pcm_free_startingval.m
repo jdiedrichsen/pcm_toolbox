@@ -8,7 +8,7 @@ function [theta,G,scaleParam] = pcm_free_startingval(G,varargin)
 % parameter by 1 to account for a free scaling parameter 
 % INPUT: 
 %       G_hat:      estimated KxK second momement matrix (does not have to
-%                   be pd
+%                   be pd)
 % VARARGIN: 
 %       'reduced',1: Reduce the parameters by setting the first parameter
 %                    to 1? (default to reduce)

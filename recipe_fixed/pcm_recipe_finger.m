@@ -1,4 +1,4 @@
-function varargout=pcm_recipe_fixed
+function varargout=pcm_recipe_finger
 % Example of a fit to two fixed pcm-models
 % The example of the models and data is taken from Ejaz et al. (2015).
 % Nature Neuroscience: "Hand usage predicts.." 
@@ -16,10 +16,33 @@ load data_recipe_fixed.mat
 % Data visualisation 
 % 1. visualize the representational stucture: Get the crossvalidated
 %    G-matrix for each data set and plot the average of this
+for s=1:12 
+    G_hat(:,:,s)=pcm_estGCrossval(Y{s},partVec{s},condVec{s}); 
+end; 
+Gm = mean(G_hat,3); % Mean estimate  
+subplot(2,3,1); 
+H = eye(5)-ones(5)/5; 
+imagesc(H*Gm*H'); 
 
+% ----------------------------------------------------------------
 % 2. visualize the the average G-matrix using an MDS plot 
+C= pcm_indicatorMatrix('allpairs',[1:5]'); 
+[COORD,l]=pcm_classicalMDS(Gm,'contrast',C); 
+subplot(2,3,2); 
+scatterplot(COORD(:,1),COORD(:,2),'label',[1:5]); 
+axis equal; 
 
+% ----------------------------------------------------------------
+% 2. Visualize the the predicted G-matrix from the different models 
+subplot(2,3,4); 
+imagesc(Model(1).G_cent); 
+title('Muscle'); 
 
+subplot(2,3,5); 
+imagesc(Model(2).G_cent); 
+title('Naturalstats'); 
+
+% ----------------------------------------------------------------
 % Now build the models 
 % Model 1: Null model for baseline: here we use a model which has all finger 
 % Patterns be independent - i.e. all finger pairs are equally far away from
@@ -74,6 +97,7 @@ runEffect  = 'fixed';
 [Tcross,M] = pcm_fitModelCrossval(Y,M,partVec,condVec,'runEffect',runEffect,'groupFit',Tgroup,'fitScale',1);
 
 % Provide a plot of the crossvalidated likelihoods 
+subplot(2,3,[3 6]); 
 T = pcm_plotModelLikelihood(Tcross,M,'upperceil',Tgroup.likelihood(:,5)); 
 
 varargout={T,M}; 

@@ -212,8 +212,6 @@ set(gca,'XTick',[1:i-1]);
 set(gca,'XTickLabel',labels);
 set(gca,'XLim',[0.5 i-0.5]);
 ylabel('Relative Likelihood');
-pos = get(gcf,'Position');
-set(gcf,'Position',[pos(1) pos(2) 90*(i-1) pos(4)]);
 
 
 

@@ -61,7 +61,7 @@ noiseParam = theta(M.numGparams+1);
 if (~isempty(runEffect))
     numRuns = size(runEffect,2);
     runParam = theta(M.numGparams+2);    % Subject run effect parameter
-    bG = pcm_blockdiag(G,eye(numRuns)*exp(runParam));  % Include run effect in G
+    G = pcm_blockdiag(G,eye(numRuns)*exp(runParam));  % Include run effect in G
     Z = [Z runEffect];                 % Include run effect in design matrix
 else
     numRuns = 0;                                % No run effects modelled
@@ -69,7 +69,7 @@ end;
 
 
 % Find the inverse of V - while dropping the zero dimensions in G
-[u,s] = eig(bG);
+[u,s] = eig(G);
 dS    = diag(s);
 idx   = dS>eps;
 Zu     = Z*u(:,idx);
@@ -81,7 +81,7 @@ if (isempty(S))
 else
     iV    = (S.invS-S.invS*Zu/(diag(1./dS(idx))*exp(noiseParam)+Zu'*S.invS*Zu)*Zu'*S.invS)./exp(noiseParam); % Matrix inversion lemma
 end;
-
+iV  = real(iV); % sometimes iV gets complex 
 % For ReML, compute the modified inverse iVr
 if (~isempty(X))
     iVX   = iV * X;

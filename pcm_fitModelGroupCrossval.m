@@ -1,17 +1,24 @@
-function [T,M]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
-% function [T,theta_all,G_pred,theta]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
+function [T,M]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin);
+% function [T,theta_all,G_pred,theta]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin);
 % Fits pattern component model(s) specified by M to data from a number of
 % subjects.
 % The model parameters are shared - the noise parameters are not.
 % If provided with a G_hat and Sig_hat, it also automatically estimates close
 % startingvalues.
-%==========================================================================
-% INPUT:
+%
+% ----------------------------- Inputs ------------------------------------ 
+%
 %        Y: {#Subjects}.[#Conditions x #Voxels]
 %            Observed/estimated beta regressors from each subject.
 %            Preferably multivariate noise-normalized beta regressors.
 %
-%        M: Cell array (number of models) of Models Each is a structure with subfields.
+%        M: {#Subjects}.[#Models]
+%           Cell array of model structure to be fitted for each subject.
+%           Multiple competing models are organized as structure array 
+%           (e.g., M{3}(5) means the fifth candidate model for subject 3).
+%           When single structure array is passed, apply it to all subjects.
+% 
+%           Subfields of each model structure are;
 %              .type:        Type of the model to be fitted
 %                             'fixed': Fixed structure without parameter
 %                                (except scale and noise for each subject)
@@ -27,11 +34,12 @@ function [T,M]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
 %              .numGparams:  Scalar that defines the number of parameters
 %                             included in model.
 %              .theta0:      Vector of starting values for theta. If not given,
-%                              the function attempts to estimate these from a
-%                              crossvalidated version Values usually estimated from
+%                             the function attempts to estimate these from a
+%                             crossvalidated version. Values usually estimated from
 %                             observed second-moment matrix. Can estimate
-%                             these parameters using 'pcm_modelpred_free_startingval'
-%              .modelpred':  Modelling func. Must take theta values as vector
+%                             these parameters using 'pcm_getStartingval'
+%                             (except for nonlinear models).
+%              .modelpred:   Modelling func. Must take theta values as vector
 %                             and return predicated second moment matrix and
 %                             derivatives in respect to parameters (for nonlinear models).
 %              .Gc:          Linear component matrices (for type 'component')
@@ -42,13 +50,18 @@ function [T,M]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
 %                   partition assignment of rows of Y{subj}.
 %                   Commonly these are the scanning run #s for beta
 %                   regressors.If 1 vector is given, then partitions are
-%                   assumed to be the same across subjects
+%                   assumed to be the same across subjects.
 %
 %   conditionVec: {#Subjects} Cell array with condition assignment vector
 %                   for each subject. Rows of conditionVec{subj} define
 %                   condition assignment of rows of Y{subj}.
-%--------------------------------------------------------------------------
-% OPTION:
+% 
+%                   One could also pass design matrix Z for each subject as
+%                   an element of cell array when each subject has
+%                   different design.
+%
+% ---------------------------- Options ------------------------------------
+%
 %   'runEffect': How to deal with effects that may be specific to different
 %                imaging runs:
 %                  'random': Models variance of the run effect for each subject
@@ -73,18 +86,18 @@ function [T,M]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
 % 
 %   'Z':            User specified design matrix Z for flexible modelling.
 %                   
-%--------------------------------------------------------------------------
-% OUTPUT:
+% ----------------------------- Outputs -----------------------------------
+% 
 %   T:      Structure with following subfields:
 %       SN:                 Subject number
 %       likelihood:         Crossvalidated likelihood
 %       scale:              Fitted scaling parameter - exp(theta_scale)
 %       noise:             	Fitted noise parameter - exp(theta_noise)
 %       run:               	Fitted run parameter - exp(theta_run)
-%
-%   M{m}:    Cell array of models - with appended fields
-%       theta:      numGParams x numSubj Matrix: Estimated parameters (model + scaling/noise parameters)
-%                   across the crossvalidation rounds.
+%   M{subject}(model):      Cell array of models - with appended fields
+%       theta:              numGParams x numSubj Matrix: Estimated parameters (model + scaling/noise parameters)
+%                              across the crossvalidation rounds.
+% 
 
 runEffect       = 'random';
 isCheckDeriv    = 0;
@@ -92,20 +105,24 @@ MaxIteration    = 1000;
 verbose         = 1;
 groupFit        = [];
 fitScale        = 1;
-Z               = [];
 pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration',...
-    'verbose','groupFit','fitScale','Z'});
+    'verbose','groupFit','fitScale'});
 
 numSubj     = numel(Y);
-numModels   = numel(M);
+
+% Check Model structure
+if (iscell(M));
+    Models = M;
+else
+    for s=1:numSubj
+        Models{s} = M;
+    end
+end;
+clear M;
+numModels = numel(Models{1}); % may need safety check?
 
 % Preallocate output structure
 T.SN = [1:numSubj]';
-
-% Check size of Z
-if ~isempty(Z)&&numel(Z)~=numSubj;
-    error('Invalid size of user-specified "Z" matrix!');
-end
 
 % --------------------------------------------------------
 % Figure out a starting values for the noise parameters
@@ -121,11 +138,15 @@ for s = 1:numSubj
         pV = partitionVec;
     end;
     
+    % Check if conditionVec is condition or design matrix
+    if size(cV,2)==1;
+        Z{s}   = pcm_indicatorMatrix('identity_p',cV);
+    else
+        Z{s} = cV;
+    end;
+    
     % Set up the main matrices
     [N(s,1),P(s,1)] = size(Y{s});
-    if isempty(Z)||numel(Z)<numSubj
-        Z{s}   = pcm_indicatorMatrix('identity_p',cV);
-    end
     numCond= size(Z{s},2);
     
     % Depending on the way of dealing with the run effect, set up data
@@ -183,13 +204,15 @@ for s = 1:numSubj
         end;      % Enforce positive scaling
         scale0(s,1)   = log(scaling);
     end;
-    
 end;
 
 % -----------------------------------------------------
 % Loop over subjects and obtain crossvalidated likelihoods
 % -----------------------------------------------------
 for s = 1:numSubj
+    % get M for the subject
+    M = Models{s};
+    
     % determine training set
     notS    = [1:numSubj];
     notS(s) = [];
@@ -197,8 +220,8 @@ for s = 1:numSubj
     % Now loop over models
     for m = 1:numModels
         if (verbose)
-            if isfield(M{m},'name');
-                fprintf('Crossval Subj: %d model:%s',s,M{m}.name);
+            if isfield(M(m),'name');
+                fprintf('Crossval Subj: %d model:%s',s,M(m).name);
             else
                 fprintf('Crossval Subj: %d model:%d',s,m);
             end;
@@ -215,19 +238,19 @@ for s = 1:numSubj
             if (strcmp(runEffect,'random'))
                 run0 = log(groupFit.run(:,m));
             end;
-            theta0 = M{m}.thetaGroup;
+            theta0 = M(m).thetaGroup;
         else % No group fit: determine starting values
-            if (isfield(M{m},'theta0'))
-                theta0 = M{m}.theta0;
+            if (isfield(M(m),'theta0'))
+                theta0 = M(m).theta0;
             else
-                theta0 = pcm_getStartingval(M{m},mean(G_hat,3));
+                theta0 = pcm_getStartingval(M(m),mean(G_hat,3));
             end;
         end;
         
         % Now fit to all the subject but the left-out one
-        switch (M{m}.type)
+        switch (M(m).type)
             case 'fixed'
-                G = M{m}.Gc;
+                G = M(m).Gc;
                 i = 0;
             case 'noiseceiling'
                 G = mean(G_hat(:,:,notS),3);    % uses the mean of all other subjects
@@ -235,10 +258,10 @@ for s = 1:numSubj
                 i = 0;
             otherwise
                 if (isempty(S))
-                    fcn = @(x) pcm_likelihoodGroup(x,{YY{notS}},M{m},{Z{notS}},{X{notS}},P(notS(:)),...
+                    fcn = @(x) pcm_likelihoodGroup(x,{YY{notS}},M(m),{Z{notS}},{X{notS}},P(notS(:)),...
                         'runEffect',{B{notS}},'fitScale',fitScale);
                 else
-                    fcn = @(x) pcm_likelihoodGroup(x,{YY{notS}},M{m},{Z{notS}},{X{notS}},P(notS(:)),...
+                    fcn = @(x) pcm_likelihoodGroup(x,{YY{notS}},M(m),{Z{notS}},{X{notS}},P(notS(:)),...
                         'runEffect',{B{notS}},'S',S(notS),'fitScale',fitScale);
                 end;
                 
@@ -251,8 +274,8 @@ for s = 1:numSubj
                     x0  = [x0;run0(notS)];       % Start with G-params from group fit
                 end;
                 [theta,fX,i] =  minimize(x0, fcn, MaxIteration);
-                M{m}.thetaCross(:,s)=theta(1:M{m}.numGparams);
-                G   = pcm_calculateG(M{m},M{m}.thetaCross(1:M{m}.numGparams,s));
+                M(m).thetaCross(:,s)=theta(1:M(m).numGparams);
+                G   = pcm_calculateG(M(m),M(m).thetaCross(1:M(m).numGparams,s));
         end;
         
         % Now get the fit the left-out subject
@@ -262,7 +285,7 @@ for s = 1:numSubj
             x0 = [x0;scale0(s)];
         end;
         if (strcmp(runEffect,'random'))
-            x0      = [x0;run0(s)];
+            x0 = [x0;run0(s)];
         end;
         
         if (isempty(S))
@@ -289,4 +312,8 @@ for s = 1:numSubj
             T.run(s,m)   = exp(th{m}(fitScale+1,s));
         end;
     end;
+    % get M back to Model
+    Models{s} = M;
 end;
+clear M;
+M = Models;
