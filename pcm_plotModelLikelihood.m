@@ -212,6 +212,3 @@ set(gca,'XTick',[1:i-1]);
 set(gca,'XTickLabel',labels);
 set(gca,'XLim',[0.5 i-0.5]);
 ylabel('Relative Likelihood');
-
-
-
