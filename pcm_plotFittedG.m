@@ -86,7 +86,7 @@ if (~isempty(subj) || length(T.SN)==1)
 end
 
 % Check to see if we are plotting makes sense and inform user (if necessary).
-if (isfield(M,'thetaIndiv') && length(subj)>1)
+if (isfield(M{1},'thetaIndiv') && (length(subj)>1 || isempty(subj)))
     warning('You are plotting the group average of fits from pcm_fitModelIndivid. This is not recommended as each subject will have different noise scaling.');
 end
 
@@ -99,7 +99,7 @@ if size(G_hat,3) > 1                % If we have G for >1 subject,...
     end
 end;
 
-% Determine which models to plot.
+% Determine which models to plot- don't plot null and noiseceiling models.
 if isempty(mindx)
     mindx = [1:length(M)];
     for m = mindx
@@ -121,7 +121,7 @@ G{1} = G_hat;
 max_G = max(max(G{1}));
 for i = 1:length(mindx)
     m = mindx(i);
-    if ~isempty(subj) 
+    if ~isempty(subj) % Plotting single subject data
         if isfield(M{m},'thetaCross')     % if using crossvalidated fitting output structure, need to calculate G
             G{i+1} = pcm_calculateG(M{m},M{m}.thetaCross(:,subj)).*T.scale(subj,m);
         elseif isfield(M{m},'thetaIndiv') % if using individual fitting output structure, G is already calcualted
@@ -133,7 +133,7 @@ for i = 1:length(mindx)
         else
             error(sprintf(' Check the submitted structures for correct fields:\n\t- ''thetaCross'' (if submitting crossvalidated group structures)\n\t- ''thetaIndiv'' (if submitting individual (no cv) fitted structures)'))
         end
-    else
+    else              % Plotting group Gs
         G_pred = zeros(numC,numC,length(unique(T.SN)));
         for s = T.SN'
             try

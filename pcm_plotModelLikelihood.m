@@ -26,9 +26,9 @@ function [T] = pcm_plotModelLikelihood(T,M,varargin)
 % Default is to plot group average likelihoods for each model fit.
 %
 % Returns structure T with likelihood_norm field (the scaled likelihoods).
-% NOTE: if T is submitted with a field called likelihood_norm, the
-% likelihoods are not scaled and instead the values in the likelihood_norm
-% field are plotted.
+% 
+% NOTE: If field T.likelihood_norm already exists, function still
+% normalizes values and overwrites this field. Exercise caution.
 %
 % ----------------------------- Inputs ------------------------------------
 %
@@ -85,11 +85,25 @@ if ~(isstruct(T))
     error('T is not pcm result structure. Check inputs.')
 end
 
-% Determine if plotting single subject or group avg likelihoods.
 numSubj = size(T.likelihood,1);
-if (isempty(subj)) 
+% Check subj (determine if plotting group average or individual's data).
+if (~isempty(subj) || length(T.SN)==1)
+    % User didn't specify specific subject, but T only has one subject.
+    if isempty(subj)  
+        subj = T.SN;
+    end
+    % Take only data for specified subject.
+    sf = @(x) x(subj,:);
+    T  = structfun(sf,T,'UniformOutput',false); 
+elseif (isempty(subj))
+    % Plotting group avg.
     subj = 1:numSubj; 
 end; 
+
+% Check to see if we are plotting makes sense and inform user (if necessary).
+if (isfield(M{1},'thetaIndiv') && (length(subj)>1 || isempty(subj)))
+    warning('You are plotting the group average of fits from pcm_fitModelIndivid. This is not recommended as likelihoods are not crossvalidated.');
+end
 
 % Locate models for likelihood scaling (first check type, then name).
 if isnan(Nceil) 
@@ -148,21 +162,19 @@ end
 % Scale Likelihoods
 % - - - - - - -
 % Scale likelihoods between null and ceiling fits.
-if ~isfield(T,'likelihood_norm') % do we need to scale likelihoods?
-    % Make all data relative to the the null model.
-    T.likelihood_norm = bsxfun(@minus,T.likelihood,T.likelihood(:,Nnull)); % null fit is 0
-    % Correct the upper noise ceiling for the new zero point.
-    if (~isempty(upperceil))
-        upperceil = upperceil - T.likelihood(:,Nnull); 
+% Make all data relative to the the null model.
+T.likelihood_norm = bsxfun(@minus,T.likelihood,T.likelihood(:,Nnull)); % null fit is 0
+% Correct the upper noise ceiling for the new zero point.
+if (~isempty(upperceil))
+    upperceil = upperceil - T.likelihood(:,Nnull); 
+end; 
+if (normalize) 
+    if (isempty(upperceil))
+        error(sprintf('The normalize option is currently set to 1 but no noise ceiling is provided. Please either: \n   - provide upper noise ceiling for normalization (see ''upperceil'' option) \n   - set ''normalize'' option to 0 (see ''normalize'' option)')); 
     end; 
-    if (normalize) 
-        if (isempty(upperceil))
-            error('Please provide upper noise ceiling for normalization'); 
-        end; 
-        T.likelihood_norm = bsxfun(@rdivide,T.likelihood_norm,upperceil);     % ceiling fit is 1
-        upperceil         = 1; % Set the upper noise ceiling to 1. 
-    end; 
-end;
+    T.likelihood_norm = bsxfun(@rdivide,T.likelihood_norm,upperceil);     % ceiling fit is 1
+    upperceil         = 1; % Set the upper noise ceiling to 1. 
+end; 
 
 % - - - - - - -
 % Plot noise ceilings
