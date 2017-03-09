@@ -4,11 +4,19 @@ function pcm_plotFittedG(G_hat,T,M,varargin)
 % Plots the real and scaled model predicted second moment matrices (G) 
 % of the pattern component model(s) in M. 
 %
-% Model G_preds are scaled by the scaling factor in T. This is done because
-% the starting guess for theta params are scaled such that the first value
-% becomes 1. This reduces the number of parameters to maximize the fit by
-% 1, reducing computation time. To be comparable to the real G, the
-% predicted matrices need to be "unscaled".
+% Plotting using outputs from pcm_fitModelGroupCrossval:
+% 
+%   Model G_preds are scaled by the scaling factor in T. This is done because
+%   the starting guess for theta params are scaled such that the first value
+%   becomes 1. This reduces the number of parameters to maximize the fit by
+%   1, reducing computation time. To be comparable to the real G, the
+%   predicted matrices need to be "unscaled".
+%
+% Plotting using outputs from pcm_fitModelIndivid:
+%
+%   No scaling is applied for each subject. 
+%   We also do not recommend plotting the group average of these Gs-
+%   conceptually it does not make sense to do so.
 %
 % ----------------------------- Inputs ------------------------------------
 %
@@ -63,24 +71,31 @@ pcm_vararginoptions(varargin,{'cmap','subj','mindx','clims','style','linewidth',
 % - - - - - - -
 % Check T and M.
 if ~(isstruct(T)) || ~(isstruct(M{1}))
-    error('T or M are not pcm model structures. Check inputs.')
+    error('T or M are not pcm model output structures. Check inputs.')
 end
 
 % Check subj (determine if plotting group average or individual's data).
 if (~isempty(subj) || length(T.SN)==1)
-    if isempty(subj)
+    % User didn't specify specific subject, but T only has one subject.
+    if isempty(subj)  
         subj = T.SN;
     end
+    % Take only data for specified subject.
     sf = @(x) x(subj,:);
-    T  = structfun(sf,T,'UniformOutput',false); % take only data for specified subject
+    T  = structfun(sf,T,'UniformOutput',false); 
+end
+
+% Check to see if we are plotting makes sense and inform user (if necessary).
+if (isfield(M,'thetaIndiv') && length(subj)>1)
+    warning('You are plotting the group average of fits from pcm_fitModelIndivid. This is not recommended as each subject will have different noise scaling.');
 end
 
 % Check G_hat.
-if size(G_hat,3) > 1                % if G_hat for each subject
-    if isempty(subj)                % are we plotting group lvl G?
-        G_hat = mean(G_hat,3);     % if so, avg. G_hat across subjects
+if size(G_hat,3) > 1                % If we have G for >1 subject,...
+    if isempty(subj)                % do we need to avg G (for group plot)?
+        G_hat = mean(G_hat,3);      
     else
-        G_hat = G_hat(:,:,subj);   % otherwise take subject's G_hat
+        G_hat = G_hat(:,:,subj);    % or take one subject's data?
     end
 end;
 
@@ -110,14 +125,22 @@ for i = 1:length(mindx)
         if isfield(M{m},'thetaCross')     % if using crossvalidated fitting output structure, need to calculate G
             G{i+1} = pcm_calculateG(M{m},M{m}.thetaCross(:,subj)).*T.scale(subj,m);
         elseif isfield(M{m},'thetaIndiv') % if using individual fitting output structure, G is already calcualted
-            G{i+1} = M{m}.G_pred;
+            try
+                G{i+1} = M{m}.G_pred(:,:,subj);
+            catch
+                G{i+1} = pcm_calculateG(M{m},M{m}.thetaIndiv(:,subj));
+            end
         else
-            error(sprintf('Check the submitted structures for correct fields:\n\t- ''thetaCross'' (if submitting crossvalidated group structures)\n\t- ''G_pred''     (if submitting individual (no cv) fitted structures)'))
+            error(sprintf(' Check the submitted structures for correct fields:\n\t- ''thetaCross'' (if submitting crossvalidated group structures)\n\t- ''thetaIndiv'' (if submitting individual (no cv) fitted structures)'))
         end
     else
         G_pred = zeros(numC,numC,length(unique(T.SN)));
         for s = T.SN'
-            G_pred(:,:,s) = pcm_calculateG(M{m},M{m}.thetaCross(:,s)).*T.scale(s,m);
+            try
+                G_pred(:,:,s) = pcm_calculateG(M{m},M{m}.thetaCross(:,s)).*T.scale(s,m);
+            catch
+                error(sprintf(' You are attempting to plot results from pcm_fitModelIndivid. \n You have submitted one subject''s G matrix but structure T has entries for multiple subjects. \n Please specify specific subject to plot using ''subj'' option.'));
+            end
         end
         G{i+1} = mean(G_pred,3);
         clear G_pred
@@ -155,7 +178,7 @@ switch style
                     title(sprintf('Model %d',m));
                 end
             end
-            % reshape imagesc plot (clean most of surrounding whitespace)
+            % reshape imagesc plot (clean some of surrounding whitespace)
             axis equal
             yx = get(gca,'YLim');
             set(gca,'YLim',[(yx(1)+numC+1) (yx(2)-numC-1)]);
