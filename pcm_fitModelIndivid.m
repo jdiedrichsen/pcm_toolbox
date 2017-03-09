@@ -138,10 +138,10 @@ for s = 1:numSubj
     % Now loop over models 
     for m = 1:length(M)
         if (verbose) 
-            if isfield(M,'name');
-                fprintf('Fitting Subj: %d model:%s\n',s,M{m}.name);
+            if isfield(M{m},'name');
+                fprintf('Fitting Subj: %d model: %s\n',s,M{m}.name);
             else
-                fprintf('Fitting Subj: %d model:%ds\n',s,m);
+                fprintf('Fitting Subj: %d model: %d\n',s,m);
             end;
         end; 
         tic; 
@@ -168,13 +168,13 @@ for s = 1:numSubj
                 x0  = [theta0;noise0(s);run0(s)];
         end; 
         
-        % Use minimize to fine maximum liklhood estimate 
+        % Use minimize to find maximum liklhood estimate 
         [theta,fX,i]      =  minimize(x0, fcn, MaxIteration);
         M{m}.thetaIndiv(:,s)   =  theta(1:M{m}.numGparams);
         M{m}.G_pred       =  pcm_calculateG(M{m},M{m}.thetaIndiv(:,s));
         T.noise(s,m)      =  exp(theta(M{m}.numGparams+1)); 
         if strcmp(runEffect,'random')
-            T.run(s,m)      =  exp(theta(M{m}.numGparams+2)); 
+            T.run(s,m)    =  exp(theta(M{m}.numGparams+2)); 
         end; 
         T.likelihood(s,m) =  -fX(end);  %invert the sign 
         T.iterations(s,m) = i;
