@@ -73,7 +73,7 @@ for s=1:numSubj
     % Get parameter and sizes
     noiseParam = theta(M.numGparams+s);             % Subject Noise Parameter
     if (fitScale) 
-        scaleParam = theta(M.numGparams+numSubj+s);   % Subject Scaling Parameter
+        scaleParam = theta(M.numGparams+numSubj+s);   % Subject Noise Parameter
     else 
         scaleParam = 0; 
     end; 
