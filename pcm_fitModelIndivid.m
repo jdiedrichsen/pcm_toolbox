@@ -74,7 +74,7 @@ function [T,theta_hat,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,v
 %       time:               Elapsed time in sec 
 %
 %   theta{m}     Cell array of estimated model parameters, each a 
-%                 #numSubj x #params matrix 
+%                 #params x #numSubj matrix 
 %   G_hat{m}     Cell array of estimated G-matrices under the model 
 
 runEffect       = 'random';
@@ -82,7 +82,8 @@ isCheckDeriv    = 0;
 MaxIteration    = 1000;
 Iter            = [];
 verbose         = 1; 
-pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration','verbose'});
+S               = []; 
+pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration','verbose','S'});
 
 numSubj     = numel(Y);
 numModels   = numel(M);
@@ -112,19 +113,10 @@ for s = 1:numSubj
             YY{s}  = (Y{s} * Y{s}');
             B{s}   = pcm_indicatorMatrix('identity_p',pV);
             X{s}   = [];
-            S      = [];   % Use indentity for covariance
         case 'fixed'
             YY{s}  = (Y{s} * Y{s}');
             B{s}  =  [];
             X{s}  =  pcm_indicatorMatrix('identity_p',pV);
-            S     =  [];    % Use indentity for covariance
-        case 'remove'  % This currently doesn't work as intended - dimensionality reduction needed 
-            Run    =  indicatorMatrix('identity_p',pV);
-            R      =  eye(N(s))-Run*((Run'*Run)\Run');
-            YY{s}  = (R*Y{s} * Y{s}'*R');
-            S(s).S = R*R'
-            S(s).invS = pinv(S(s).S);
-            B{s}  = [];
     end;
     
     % Estimate starting value run and the noise from a crossvalidated estimate of the second moment matrix 
@@ -173,8 +165,8 @@ for s = 1:numSubj
         
         % Use minimize to find maximum liklhood estimate 
         [theta,fX,i]      =  minimize(x0, fcn, MaxIteration);
-        theta_hat{m}(s,:) =  theta(1:M{m}.numGparams)';
-        G_pred{m}(:,:,s)  =  pcm_calculateG(M{m},theta_hat{m}(s,:)');
+        theta_hat{m}(:,s) =  theta;
+        G_pred{m}(:,:,s)  =  pcm_calculateG(M{m},theta_hat{m}(:,s));
         T.noise(s,m)      =  exp(theta(M{m}.numGparams+1)); 
         if strcmp(runEffect,'random')
             T.run(s,m)      =  exp(theta(M{m}.numGparams+2)); 

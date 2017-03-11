@@ -1,5 +1,5 @@
-function [T,M]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,varargin);
-% function [T,theta_all,G_pred,theta]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
+function [T,theta_hat,G_pred]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,varargin);
+% function [T,theta_hat,G_pred]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
 % Fits pattern component model(s) specified by M to data from a number of
 % subjects.
 % The model parameters are shared - the noise parameters are not.
@@ -85,10 +85,10 @@ function [T,M]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,varargin);
 %       scale:          Scale parameter for each subject (if fitScale set to 1)  
 %       run:            Run variance (if runEffect = 'random'); 
 %
-%   M{m}:    Cell array of models - with appended fields
-%       thetaGroup:  Estimated parameters at the overall fitting.
-%       Gpred:       Predicted second moment matrix for the model from group
-%                    fit
+%    theta_hat:  Estimated parameters at the overall fitting (including
+%                noise and scale parameters).  
+%    Gpred:      Predicted second moment matrix for the model from group
+%                fit for each model 
 
 runEffect       = 'random';
 isCheckDeriv    = 0;
@@ -227,21 +227,20 @@ for m = 1:numModels
     else 
         fcn = @(x) pcm_likelihoodGroup(x,YY,M{m},Z,X,P,'runEffect',B,'S',S,'fitScale',fitScale);
     end;
-    [thetaAll,fx]       = minimize(x0, fcn, MaxIteration);
+    [theta_hat{m},fx]       = minimize(x0, fcn, MaxIteration);
     
-    M{m}.thetaGroup   = thetaAll(1:M{m}.numGparams);      % Main model parameters
-    T.noise(:,m)      = exp(thetaAll(M{m}.numGparams+1:M{m}.numGparams+numSubj));
+    T.noise(:,m)      = exp(theta_hat{m}(M{m}.numGparams+1:M{m}.numGparams+numSubj));
     if (fitScale) 
-        T.scale(:,m)      = exp(thetaAll(M{m}.numGparams+numSubj+1:M{m}.numGparams+2*numSubj));
+        T.scale(:,m)      = exp(theta_hat{m}(M{m}.numGparams+numSubj+1:M{m}.numGparams+2*numSubj));
     end; 
     if (strcmp(runEffect,'random'))
-        T.run(:,m)  = exp(thetaAll(M{m}.numGparams+(1+fitScale)*numSubj+1:M{m}.numGparams+(2+fitScale)*numSubj));
+        T.run(:,m)  = exp(theta_hat{m}(M{m}.numGparams+(1+fitScale)*numSubj+1:M{m}.numGparams+(2+fitScale)*numSubj));
     end;
     
-    M{m}.G_pred         = pcm_calculateG(M{m},M{m}.thetaGroup);
+    G_pred{m}        = pcm_calculateG(M{m},theta_hat{m}(1:M{m}.numGparams));
     
     % Compute log-likelihood under the estimated parameters
-    [~,~,T.likelihood(:,m)] = fcn(thetaAll);
+    [~,~,T.likelihood(:,m)] = fcn(theta_hat{m});
     
     % This is an optional check if the dervivate calculation is correct
     if (isCheckDeriv)

@@ -1,5 +1,5 @@
-function [T,M]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin);
-% function [T,theta_all,G_pred,theta]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin);
+function [T,theta_hat]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin);
+% function [T,theta_hat]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin);
 % Fits pattern component model(s) specified by M to data from a number of
 % subjects.
 % The model parameters are shared - the noise parameters are not.
@@ -11,13 +11,12 @@ function [T,M]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin)
 %            Observed/estimated beta regressors from each subject.
 %            Preferably multivariate noise-normalized beta regressors.
 %
-%        M: {#Subjects}.[#Models]
-%           Cell array of model structure to be fitted for each subject.
-%           Multiple competing models are organized as structure array 
-%           (e.g., M{3}(5) means the fifth candidate model for subject 3).
-%           When single structure array is passed, apply it to all subjects.
+%        M: {#Model}
+%           Cell array of models to be fitted for each subject.
+%           Multiple competing models are stored in a cell array 
+%           (e.g., M{3} means the third model).
 % 
-%           Subfields of each model structure are;
+%           Requiered fields of each model structure are;
 %              .type:        Type of the model to be fitted
 %                             'fixed': Fixed structure without parameter
 %                                (except scale and noise for each subject)
@@ -36,7 +35,9 @@ function [T,M]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin)
 %                              the function attempts to estimate these from a
 %                              crossvalidated version Values usually estimated from
 %                             observed second-moment matrix. Can estimate
-%                             these parameters using 'pcm_modelpred_free_startingval'
+%                             these parameters using
+%                             'pcm_modelpred_free_startingval'
+%           Model-specific field 
 %              .modelpred':  Modelling func. Must take theta values as vector
 %                             and return predicated second moment matrix and
 %                             derivatives in respect to parameters (for nonlinear models).
@@ -54,7 +55,7 @@ function [T,M]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin)
 %                   for each subject. Rows of conditionVec{subj} define
 %                   condition assignment of rows of Y{subj}.
 % 
-%                   One could also pass design matrix Z for each subject as
+%                   One can also pass design matrix Z for each subject as
 %                   an element of cell array when each subject has
 %                   different design.
 %--------------------------------------------------------------------------
@@ -81,7 +82,9 @@ function [T,M]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin)
 %   'groupFit',T:   Structure T from the group fit: This provides better starting
 %                   values and can speed up the computation
 % 
-%   'Z':            User specified design matrix Z for flexible modelling.
+%   'S':            Specific assumed noise structure - usually inv(XX'*XX),
+%                   where XX is the first-level design matrix used to
+%                   estimate the activation estimates 
 %                   
 %--------------------------------------------------------------------------
 % OUTPUT:
@@ -92,9 +95,9 @@ function [T,M]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin)
 %       noise:             	Fitted noise parameter - exp(theta_noise)
 %       run:               	Fitted run parameter - exp(theta_run)
 %
-%   M{subject}(model):    Cell array of models - with appended fields
-%                       theta: numGParams x numSubj Matrix: Estimated parameters (model + scaling/noise parameters)
-%                              across the crossvalidation rounds.
+%   theta_hat{model}:   Cell array of models parameters from crossvalidation 
+%                       theta: numGparams{m}xnumSubj Matrix: Estimated parameters 
+%                       across the crossvalidation rounds from the training set.
 
 runEffect       = 'random';
 isCheckDeriv    = 0;
@@ -102,21 +105,18 @@ MaxIteration    = 1000;
 verbose         = 1;
 groupFit        = [];
 fitScale        = 1;
+S               = []; 
 pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration',...
-    'verbose','groupFit','fitScale'});
+    'verbose','groupFit','fitScale','S'});
 
 numSubj     = numel(Y);
 
-% Check Model structure
-if (iscell(M));
-    Models = M;
-else
-    for s=1:numSubj
-        Models{s} = M;
-    end
-end;
-clear M;
-numModels = numel(Models{1}); % may need safety check?
+% ----------------------------------
+if (~iscell(M)) 
+    M={M}; 
+end; 
+numModels = numel(M); 
+
 
 % Preallocate output structure
 T.SN = [1:numSubj]';
@@ -152,43 +152,17 @@ for s = 1:numSubj
             YY{s}  = (Y{s} * Y{s}');
             B{s}   = pcm_indicatorMatrix('identity_p',pV);
             X{s}   = [];
-            S      = [];   % Use identity for covariance
         case 'fixed'
             YY{s}  = (Y{s} * Y{s}');
             B{s}  =  [];
             X{s}  =  pcm_indicatorMatrix('identity_p',pV);
-            S     =  [];    % Use identity for covariance
-        case 'remove'
-            Run         =  indicatorMatrix('identity_p',pV);
-            R           =  eye(N(s))-Run*((Run'*Run)\Run');
-            
-            % Remove redundant dimention from S and Z
-            for c=1:size(Run,2)
-                idx = find(Run(:,c)==1);
-                idxrem(c,1) = idx(1); % can be other row
-            end
-            R(idxrem,:) = [];
-            Run(idxrem,:) = [];
-            % partitionVec{s}(idxrem) = []; % this also affect estG
-            
-            % Orthogonalize Y and Z
-            Z{s} = R*Z{s};
-            %Y{s} = R*Y{s}; % changing Y{s} here affects following
-            %                 calculation of G
-            Yrem        = R*Y{s}; % should this be kept for further use?
-            
-            YY{s}       = (Yrem * Yrem');
-            S(s).S      = R*R';             % Rotated noise covariance
-            S(s).invS   = pinv(S(s).S);     % Pre-calculated inverse of noise covariance
-            B{s}        = [];
-            X{s}        = [];
     end;
     
     % Estimate crossvalidated second moment matrix to get noise and run
     [G_hat(:,:,s),Sig_hat(:,:,s)] = pcm_estGCrossval(Y{s},pV,cV);
     sh              = Sig_hat(:,:,s);
-    run0(s,1)       = log((sum(sum(sh))-trace(sh))/(numCond*(numCond-1)));
-    noise0(s,1)     = log(trace(sh)/numCond-exp(run0(s)));
+    run0(s,1:numModels)       = log((sum(sum(sh))-trace(sh))/(numCond*(numCond-1)));
+    noise0(s,1:numModels)     = log(trace(sh)/numCond-exp(run0(s)));
     
     if (fitScale)
         G0            = mean(G_hat,3);
@@ -199,16 +173,42 @@ for s = 1:numSubj
         if ((scaling<10e-6)||~isfinite(scaling));
             scaling = 10e-6;
         end;      % Enforce positive scaling
-        scale0(s,1)   = log(scaling);
+        scale0(s,1:numModels)   = log(scaling);
     end;
 end;
+
+% --------------------------------------------------------------
+% Determine starting values for fit: If group fit is given, start
+% with those values
+for m = 1:numModels
+     if (~isempty(groupFit))
+        theta0{m}      = groupFit{m}(1:M{m}.numGparams);
+        indx           = M{m}.numGparams; 
+        noise0(:,m)     = groupFit{m}(indx+1:indx+numSubj);
+        indx           = indx+numSubj; 
+        if (fitScale) 
+            scale0(:,m)    = groupFit{m}(indx+1:indx+numSubj);
+            indx           = indx+numSubj; 
+        end; 
+        if (strcmp(runEffect,'random'))
+            run0 = groupFit{m}(indx:indx+numSubj);
+        end;
+
+     else % No group fit: determine starting values
+         if (isfield(M{m},'theta0'))
+            theta0{m} = M{m}.theta0;
+         else
+            theta0{m} = pcm_getStartingval(M{m},mean(G_hat,3));
+         end;
+    end;
+end; 
+        
+
 
 % -----------------------------------------------------
 % Loop over subjects and obtain crossvalidated likelihoods
 % -----------------------------------------------------
 for s = 1:numSubj
-    % get M for the subject
-    M = Models{s};
     
     % determine training set
     notS    = [1:numSubj];
@@ -217,37 +217,18 @@ for s = 1:numSubj
     % Now loop over models
     for m = 1:numModels
         if (verbose)
-            if isfield(M(m),'name');
-                fprintf('Crossval Subj: %d model:%s',s,M(m).name);
+            if isfield(M{m},'name');
+                fprintf('Crossval Subj: %d model:%s',s,M{m}.name);
             else
                 fprintf('Crossval Subj: %d model:%d',s,m);
             end;
         end;
         tic;
         
-        % Determine starting values for fit: If group fit is given, start
-        % with those values
-        if (~isempty(groupFit))
-            noise0 = log(groupFit.noise(:,m));
-            if (fitScale)
-                scale0 = log(groupFit.scale(:,m));
-            end;
-            if (strcmp(runEffect,'random'))
-                run0 = log(groupFit.run(:,m));
-            end;
-            theta0 = M(m).thetaGroup;
-        else % No group fit: determine starting values
-            if (isfield(M(m),'theta0'))
-                theta0 = M(m).theta0;
-            else
-                theta0 = pcm_getStartingval(M(m),mean(G_hat,3));
-            end;
-        end;
-        
         % Now fit to all the subject but the left-out one
-        switch (M(m).type)
+        switch (M{m}.type)
             case 'fixed'
-                G = M(m).Gc;
+                G = M{m}.Gc;
                 i = 0;
             case 'noiseceiling'
                 G = mean(G_hat(:,:,notS),3);    % uses the mean of all other subjects
@@ -255,34 +236,34 @@ for s = 1:numSubj
                 i = 0;
             otherwise
                 if (isempty(S))
-                    fcn = @(x) pcm_likelihoodGroup(x,{YY{notS}},M(m),{Z{notS}},{X{notS}},P(notS(:)),...
+                    fcn = @(x) pcm_likelihoodGroup(x,{YY{notS}},M{m},{Z{notS}},{X{notS}},P(notS(:)),...
                         'runEffect',{B{notS}},'fitScale',fitScale);
                 else
-                    fcn = @(x) pcm_likelihoodGroup(x,{YY{notS}},M(m),{Z{notS}},{X{notS}},P(notS(:)),...
+                    fcn = @(x) pcm_likelihoodGroup(x,{YY{notS}},M{m},{Z{notS}},{X{notS}},P(notS(:)),...
                         'runEffect',{B{notS}},'S',S(notS),'fitScale',fitScale);
                 end;
                 
                 % Generate the starting vector
-                x0 = [theta0;noise0(notS)];
+                x0 = [theta0{m};noise0(notS,m)];
                 if (fitScale)
-                    x0 = [x0;scale0(notS)];
+                    x0 = [x0;scale0(notS,m)];
                 end;
                 if (strcmp(runEffect,'random'))
-                    x0  = [x0;run0(notS)];       % Start with G-params from group fit
+                    x0  = [x0;run0(notS,m)];       % Start with G-params from group fit
                 end;
                 [theta,fX,i] =  minimize(x0, fcn, MaxIteration);
-                M(m).thetaCross(:,s)=theta(1:M(m).numGparams);
-                G   = pcm_calculateG(M(m),M(m).thetaCross(1:M(m).numGparams,s));
+                M{m}.thetaCross(:,s)=theta(1:M{m}.numGparams);
+                G   = pcm_calculateG(M{m},M{m}.thetaCross(1:M{m}.numGparams,s));
         end;
         
         % Now get the fit the left-out subject
         % (maximizing scale and noise coefficients)
         x0 = noise0(s);
         if fitScale
-            x0 = [x0;scale0(s)];
+            x0 = [x0;scale0(s,m)];
         end;
         if (strcmp(runEffect,'random'))
-            x0 = [x0;run0(s)];
+            x0 = [x0;run0(s,m)];
         end;
         
         if (isempty(S))
@@ -309,8 +290,5 @@ for s = 1:numSubj
             T.run(s,m)   = exp(th{m}(fitScale+1,s));
         end;
     end;
-    % get M back to Model
-    Models{s} = M;
+    theta_hat{m}=th{m}'; 
 end;
-clear M;
-M = Models;
