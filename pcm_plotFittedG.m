@@ -185,8 +185,8 @@ switch style
             set(gca,'XTick',[],'YTick',[],'XColor',[1 1 1],'YColor',[1 1 1]);
         end;    
         % resize figure appropriately
-        p = get(gcf,'Position');
-        set(gcf,'Position',[p(1) p(2) p(3) p(4)/3]);
+        % p = get(gcf,'Position');
+        % set(gcf,'Position',[p(1) p(2) p(3) p(4)/3]);
     case 'line'
         % Plot second moment matrices in 2 subplots: one for variances
         % (diag elements), the other for covariances (off-diag elements).
