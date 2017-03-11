@@ -1,5 +1,5 @@
-function [T,M,Iter,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
-% function [T,M,Iter,Ghat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
+function [T,theta_hat,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
+% function [T,theta_hat,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
 % Fits pattern component model(s) specified by M to data from a number of
 % subjects.
 % The model parameters are all individually fit.
@@ -73,11 +73,9 @@ function [T,M,Iter,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,vara
 %       iterations:         Number of interations for model fit
 %       time:               Elapsed time in sec 
 %
-%   M{m}:    Structure array of models - with appended fields
-%       G_pred:     Predicted second moment matrix of model: 3-D array  
-%                   with 1 slice per subject 
-%       theta:      Estimated parameters (model + scaling/noise parameters)
-%                   for individual subjects
+%   theta{m}     Cell array of estimated model parameters, each a 
+%                 #numSubj x #params matrix 
+%   G_hat{m}     Cell array of estimated G-matrices under the model 
 
 runEffect       = 'random';
 isCheckDeriv    = 0;
@@ -138,10 +136,10 @@ for s = 1:numSubj
     % Now loop over models 
     for m = 1:length(M)
         if (verbose) 
-            if isfield(M,'name');
+            if isfield(M{m},'name');
                 fprintf('Fitting Subj: %d model:%s\n',s,M{m}.name);
             else
-                fprintf('Fitting Subj: %d model:%ds\n',s,m);
+                fprintf('Fitting Subj: %d model:%d\n',s,m);
             end;
         end; 
         tic; 
@@ -175,8 +173,8 @@ for s = 1:numSubj
         
         % Use minimize to find maximum liklhood estimate 
         [theta,fX,i]      =  minimize(x0, fcn, MaxIteration);
-        M{m}.thetaIndiv(:,s)   =  theta(1:M{m}.numGparams);
-        M{m}.G_pred       =  pcm_calculateG(M{m},M{m}.thetaIndiv(:,s));
+        theta_hat{m}(s,:) =  theta(1:M{m}.numGparams)';
+        G_pred{m}(:,:,s)  =  pcm_calculateG(M{m},theta_hat{m}(s,:)');
         T.noise(s,m)      =  exp(theta(M{m}.numGparams+1)); 
         if strcmp(runEffect,'random')
             T.run(s,m)      =  exp(theta(M{m}.numGparams+2)); 
@@ -191,3 +189,4 @@ for s = 1:numSubj
         end;
     end; % for each model
 end; % for each subject
+
