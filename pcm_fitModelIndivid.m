@@ -167,16 +167,12 @@ for s = 1:numSubj
             theta0 = pcm_getStartingval(M{m},G_hat(:,:,s));   
         end;
         
-        switch (M{m}.type)
-            case 'noiseceiling'
-                M{m}.numGparams=0; 
-                M{m}.Gc = G_hat(:,:,s);
-                maxItrs = 0;
-            otherwise
-                maxItrs = MaxIteration;
+        % if naive noise ceiling model, use crossvalidated G as component 
+        if strcmp(M{m}.type,'noiseceiling')
+            M{m}.Gc = pcm_makePD(G_hat(:,:,s)); 
         end; 
         
-        % Now set up the function that returns likelihood and derivative.
+        % Now set up the function that returns likelihood and derivative 
         if (isempty(S))
             fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
         else
@@ -192,15 +188,21 @@ for s = 1:numSubj
         end; 
         
         % Use minimize to find maximum liklhood estimate of model params.
-        [theta,fX,i]         =  minimize(x0, fcn, maxItrs);
+        [theta,fX,i]         =  minimize(x0, fcn, MaxIteration);
         M{m}.thetaIndiv(:,s) =  theta(1:M{m}.numGparams);
         M{m}.G_pred(:,:,s)   =  pcm_calculateG(M{m},M{m}.thetaIndiv(:,s));
         T.noise(s,m)         =  exp(theta(M{m}.numGparams+1)); 
+         
         if strcmp(runEffect,'random')
             T.run(s,m)    =  exp(theta(M{m}.numGparams+2)); 
         end; 
         T.likelihood(s,m) =  -fX(end);  % invert the sign
         T.iterations(s,m) = i;
         T.time(s,m)       = toc; 
+        
+        % This is an optional check if the dervivate calculation is correct
+        if (isCheckDeriv)
+            d = pcm_checkderiv(fcn,theta-0.01,0.0000001);
+        end;
     end; % for each model
 end; % for each subject
