@@ -1,10 +1,12 @@
 function [T,M,Iter,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
-% function [T,M,Iter,Ghat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
+% function [T,M,Iter,Ghat] = pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
+% 
 % Fits pattern component model(s) specified by M to data from a number of
 % subjects.
 % The model parameters are all individually fit.
-%==========================================================================
-% INPUT:
+%
+% ----------------------------- Inputs ------------------------------------
+%
 %        Y: {#Subjects}.[#Conditions x #Voxels]
 %            Observed/estimated beta regressors from each subject.
 %            Preferably multivariate noise-normalized beta regressors.
@@ -40,8 +42,9 @@ function [T,M,Iter,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,vara
 %                   condition assignment of rows of Y{subj}.
 %                   If a single vector is provided, it is assumed to me the
 %                   same for all subjects 
-%--------------------------------------------------------------------------
-% OPTION:
+%
+% ----------------------------- Options -----------------------------------
+%
 %   'runEffect': How to deal with effects that may be specific to different
 %                imaging runs:
 %                  'random': Models variance of the run effect for each subject
@@ -63,8 +66,9 @@ function [T,M,Iter,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,vara
 %
 %    'isCheckTime': Optional flag to display the time took for each model.
 %                   Default is 1.
-%--------------------------------------------------------------------------
-% OUTPUT:
+%
+% ----------------------------- Outputs -----------------------------------
+%
 %   T:      Structure with following subfields:
 %       SN:                 Subject number
 %       likelihood:         likelihood
@@ -78,6 +82,7 @@ function [T,M,Iter,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,vara
 %                   with 1 slice per subject 
 %       theta:      Estimated parameters (model + scaling/noise parameters)
 %                   for individual subjects
+%
 
 runEffect       = 'random';
 isCheckDeriv    = 0;
@@ -86,17 +91,18 @@ Iter            = [];
 verbose         = 1; 
 pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration','verbose'});
 
+% Determine the number of subjects and models to fit.
 numSubj     = numel(Y);
 numModels   = numel(M);
 
-% Preallocate output structure
+% Prep output structure T.
 T.SN = [1:numSubj]';
 
-% Now loop over subject and provide inidivdual fits 
+% Now loop over subject and provide inidivdual fits. 
 for s = 1:numSubj
     
     % If condition and partition Vectors are not cells, assume they are the
-    % same 
+    % same across each subject.
     if (iscell(conditionVec)) 
         cV = conditionVec{s}; 
         pV = partitionVec{s}; 
@@ -105,10 +111,12 @@ for s = 1:numSubj
         pV = partitionVec; 
     end; 
     
-    % Prepare matrices and data depnding on how to deal with run effect 
+    % Get the number of activity patterns (N) and voxels (P) for subject. 
     [N(s,1),P(s,1)] = size(Y{s});
-    Z{s}   = pcm_indicatorMatrix('identity_p',cV);
-    numCond= size(Z{s},2);
+    % Make condition design matrix across all runs/partitions (Z).
+    Z{s}    = pcm_indicatorMatrix('identity_p',cV);
+    numCond = size(Z{s},2);
+    % Determine how to deal with run effects (see Options).
     switch (runEffect)
         case 'random'
             YY{s}  = (Y{s} * Y{s}');
@@ -129,24 +137,30 @@ for s = 1:numSubj
             B{s}  = [];
     end;
     
-    % Estimate starting value run and the noise from a crossvalidated estimate of the second moment matrix 
+    % Estimate crossvalidated G and (co-)variance of the residuals across
+    % the crossvalidation folds.
     [G_hat(:,:,s),Sig_hat(:,:,s)] = pcm_estGCrossval(Y{s},pV,cV);
     sh = Sig_hat(:,:,s);
-    run0(s)     = real(log((sum(sum(sh))-trace(sh))/(numCond*(numCond-1))));
-    noise0(s)   = real(log(trace(sh)/numCond-exp(run0(s))));
+    % Estimate starting values for run and noise effect params.
+    % Run param starting value is average of the paired residual co-variance.
+    run0(s)   = real(log((sum(sum(sh))-trace(sh))/(numCond*(numCond-1)))); 
+    % Noise param starting value is average of the residual variance for
+    % conditions across crossvalidation folds.
+    noise0(s) = real(log(trace(sh)/numCond-exp(run0(s))));
     
-    % Now loop over models 
+    % Now loop over models. 
     for m = 1:length(M)
         if (verbose) 
-            if isfield(M,'name');
-                fprintf('Fitting Subj: %d model:%s\n',s,M{m}.name);
+            if isfield(M{m},'name');
+                fprintf('Fitting Subj: %d model: %s\n',s,M{m}.name);
             else
-                fprintf('Fitting Subj: %d model:%ds\n',s,m);
+                fprintf('Fitting Subj: %d model: %d\n',s,m);
             end;
         end; 
         tic; 
         
-        % Get starting guess for theta if not provided
+        % Get starting guess for thetas (if not provided).
+        % Nonlinear models must include user-defined starting values.
         if (isfield(M{m},'theta0'))
             theta0 = M{m}.theta0;
         else
@@ -165,7 +179,7 @@ for s = 1:numSubj
             fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},[],P(s),'runEffect',B{s},'S',S(s));
         end;
         
-        % Set up overall starting values 
+        % Set up overall starting values. 
         switch (runEffect) 
             case {'fixed','remove'}
                 x0  = [theta0;noise0(s)];
@@ -173,15 +187,16 @@ for s = 1:numSubj
                 x0  = [theta0;noise0(s);run0(s)];
         end; 
         
-        % Use minimize to find maximum liklhood estimate 
-        [theta,fX,i]      =  minimize(x0, fcn, MaxIteration);
-        M{m}.thetaIndiv(:,s)   =  theta(1:M{m}.numGparams);
-        M{m}.G_pred       =  pcm_calculateG(M{m},M{m}.thetaIndiv(:,s));
-        T.noise(s,m)      =  exp(theta(M{m}.numGparams+1)); 
+        % Use minimize to find maximum liklhood estimate of model params.
+        [theta,fX,i]         =  minimize(x0, fcn, MaxIteration);
+        M{m}.thetaIndiv(:,s) =  theta(1:M{m}.numGparams);
+        M{m}.G_pred(:,:,s)   =  pcm_calculateG(M{m},M{m}.thetaIndiv(:,s));
+        T.noise(s,m)         =  exp(theta(M{m}.numGparams+1)); 
+         
         if strcmp(runEffect,'random')
-            T.run(s,m)      =  exp(theta(M{m}.numGparams+2)); 
+            T.run(s,m)    =  exp(theta(M{m}.numGparams+2)); 
         end; 
-        T.likelihood(s,m) =  -fX(end);  %invert the sign 
+        T.likelihood(s,m) =  -fX(end);  % invert the sign
         T.iterations(s,m) = i;
         T.time(s,m)       = toc; 
         

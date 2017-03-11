@@ -81,7 +81,7 @@ if (isempty(S))
 else
     iV    = (S.invS-S.invS*Zu/(diag(1./dS(idx))*exp(noiseParam)+Zu'*S.invS*Zu)*Zu'*S.invS)./exp(noiseParam); % Matrix inversion lemma
 end;
-
+iV  = real(iV); % sometimes iV gets complex 
 % For ReML, compute the modified inverse iVr
 if (~isempty(X))
     iVX   = iV * X;
@@ -117,9 +117,9 @@ else
 end;
 
 % Get the derivatives for the block parameter
-if (~isempty(runEffect) && ~isempty(runEffect))
+if (~isempty(runEffect))
     indx             = M.numGparams+2;  % Which number parameter is it?
-    C          = A*pcm_blockdiag(zeros(size(G,1)),eye(numRuns));
+    C                = A*pcm_blockdiag(zeros(size(G,1))); % already adjusted G to include runs
     dLdtheta(indx,1) = -P/2*(traceABtrans(C,Z)-traceABtrans(C,B))*exp(runParam);
 end;
 
