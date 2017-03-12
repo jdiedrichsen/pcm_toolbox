@@ -48,7 +48,11 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,va
 %   conditionVec: {#Subjects} Cell array with condition assignment vector
 %                   for each subject. Rows of conditionVec{subj} define
 %                   condition assignment of rows of Y{subj}. If 1 vector is given, 
-%                   then conditions are  assumed to be the same across subjects 
+%                   then conditions are  assumed to be the same across subjects
+% 
+%                   One can also pass design matrix Z for each subject as
+%                   an element of cell array when each subject has
+%                   different design.
 %--------------------------------------------------------------------------
 % OPTION:
 %   'runEffect': How to deal with effects that may be specific to different
@@ -119,9 +123,15 @@ for s = 1:numSubj
         pV = partitionVec; 
     end; 
     
+    % Check if conditionVec is condition or design matrix
+    if size(cV,2)==1;
+        Z{s}   = pcm_indicatorMatrix('identity_p',cV);
+    else
+        Z{s} = cV;
+    end;
+    
     % Set up the main matrices
-    [N(s,1),P(s,1)] = size(Y{s});
-    Z{s}   = pcm_indicatorMatrix('identity_p',cV);
+    [N(s,1),P(s,1)] = size(Y{s});   
     numCond= size(Z{s},2);
     
     % Depending on the way of dealing with the run effect, set up data

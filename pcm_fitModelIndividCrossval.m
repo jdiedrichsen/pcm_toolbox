@@ -44,6 +44,10 @@ function [D,T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,v
 %                   condition assignment of rows of Y{subj}.
 %                   If a single vector is provided, it is assumed to me the
 %                   same for all subjects
+% 
+%                   One can also pass design matrix Z for each subject as
+%                   an element of cell array when each subject has
+%                   different design.
 %--------------------------------------------------------------------------
 % OPTION:
 %   'runEffect': How to deal with effects that may be specific to different
@@ -112,9 +116,15 @@ for s = 1:numSubj
         SS=S{s};
     end;
     
+    % Check if conditionVec is condition or design matrix
+    if size(cV,2)==1;
+        Z{s}   = pcm_indicatorMatrix('identity_p',cV);
+    else
+        Z{s} = cV;
+    end;
+    
     % Prepare matrices and data depnding on how to deal with run effect
     [N,P] = size(Y{s});
-    Z     = pcm_indicatorMatrix('identity_p',cV);
     numCond= size(Z,2);
     switch (runEffect)
         case 'random'
