@@ -125,10 +125,10 @@ Mi = M; % create a copy of the model structure for use in the Individual fitting
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 % (4) Fit Models and plot group lvl results
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[Tgroup,M] = pcm_fitModelGroup(Y,M,partitionVec,conditionVec,...
+[Tgroup,theta_all] = pcm_fitModelGroup(Y,M,partitionVec,conditionVec,...
     'runEffect',runEffect,'isCheckDeriv',0);
-[Tcross,M] = pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,...
-    'runEffect',runEffect,'isCheckDeriv',0,'groupFit',Tgroup);
+[Tcross,~,G_pred] = pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,...
+    'runEffect',runEffect,'isCheckDeriv',0,'groupFit',theta_all);
 figure(1); 
 T = pcm_plotModelLikelihood(Tcross,M,'upperceil',Tgroup.likelihood(:,5));
 % Returns T with subfields for scaled likelihoods (relative to null model (M1)
@@ -137,7 +137,7 @@ T = pcm_plotModelLikelihood(Tcross,M,'upperceil',Tgroup.likelihood(:,5));
 % We can also plot and compare the real/observed and estimate (co-)variance
 % matrices.
 figure(2); 
-pcm_plotFittedG(G_hat,T,M);
+pcm_plotFittedG(G_hat,T,M); % *** THIS FUNCTION GIVES ERROR DUE TO THE HANDLING OF G_PRED (AY) ***
         
  
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
