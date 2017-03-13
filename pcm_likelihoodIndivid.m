@@ -119,7 +119,8 @@ end;
 % Get the derivatives for the block parameter
 if (~isempty(runEffect) && ~isempty(runEffect))
     indx             = M.numGparams+2;  % Which number parameter is it?
-    C          = A*pcm_blockdiag(zeros(size(G,1)),eye(numRuns));
+    %C          = A*pcm_blockdiag(zeros(size(G,1)),eye(numRuns));
+    C          = A*pcm_blockdiag(zeros(K),eye(numRuns));
     dLdtheta(indx,1) = -P/2*(traceABtrans(C,Z)-traceABtrans(C,B))*exp(runParam);
 end;
 
