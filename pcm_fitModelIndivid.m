@@ -1,5 +1,5 @@
-function [T,theta_hat,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
-% function [T,theta_hat,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
+function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
+% function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
 % Fits pattern component model(s) specified by M to data from a number of
 % subjects.
 % The model parameters are all individually fit.
@@ -79,7 +79,7 @@ function [T,theta_hat,G_hat]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,v
 %
 %   theta{m}     Cell array of estimated model parameters, each a 
 %                 #params x #numSubj matrix 
-%   G_hat{m}     Cell array of estimated G-matrices under the model 
+%   G_pred{m}     Cell array of estimated G-matrices under the model 
 
 runEffect       = 'random';
 isCheckDeriv    = 0;
@@ -176,7 +176,7 @@ for s = 1:numSubj
         % Use minimize to find maximum liklhood estimate 
         [theta,fX,i]      =  minimize(x0, fcn, MaxIteration);
         theta_hat{m}(:,s) =  theta;
-        G_pred{m}(:,:,s)  =  pcm_calculateG(M{m},theta_hat{m}(:,s));
+        G_pred{m}(:,:,s)  =  pcm_calculateG(M{m},theta_hat{m}(1:M{m}.numGparams,s));
         T.noise(s,m)      =  exp(theta(M{m}.numGparams+1)); 
         if strcmp(runEffect,'random')
             T.run(s,m)      =  exp(theta(M{m}.numGparams+2)); 
