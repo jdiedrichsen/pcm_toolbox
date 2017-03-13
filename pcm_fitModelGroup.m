@@ -184,7 +184,7 @@ end;
 % -----------------------------------------------------
 for m = 1:numModels
     if (verbose)
-        if isfield(M,'name');
+        if isfield(M{m},'name');
             fprintf('Overall fitting model:%s\n',M{m}.name);
         else
             fprintf('Overall fitting model:%d\n',m);
