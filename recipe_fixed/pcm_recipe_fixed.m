@@ -68,10 +68,10 @@ M{5}.name       = 'noiseceiling';
 runEffect  = 'fixed'; 
 
 % Fit the models on the group level 
-[Tgroup,M] = pcm_fitModelGroup(Y,M,partVec,condVec,'runEffect',runEffect,'fitScale',1);
+[Tgroup,theta_all] = pcm_fitModelGroup(Y,M,partVec,condVec,'runEffect',runEffect,'fitScale',1);
 
 % Fit the models through cross-subject crossvalidation
-[Tcross,M] = pcm_fitModelCrossval(Y,M,partVec,condVec,'runEffect',runEffect,'groupFit',Tgroup,'fitScale',1);
+[Tcross,theta_all] = pcm_fitModelGroupCrossval(Y,M,partVec,condVec,'runEffect',runEffect,'groupFit',theta_all,'fitScale',1);
 
 % Provide a plot of the crossvalidated likelihoods 
 T = pcm_plotModelLikelihood(Tcross,M,'upperceil',Tgroup.likelihood(:,5)); 
