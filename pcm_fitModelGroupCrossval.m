@@ -1,5 +1,5 @@
-function [T,theta_hat]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin);
-% function [T,theta_hat]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin);
+function [T,theta_hat,G_pred]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin);
+% function [T,theta_hat,G_pred]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,varargin);
 % Fits pattern component model(s) specified by M to data from a number of
 % subjects.
 % The model parameters are shared - the noise parameters are not.
@@ -98,6 +98,9 @@ function [T,theta_hat]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,v
 %   theta_hat{model}:   Cell array of models parameters from crossvalidation 
 %                       theta: numGparams{m}xnumSubj Matrix: Estimated parameters 
 %                       across the crossvalidation rounds from the training set.
+%   Gpred{model}(:,:,subject): Predicted second moment matrix for each model
+%                              from cross-validation fit. 3rd dimension is for
+%                              subjects
 
 runEffect       = 'random';
 isCheckDeriv    = 0;
@@ -191,7 +194,7 @@ for m = 1:numModels
             indx           = indx+numSubj; 
         end; 
         if (strcmp(runEffect,'random'))
-            run0 = groupFit{m}(indx:indx+numSubj);
+            run0(:,m) = groupFit{m}(indx+1:indx+numSubj);
         end;
 
      else % No group fit: determine starting values
@@ -255,6 +258,9 @@ for s = 1:numSubj
                 M{m}.thetaCross(:,s)=theta(1:M{m}.numGparams);
                 G   = pcm_calculateG(M{m},M{m}.thetaCross(1:M{m}.numGparams,s));
         end;
+        
+        % Collect G_pred used for each left-out subject
+        G_pred{m}(:,:,s) = G;
         
         % Now get the fit the left-out subject
         % (maximizing scale and noise coefficients)
