@@ -37,12 +37,15 @@ function [G,Sig]=pcm_estGCrossval(B,partition,conditionVec,X)
 % Joern Diedrichsen 
 % 2/2016 
 
-[N,numVox]   = size(B); 
-part    = unique(partition)';
-part(part==0) = []; % Ignore the zero partitions 
-cond    = unique(conditionVec);
-cond(cond==0) = [];
-
+[N,numVox]          = size(B); 
+part                = unique(partition)';
+part(part==0)       = []; % Ignore the zero partitions 
+if isvector(conditionVec)
+    cond            = unique(conditionVec);
+    cond(cond==0)   = [];
+else
+    cond            = 1:size(conditionVec,2);
+end
 numPart = numel(part);
 numCond = numel(cond);%max(conditionVec); 
 
@@ -60,17 +63,28 @@ if missing > 0
     partition  = [partition;[1:missing]']; % Asssume that these are run intercepts 
 end; 
 
+% Check if condition vector is vector or matrix,
+% then make second-level design matrix, pulling through the regressors of no-interest 
+missing = N-length(conditionVec);
+if ~isvector(conditionVec) % when design matrix has passed
+    Z = conditionVec;
+else
+    if missing>0
+        conditionVec = [conditionVec;zeros(missing,1)];
+    end    
+    Z = pcm_indicatorMatrix('identity_p',conditionVec);
+end
+% Deal with number of no-interest regressors
+numNonInterest = sum(all(Z==0,2));      
+Z(all(Z==0,2),end+[1:numNonInterest]) = eye(numNonInterest);
+% numNonInterest = sum(conditionVec==0);      
+% Z(conditionVec==0,end+[1:numNonInterest])=eye(numNonInterest);
+
+
 % Check length of condition vector 
-if (length(conditionVec)<N)
-    conditionVec=[conditionVec;zeros(N-length(conditionVec),1)];
-end; 
 
 A = zeros(numCond,numVox,numPart);           % Allocate memory 
-
-% Make second-level design matrix, pulling through the regressors of no-interest 
-Z = pcm_indicatorMatrix('identity_p',conditionVec); 
-numNonInterest = sum(conditionVec==0);      % Number of no-interest regressors 
-Z(conditionVec==0,end+[1:numNonInterest])=eye(numNonInterest); 
+Bp = zeros(numCond,numVox);
 
 % Estimate condition means within each run and crossvalidate 
 for i=1:numPart 
@@ -86,6 +100,10 @@ for i=1:numPart
     Zb    = Zb(:,any(Zb,1));    % Restrict to regressors that are not all 0 
     Bb    = B(indxB,:);
     
+    % valid conditions of interest
+    interestA = find(any(Z(indxA,1:numCond),1));
+    interestB = find(any(Z(indxB,1:numCond),1));
+    
     % Use design matrix if present to get GLS estimate 
    if (nargin>3 & ~isempty(X))
         Xa      = X(:,indxA);
@@ -99,8 +117,11 @@ for i=1:numPart
    end; 
     a     = pinv(Za)*Ba;
     b     = pinv(Zb)*Bb;
-    A(:,:,i) = a(1:numCond,:); 
-    G(:,:,i)= A(:,:,i)*b(1:numCond,:)'/numVox;      % Note that this is normalised to the number of voxels 
+    %A(:,:,i) = a(1:numCond,:); 
+    %G(:,:,i)= A(:,:,i)*b(1:numCond,:)'/numVox;      % Note that this is normalised to the number of voxels 
+    A(interestA,:,i)    = a(1:length(interestA),:); 
+    Bp(interestB,:)     = b(1:length(interestB),:);
+    G(:,:,i)= A(:,:,i)*Bp'/numVox;      % Note that this is normalised to the number of voxels 
 end; 
 G=mean(G,3); 
 
