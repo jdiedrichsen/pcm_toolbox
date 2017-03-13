@@ -41,8 +41,10 @@ M{1}.name       = 'correlation';
 M{1}.theta0=[1 1 1 0 0.4]';
 
 % Fit the models
-[T,M] = pcm_fitModelIndivid(Data,M,partVec,condVec,'runEffect',runEffect);
-T.theta = M{1}.thetaIndiv';
+% [T,M] = pcm_fitModelIndivid(Data,M,partVec,condVec,'runEffect',runEffect);
+% T.theta = M{1}.thetaIndiv';
+[T,theta_all] = pcm_fitModelIndivid(Data,M,partVec,condVec,'runEffect',runEffect);
+T.theta = theta_all{1};
 T.var1    = T.theta(:,3).^2;
 T.var2    = T.theta(:,4).^2+T.theta(:,5).^2;
 T.cov     = T.theta(:,3).*T.theta(:,4);
