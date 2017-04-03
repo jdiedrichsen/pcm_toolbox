@@ -81,6 +81,7 @@ if (isempty(S))
 else
     iV    = (S.invS-S.invS*Zu/(diag(1./dS(idx))*exp(noiseParam)+Zu'*S.invS*Zu)*Zu'*S.invS)./exp(noiseParam); % Matrix inversion lemma
 end;
+iV  = real(iV); % sometimes iV gets complex
 
 % For ReML, compute the modified inverse iVr
 if (~isempty(X))
