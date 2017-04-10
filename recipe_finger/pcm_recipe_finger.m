@@ -29,7 +29,7 @@ imagesc(H*Gm*H');
 C= pcm_indicatorMatrix('allpairs',[1:5]'); 
 [COORD,l]=pcm_classicalMDS(Gm,'contrast',C); 
 subplot(2,3,2); 
-scatterplot(COORD(:,1),COORD(:,2),'label',[1:5]); 
+plot(COORD(:,1),COORD(:,2),'o'); 
 axis equal; 
 
 % ----------------------------------------------------------------
