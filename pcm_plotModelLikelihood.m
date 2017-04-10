@@ -91,7 +91,6 @@ if ~(isstruct(T))
     error('T is not pcm result structure. Check inputs.')
 end
 
-numSubj = size(T.likelihood,1);
 % Check subj (determine if plotting group average or individual's data).
 if (~isempty(subj) || length(T.SN)==1)
     % User didn't specify specific subject, but T only has one subject.
@@ -103,13 +102,8 @@ if (~isempty(subj) || length(T.SN)==1)
     T  = structfun(sf,T,'UniformOutput',false); 
 elseif (isempty(subj))
     % Plotting group avg.
-    subj = 1:numSubj; 
+    subj = 1:length(T.SN); 
 end; 
-
-% Check to see if we are plotting makes sense and inform user (if necessary).
-if (isfield(M{1},'thetaIndiv') && (length(subj)>1 || isempty(subj)))
-    warning('You are plotting the group average of fits from pcm_fitModelIndivid. This is not recommended as likelihoods are not crossvalidated.');
-end
 
 % Locate models for likelihood scaling (first check type, then name).
 if isnan(Nceil) 
@@ -118,7 +112,7 @@ if isnan(Nceil)
 else
     if isempty(Nceil) % noise ceiling model
         for m=1:length(M)
-            if (strcmp(M{m}.type,'noiseceiling'));
+            if (strcmp(M{m}.name,'noiseceiling'));
                 Nceil = m; 
             end
         end
@@ -128,7 +122,7 @@ end;
 % Determine models being plotted.
 if isempty(mindx)
     mindx = 1:length(M);
-    mindx([Nnull,Nceil]) = [];  % don't plot null and noise ceiling (if appropriate)
+    mindx([Nnull,Nceil]) = [];  % get model numbers for all models except null and noiseceiling
 end
 
 % Check # of colors.
@@ -194,16 +188,22 @@ if (~isempty(lowerceil) && ~isempty(upperceil) && plotceil)
     f = [1:4];
     patch('Vertices',v,'Faces',f,'EdgeColor',ceilcolor,...
         'FaceColor',ceilcolor,'FaceAlpha',.75);
+    % draw lower noise ceiling as black dotted line
     line([0;i],[mean(lowerceil);mean(lowerceil)],'LineWidth',1.5,'Color','k','LineStyle','-.'); 
 elseif (~isempty(lowerceil) && isempty(upperceil) && plotceil) 
-    % Only draw the lower noise ceiling (upper not given when fcn called).
-    line([0;i],[mean(lowerceil);mean(lowerceil)],'LineWidth',1.5,'Color','k','LineStyle','-.'); 
+    % Only draw the lower noise ceiling (upper not given when fcn called)
+    % as grey line.
+    line([0;i],[mean(lowerceil);mean(lowerceil)],'LineWidth',1.5,'Color',[0.5 0.5 0.5],'LineStyle','-.'); 
+elseif (~isempty(upperceil) && isempty(lowerceil) && plotceil) 
+    % Only draw the upper noise ceiling (lower not given when fcn called)
+    % as grey line.
+    line([0;i],[mean(upperceil);mean(upperceil)],'LineWidth',1.5,'Color',[0.5 0.5 0.5],'LineStyle','-.'); 
 end; 
-hold on;
 
 % - - - - - - -
 % Plot scaled fits
 % - - - - - - -
+hold on;
 i = 1;
 for m = mindx
     % Model fit(s)
@@ -223,6 +223,7 @@ for m = mindx
     % update ticker
     i = i + 1;
 end;
+hold off;
 
 % Adjust figure labels and limit scales
 ylims = get(gca,'YLim');
@@ -230,4 +231,8 @@ set(gca,'XTick',[1:i-1]);
 set(gca,'XTickLabel',labels);
 set(gca,'XLim',[0.5 i-0.5]);
 set(gca,'YLim',[0 ylims(2)]);
-ylabel('Relative Likelihood');
+if normalize
+    ylabel('Relative Likelihood');
+else
+    ylabel('Likelihood');
+end
