@@ -185,7 +185,6 @@ end;
 % - - - - - - -
 % Plot noise ceilings
 % - - - - - - -
-figure('Color',[1 1 1]);
 i = length(mindx)+1;
 % Find lower noise ceiling.
 lowerceil = T.likelihood_norm(:,Nceil); 

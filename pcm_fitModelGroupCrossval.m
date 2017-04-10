@@ -34,9 +34,7 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditi
 %              .theta0:      Vector of starting values for theta. If not given,
 %                              the function attempts to estimate these from a
 %                              crossvalidated version Values usually estimated from
-%                             observed second-moment matrix. Can estimate
-%                             these parameters using
-%                             'pcm_modelpred_free_startingval'
+%                             observed second-moment matrix. 
 %           Model-specific field 
 %              .modelpred':  Modelling func. Must take theta values as vector
 %                             and return predicated second moment matrix and
@@ -65,9 +63,6 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditi
 %                            as a seperate random effects parameter.
 %                  'fixed': Consider run effect a fixed effect, will be removed
 %                            implicitly using ReML.
-%                  'remove': Forced removal of the run effect before
-%                            random effects modelling - Simply adjusts the
-%                            error covariance matrix to reflect he removal
 %   'fitScale'      Introduce additional scaling parameter for each
 %                   participant? - default is true
 %   'isCheckDeriv:  Check the derivative accuracy of theta params. Done using
@@ -78,7 +73,8 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditi
 %
 %   'verbose':      Optional flag to show display message in the command
 %                   line (e.g., elapsed time). Default is 1.
-%   'groupFit',T:   Structure T from the group fit: This provides better starting
+% 
+%   'groupFit',T:   Parameters theta from the group fit: This provides better starting
 %                   values and can speed up the computation
 % 
 %   'S':            Specific assumed noise structure - usually inv(XX'*XX),

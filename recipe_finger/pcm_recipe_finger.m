@@ -10,13 +10,13 @@ function varargout=pcm_recipe_finger
 % The log-likelihoods of the models are presented scaled to the null model
 % (0) and the upper noise ceiling (1) 
 
-load data_recipe_fixed.mat
+load data_recipe_finger7T.mat
 
 % ----------------------------------------------------------------
 % Data visualisation 
 % 1. visualize the representational stucture: Get the crossvalidated
 %    G-matrix for each data set and plot the average of this
-for s=1:12 
+for s=1:length(Y)
     G_hat(:,:,s)=pcm_estGCrossval(Y{s},partVec{s},condVec{s}); 
 end; 
 Gm = mean(G_hat,3); % Mean estimate  
@@ -73,28 +73,23 @@ M{4}.Gc(:,:,1)  = Model(1).G_cent;
 M{4}.Gc(:,:,2)  = Model(2).G_cent;
 M{4}.name       = 'muscle + usage'; 
 
-% Model 5: Average of all other subjects (Noise ceiling)
-M{5}.type       = 'noiseceiling';
-M{5}.numGparams = 0;
+% Model 5: Free model as Noise ceiling
+M{5}.type       = 'freechol'; 
+M{5}.numCond    = 5;
 M{5}.name       = 'noiseceiling'; 
-
-%M{6}.type       = 'freechol'; 
-%M{6}.numCond    = 5;
-% M{6}.name       = 'noiseceiling'; 
-% M{6}           = pcm_prepFreeModel(M{6}); 
+M{5}           = pcm_prepFreeModel(M{5}); 
 
 % Treat the run effect as random or fixed? 
-% For run effect fixed, it does not matter if the
-% whether its the centered or non-centered G matrix
-% If the run effect is random, it does matter, as the model needs
-% to also explain some part of the common activity across
+% We are using a fixed run effect here, as we are not interested in the
+% activity relative the the baseline (rest) - so as in RSA, we simply
+% subtract out the mean patttern across all conditions. 
 runEffect  = 'fixed'; 
 
 % Fit the models on the group level 
-[Tgroup,M] = pcm_fitModelGroup(Y,M,partVec,condVec,'runEffect',runEffect,'fitScale',1);
+[Tgroup,theta] = pcm_fitModelGroup(Y,M,partVec,condVec,'runEffect',runEffect,'fitScale',1);
 
 % Fit the models through cross-subject crossvalidation
-[Tcross,M] = pcm_fitModelCrossval(Y,M,partVec,condVec,'runEffect',runEffect,'groupFit',Tgroup,'fitScale',1);
+[Tcross,thetaCr] = pcm_fitModelGroupCrossval(Y,M,partVec,condVec,'runEffect',runEffect,'groupFit',theta,'fitScale',1);
 
 % Provide a plot of the crossvalidated likelihoods 
 subplot(2,3,[3 6]); 

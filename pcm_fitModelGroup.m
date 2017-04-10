@@ -16,15 +16,13 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,va
 %              .type:        Type of the model to be fitted
 %                             'fixed': Fixed structure without parameter
 %                                (except scale and noise for each subject)
-%                             'component': G is a sum of linear components,
-%                                specified by Gc
-%                             'squareroot': G=A*A', with A a linear sum of
-%                                 weighted components Ac
+%                             'component': G is a sum of linear components, specified by Gc
+%                             'feature': G=A*A', with A a linear sum of weighted components Ac
 %                             'nonlinear': Nonlinear model with own function
 %                                 to return G-matrix and derivatives
 %                             'noiseceiling': Uses the mean estimated
-%                                 G-matrix from crossvalidation to get an
-%                                 estimate of the best achievavle fit
+%                                 G-matrix from crossvalidation 
+%                             'freechol':  Free model in Cholesky form 
 %              .numGparams:  Scalar that defines the number of parameters
 %                             included in model.
 %              .theta0:      Vector of starting values for theta. If not given,
@@ -32,11 +30,8 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,va
 %                              crossvalidated version Values usually estimated from
 %                             observed second-moment matrix. Can estimate
 %                             these parameters using 'pcm_modelpred_free_startingval'
-%              .modelpred':  Modelling func. Must take theta values as vector
-%                             and return predicated second moment matrix and
-%                             derivatives in respect to parameters (for nonlinear models).
-%              .Gc:          Linear component matrices (for type 'component')
-%              .Ac           Linear component matrices (for type 'feature')
+%         for more fields see the manual for model specification.                   
+
 %
 %   partitionVec: {#Subjects} Cell array with partition assignment vector
 %                   for each subject. Rows of partitionVec{subj} define
