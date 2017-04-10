@@ -21,8 +21,9 @@ function [T,M,Ti,Mi] = pcm_recipe_nonlinear
 % this recipe, we fit one model of how the finger patterns may scale as the
 % number of presses increases. Model:
 %   'Scaling':  patterns multiplicatively scaled by constant dependent
-%               on the number of presses (Y = s*f, where f are finger
-%               patterns and s is # presses scaling constant)
+%               on the number of presses (G_2 = s*G_1, where G is the second 
+%               moment martix at one pressing speed, and s is # presses scaling 
+%               constant)
 % 
 % In addition to the nonlinear scaling model, we fit two additional
 % models:
@@ -34,9 +35,6 @@ function [T,M,Ti,Mi] = pcm_recipe_nonlinear
 %                   model. Likelihood of the non-crossvalidated group fit
 %                   of this model is set to be 1 when scaling likelihoods.
 %
-% Note that these models don't predict actual pattern estimates, rather
-% their (co-)variances, but it is easier to understand the model functions
-% when described in relation to actual patterns.
 
 load data_recipe_nonlinear.mat % loads struct I
 runEffect = 'random';   
