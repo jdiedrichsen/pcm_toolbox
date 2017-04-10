@@ -44,10 +44,9 @@ function [D,T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,v
 %                   condition assignment of rows of Y{subj}.
 %                   If a single vector is provided, it is assumed to me the
 %                   same for all subjects
-% 
-%                   One can also pass design matrix Z for each subject as
-%                   an element of cell array when each subject has
-%                   different design.
+%                   If the (elements of) conditionVec are matrices, it is
+%                   assumed to be the design matrix Z, allowing the
+%                   specification individualized models. 
 %--------------------------------------------------------------------------
 % OPTION:
 %   'runEffect': How to deal with effects that may be specific to different
@@ -61,8 +60,9 @@ function [D,T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,v
 %                            error covariance matrix to reflect he removal
 %
 %   'MaxIteration': Number of max minimization iterations. Default is 1000.
-%   'S',S         : Structure of the NxN noise covariance matrix -
-%                   otherwise it assumes independence here
+% 
+%   'S',S         : (Cell array of) NxN noise covariance matrices -
+%                   otherwise independence is assumed
 %
 %--------------------------------------------------------------------------
 % OUTPUT:
@@ -126,13 +126,12 @@ for s = 1:numSubj
     % Prepare matrices and data depnding on how to deal with run effect
     [N,P] = size(Y{s});
     numCond= size(Z,2);
+    YY  = (Y{s} * Y{s}');
     switch (runEffect)
         case 'random'
-            YY  = (Y{s} * Y{s}');
             B   = pcm_indicatorMatrix('identity_p',pV);
             X   = zeros(N,0);  % Make an indexable, empty matrix
         case 'fixed'
-            YY  = (Y{s} * Y{s}');
             B  =  zeros(N,0);  % Make an indexable, empty matrix
             X  =  pcm_indicatorMatrix('identity_p',pV);
     end;

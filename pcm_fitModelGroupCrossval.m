@@ -54,10 +54,9 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditi
 %   conditionVec: {#Subjects} Cell array with condition assignment vector
 %                   for each subject. Rows of conditionVec{subj} define
 %                   condition assignment of rows of Y{subj}.
-% 
-%                   One can also pass design matrix Z for each subject as
-%                   an element of cell array when each subject has
-%                   different design.
+%                   If the (elements of) conditionVec are matrices, it is
+%                   assumed to be the design matrix Z, allowing the
+%                   specification individualized models. 
 %--------------------------------------------------------------------------
 % OPTION:
 %   'runEffect': How to deal with effects that may be specific to different
@@ -148,15 +147,14 @@ for s = 1:numSubj
     % Set up the main matrices
     [N(s,1),P(s,1)] = size(Y{s});
     numCond= size(Z{s},2);
-    
+    YY{s}  = (Y{s} * Y{s}');
+
     % Depending on the way of dealing with the run effect, set up data
     switch (runEffect)
         case 'random'
-            YY{s}  = (Y{s} * Y{s}');
             B{s}   = pcm_indicatorMatrix('identity_p',pV);
             X{s}   = [];
         case 'fixed'
-            YY{s}  = (Y{s} * Y{s}');
             B{s}  =  [];
             X{s}  =  pcm_indicatorMatrix('identity_p',pV);
     end;

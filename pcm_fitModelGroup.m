@@ -49,10 +49,9 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,va
 %                   for each subject. Rows of conditionVec{subj} define
 %                   condition assignment of rows of Y{subj}. If 1 vector is given, 
 %                   then conditions are  assumed to be the same across subjects
-% 
-%                   One can also pass design matrix Z for each subject as
-%                   an element of cell array when each subject has
-%                   different design.
+%                   If the (elements of) conditionVec are matrices, it is
+%                   assumed to be the design matrix Z, allowing the
+%                   specification individualized models. 
 %--------------------------------------------------------------------------
 % OPTION:
 %   'runEffect': How to deal with effects that may be specific to different
@@ -80,6 +79,9 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,va
 %   'verbose':      Optional flag to show display message in the command
 %                   line (e.g., elapsed time). Default is 1.
 % 
+%   'S',S         : Structure of the NxN noise covariance matrix -
+%                   otherwise independence is assumed
+% 
 %--------------------------------------------------------------------------
 % OUTPUT:
 %   T:      Structure with following subfields:
@@ -99,8 +101,9 @@ isCheckDeriv    = 0;
 MaxIteration    = 1000;
 verbose         = 1;    
 fitScale        = 1;   % Fit an additional scaling parameter for each subject? 
+S               = [];  % Structure of noise matrix 
 pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration',...
-                      'verbose','fitScale'});
+                      'verbose','fitScale','S'});
 
 numSubj     = numel(Y);
 numModels   = numel(M);
@@ -133,43 +136,16 @@ for s = 1:numSubj
     % Set up the main matrices
     [N(s,1),P(s,1)] = size(Y{s});   
     numCond= size(Z{s},2);
+    YY{s}  = (Y{s} * Y{s}');
     
     % Depending on the way of dealing with the run effect, set up data
     switch (runEffect)
         case 'random'
-            YY{s}  = (Y{s} * Y{s}');
             B{s}   = pcm_indicatorMatrix('identity_p',pV);
             X{s}   = [];
-            S      = [];   % Use identity for covariance
         case 'fixed'
-            YY{s}  = (Y{s} * Y{s}');
             B{s}  =  [];
             X{s}  =  pcm_indicatorMatrix('identity_p',pV);
-            S     =  [];    % Use identity for covariance
-        case 'remove'
-            Run         =  indicatorMatrix('identity_p',pV);
-            R           =  eye(N(s))-Run*((Run'*Run)\Run');
-            
-            % Remove redundant dimention from S and Z
-            for c=1:size(Run,2)
-                idx = find(Run(:,c)==1);
-                idxrem(c,1) = idx(1); % can be other row
-            end
-            R(idxrem,:) = [];
-            Run(idxrem,:) = [];
-            % partitionVec{s}(idxrem) = []; % this also affect estG
-            
-            % Orthogonalize Y and Z
-            Z{s} = R*Z{s};
-            %Y{s} = R*Y{s}; % changing Y{s} here affects following
-            %                 calculation of G                        
-            Yrem        = R*Y{s}; % should this be kept for further use?
-            
-            YY{s}       = (Yrem * Yrem');
-            S(s).S      = R*R';             % Rotated noise covariance
-            S(s).invS   = pinv(S(s).S);     % Pre-calculated inverse of noise covariance
-            B{s}        = [];
-            X{s}        = [];
     end;
     
     % Estimate crossvalidated second moment matrix to get noise and run

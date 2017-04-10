@@ -35,11 +35,11 @@ function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,
 %                   for each subject. Rows of conditionVec{subj} define
 %                   condition assignment of rows of Y{subj}.
 %                   If a single vector is provided, it is assumed to me the
-%                   same for all subjects 
+%                   same for all subjects.
+%                   If the (elements of) conditionVec are matrices, it is
+%                   assumed to be the design matrix Z, allowing the
+%                   specification individualized models. 
 % 
-%                   If conditionVec One can also pass design matrix Z for each subject as
-%                   an element of cell array when each subject has
-%                   different design.
 %--------------------------------------------------------------------------
 % OPTION:
 %   'runEffect': How to deal with effects that may be specific to different
@@ -57,12 +57,10 @@ function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,
 %                  differences approximations. See function documentation.
 %
 %   'MaxIteration': Number of max minimization iterations. Default is 1000.
-%
-%    'isCheckIter': Optional flag to display the summary of function
-%                   iteration at the end of fitting. Default is 0.
-%
-%    'isCheckTime': Optional flag to display the time took for each model.
-%                   Default is 1.
+% 
+%   'verbose':      Optional flag to show display message in the command
+%                   line (e.g., elapsed time). Default is 1.
+% 
 %--------------------------------------------------------------------------
 % OUTPUT:
 %   T:      Structure with following subfields:
@@ -114,13 +112,12 @@ for s = 1:numSubj
     % Prepare matrices and data depnding on how to deal with run effect 
     [N(s,1),P(s,1)] = size(Y{s});
     numCond= size(Z{s},2);
+    YY{s}  = (Y{s} * Y{s}');
     switch (runEffect)
         case 'random'
-            YY{s}  = (Y{s} * Y{s}');
             B{s}   = pcm_indicatorMatrix('identity_p',pV);
             X{s}   = [];
         case 'fixed'
-            YY{s}  = (Y{s} * Y{s}');
             B{s}  =  [];
             X{s}  =  pcm_indicatorMatrix('identity_p',pV);
     end;
