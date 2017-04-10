@@ -9,30 +9,26 @@ function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,
 %            Observed/estimated beta regressors from each subject.
 %            Preferably multivariate noise-normalized beta regressors.
 %
-%        M: {#Models} Cell array with structure that defines model(s). Each may contain the following 
-%                       Subfield 
+%        M: {#Models} Cell array with structure that defines model(s). Each
+%        may contain the fields
 %              .type:        Type of the model to be fitted
 %                             'fixed':     Fixed structure without parameter (except scale for each subject)
 %                             'component': G is a sum of linear components
 %                             'feature':   G=A*A', with A a linear sum of weighted feature components
 %                             'nonlinear': Nonlinear model with own function to return derivatives
+%                             'freechol':  Free model in Cholesky form 
 %              .numGparams:  Scalar that defines the number of parameters
 %                             included in model.
 %              .theta0:      Vector of starting theta parameters to calculate predicted
-%                             model G. Can estimate
-%                             these parameters using 'pcm_modelpred_free_startingval'
-%              .modelpred':  Modelling func. Must take theta values as vector
-%                             and return predicated second moment matrix and
-%                             derivatives in respect to parameters (for nonlinear models).
-%              .Gc:          Linear component matrices (for type 'component')
-%              .Ac           Linear component matrices (for type 'squareroot')
+%                             model G. 
+%         for more fields see the manual for model specification.                   
 %
 %   partitionVec: {#Subjects} Cell array with partition assignment vector
 %                   for each subject. Rows of partitionVec{subj} define
 %                   partition assignment of rows of Y{subj}.
 %                   Commonly these are the scanning run #s for beta
 %                   regressors.
-%                   If a single vector is provided, it is assumed to me the
+%                   If a single vector is provided, it is assumed to be the
 %                   same for all subjects 
 %
 %   conditionVec: {#Subjects} Cell array with condition assignment vector
@@ -41,7 +37,7 @@ function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,
 %                   If a single vector is provided, it is assumed to me the
 %                   same for all subjects 
 % 
-%                   One can also pass design matrix Z for each subject as
+%                   If conditionVec One can also pass design matrix Z for each subject as
 %                   an element of cell array when each subject has
 %                   different design.
 %--------------------------------------------------------------------------

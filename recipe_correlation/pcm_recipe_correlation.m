@@ -2,120 +2,108 @@ function varargout=pcm_recipe_correlation
 % Example for a simple model with two factors:
 % Factor A: 1-5 finger
 % Factor B: left or right hand
-% Example data come from the 12 hemispheres studied for the finger movements 
+% Example data come from the 12 hemispheres studied for the finger movements
 % of contralateral and ipsilateral hand (see Diedrichsen et al. 2013).
 % Note that the strength of encoding for the right (contralateral) fingers is much larger
 % than for the left (ipsilateral) fingers.
 % The correlations are determined using a simple model that assumes the
-% same variance for each 
+% same variance for each
 %
 load data_recipe_correlation.mat
-% Treat the run effect as random or fixed?
-% For run effect fixed, it does not matter if the
-% If the run effect is random, it does matter, as the model needs
-% to also explain some part of the common activity across
-runEffect  = 'random';
+runEffect  = 'fixed';
 
 % --------------------------------------
-% Model1: Reduced model like in a chol-decomposition
+% Model1: Model with one feature component for all fingers
 M{1}.type       = 'feature';
 M{1}.numGparams = 5;
-M{1}.Ac(:,1,1)  = [ones(5,1);zeros(5,1)]; % Inidividual component: right hand (b)
-M{1}.Ac(:,2,2)  = [zeros(5,1);ones(5,1)]; % Common component: left hand (c)
-M{1}.Ac(:,3:7,3)  = [eye(5);zeros(5)]; % Inidividual component: right hand (b)
-M{1}.Ac(:,3:7,4)  = [zeros(5);eye(5)]; % Common component: left hand (c)
-M{1}.Ac(:,8:12,5)  = [zeros(5);eye(5)]; % Common component: right hand (d)
+M{1}.Ac(:,1:5 ,1)  = [eye(5);zeros(5)];      % Contralateral finger patterns   (a)
+M{1}.Ac(:,1:5 ,2)  = [zeros(5);eye(5)];      % Mirrored Contralateralpatterns  (b)
+M{1}.Ac(:,6:10,3)  = [zeros(5);eye(5)];      % Unique Ipsilateral pattterns    (c)
+M{1}.Ac(:,11  ,4)  = [ones(5,1);zeros(5,1)]; % Hand-specific component contra  (d)
+M{1}.Ac(:,12  ,5)  = [zeros(5,1);ones(5,1)]; % Hand-specific component ipsi    (e)
 M{1}.name       = 'correlation';
-M{1}.theta0=[1 1 1 0 0.4]';
+M{1}.theta0=[1 1 0.5 0.1 0.1 ]';		% Starting values
 
-% More complex feature model 
+% --------------------------------------
+% Model1: Model with a feature component for ech fingers
 M{2}.type       = 'feature';
 M{2}.numGparams = 17;
-M{2}.Ac(:,1,1)  = [ones(5,1);zeros(5,1)]; % Inidividual component: right hand (b)
-M{2}.Ac(:,2,2)  = [zeros(5,1);ones(5,1)]; % Common component: left hand (c)
 for i=1:5
-    A=zeros(5); 
-    A(i,i)=1; 
-    M{2}.Ac(:,3:7,2+i)  = [A;zeros(5)]; % Inidividual component: right hand (b)
-    M{2}.Ac(:,3:7,7+i)  = [zeros(5);A]; % Common component: left hand (c)
-    M{2}.Ac(:,8:12,12+i)  = [zeros(5);A]; % Common component: right hand (d)
+    A=zeros(5);
+    A(i,i)=1;
+    M{2}.Ac(:,1:5 ,i)    = [A;zeros(5)]; % Contralateral finger patterns   (a)
+    M{2}.Ac(:,1:5 ,5+i)  = [zeros(5);A]; % Mirrored Contralateralpatterns  (b)
+    M{2}.Ac(:,6:10,10+i) = [zeros(5);A]; % Unique Ipsilateral pattterns    (c)
     M{2}.name       = 'correlation2';
-end; 
+end;
+M{2}.Ac(:,11  ,16)  = [ones(5,1);zeros(5,1)]; % Hand-specific component contra  (d)
+M{2}.Ac(:,12  ,17)  = [zeros(5,1);ones(5,1)]; % Hand-specific component ipsi    (e)
 M{2}.theta0=ones(17,1);
 
-
-
-% Fit the models
+% --------------------------------------
+% Fit the models and calculate the correlation
 [D,theta,G_hat] = pcm_fitModelIndivid(Data,M,partVec,condVec,'runEffect',runEffect);
 
-% Overall correlation 
-T.Avar1    = theta{1}(:,3).^2;
-T.Avar2    = theta{1}(:,4).^2+theta{1}(:,5).^2;
-T.Acov     = theta{1}(:,3).*theta{1}(:,4);
-T.Ar       = T.Acov./sqrt(T.Avar1.*T.Avar2);
-
-T.Bvar1    = theta{2}(:,3:7).^2;
-T.Bvar2    = theta{2}(:,8:12).^2+theta{2}(:,13:17).^2;
-T.Bcov     = theta{2}(:,3:7).*theta{2}(:,8:12);
-T.Br       = T.Bcov./sqrt(T.Bvar1.*T.Bvar2);
-T.Bmr      = mean(T.Bcov,2)./sqrt(mean(T.Bvar1,2).*mean(T.Bvar2,2));
-
+% Get the correlations from the parameters for Model1 
+var1        = theta{1}(1,:).^2;
+var2        = theta{1}(2,:).^2+theta{1}(3,:).^2;
+cov12       = theta{1}(1,:).*theta{1}(2,:);
+T.r_model1  = (cov12./sqrt(var1.*var2))';
+% Get the correlations from the parameters for Model2 
+var1       = (theta{2}(1:5,:).^2)';
+var2       = (theta{2}(6:10,:).^2+theta{2}(11:15,:).^2)';
+cov12      = (theta{2}(1:5,:).*theta{2}(6:10,:))';
+T.r_model2 =  mean(cov12,2)./sqrt(mean(var1,2).*mean(var2,2));
+            
+% --------------------------------------
+% Calculate empricial correlation
+for p=1:12
+    Z=pcm_indicatorMatrix('identity',condVec{p});
+    b = pinv(Z)*Data{p};           % Estimate mean activities
+    b(1:5,:)  = bsxfun(@minus,b(1:5,:) ,mean(b(1:5,:))); % Subtract mean per hand
+    b(6:10,:) = bsxfun(@minus,b(6:10,:),mean(b(6:10,:)));
+    G=cov(b');
+    T.r_naive(p,1) = calcCorr(G);
+end;
 
 % --------------------------------------
-% Calculate empricial correlation 
-for p=1:12 
-    Z=pcm_indicatorMatrix('identity',condVec{p}); 
-    b = pinv(Z)*Data{p}; 
-    x1 = b(1:5,:); 
-    x2 = b(6:10,:); 
-    x1 = bsxfun(@minus,x1,mean(x1)); 
-    x2 = bsxfun(@minus,x2,mean(x2));
-    R=corr([x1' x2']); 
-    T.meanR(p,1) = mean(diag(R,5)); 
-end; 
-fprintf('mean correlation = %2.2f (+-%2.2f)\n', mean(T.meanR),std(T.meanR)/sqrt(12)); 
+% Crossvalidated correlation
+for p=1:12
+    Z=pcm_indicatorMatrix('identity',condVec{p});
+    % Subtract mean for each hand and run
+    X = indicatorMatrix('identity',partVec{p}*2+(condVec{p}>5)-1);
+    R=eye(size(X,1))-X*pinv(X);         % Residual forming matrix
+    Gcv(:,:,p)=pcm_estGCrossval(R*Data{p},partVec{p},condVec{p});
+    T.r_crossval(p,1)=calcCorr(pcm_makePD(Gcv(:,:,p)));
+end;
 
 % --------------------------------------
-% Crossvalidated correlation 
-for p=1:12 
-    Z=pcm_indicatorMatrix('identity',condVec{p}); 
-    % Do the hard subtraction of each hand effect 
-    X = indicatorMatrix('identity',partVec{p}*2+(condVec{p}>5)-1); 
-    N=size(X,1); 
-    R=eye(N)-X*pinv(X); 
-    G_hat(:,:,p)=pcm_estGCrossval(R*Data{p},partVec{p},condVec{p}); 
-    [T.Cv1(p,:),T.Cv2(p,:),T.Ccv(p,:),...
-        T.Cr(p,:),T.Cmr(p,:)]=calcCorr(G_hat(:,:,p));
-end; 
-fprintf('mean correlation = %2.2f (+-%2.2f)\n', mean(T.Cr),std(T.Cr)/sqrt(12)); 
+% Plot histgrams
+edge=[0:0.1:1];
+subplot(1,4,1);
+hist(T.r_naive,edge);
+set(gca,'XLim',[0 1],'YLim',[0 12]); 
+title('Simple correlation');
+subplot(1,4,2);
+hist(T.r_model1,edge);
+set(gca,'XLim',[0 1],'YLim',[0 12]); 
+title('Model 1');
+subplot(1,4,3);
+hist(T.r_model2,edge);
+set(gca,'XLim',[0 1],'YLim',[0 12]); 
+title('Model 2');
+subplot(1,4,4);
+hist(T.r_crossval,edge);
+set(gca,'XLim',[0 1],'YLim',[0 12]); 
+title('Crossvalidated');
+varargout={T};
 
-
-% Make Figure X of the paper 
-subplot(1,4,1); 
-imagesc_rectangle(mean(G_hat,3),'YDir','reverse');
-drawline(5.5); 
-drawline(5.5,'dir','horz');
-subplot(1,4,2); 
-histplot([T.Ar],'catX',[0.3:0.05:0.99]);
-set(gca,'YLim',[0 12],'XLim',[0.4 1]);
-subplot(1,4,3); 
-histplot([T.Bmr],'catX',[0.3:0.05:0.99]);
-set(gca,'YLim',[0 12],'XLim',[0.4 1]);
-subplot(1,4,4); 
-histplot([T.Cmr],'catX',[0.3:0.05:0.99]);
-set(gca,'YLim',[0 12],'XLim',[0.4 1]); 
-
-set(gcf,'PaperPosition',[2 2 9 1.8]);
-wysiwyg; 
-
-varargout={T}; 
-
-function [v1,v2,cv,r,mr]=calcCorr(G); 
-    d0=diag(G); 
-    d5=diag(G,5); 
-    v1 = d0(1:5)'; 
-    v2 = d0(6:10)'; 
-    cv = d5'; 
-    r  = cv./sqrt(v1.*v2); 
-    mr = mean(cv)/sqrt(mean(v1)*mean(v2)); 
-
+% --------------------------------------
+% Get the correlation from a a covariance matrix
+% By avagering across covariances and variances
+function r=calcCorr(G);
+d0=diag(G);
+v1 = d0(1:5)';    % Variances contra
+v2 = d0(6:10)';   % Variances ipsi
+cv=diag(G,5);     % Covariance
+r = mean(cv)/sqrt(mean(v1)*mean(v2));
