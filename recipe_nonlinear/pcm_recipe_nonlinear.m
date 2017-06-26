@@ -102,14 +102,14 @@ M{2}.theta0     = [Fx0;scale_vals];
 % Additive independent model- adds independent pattern (NOT mean
 % pattern) that scales with pressing speed
 M{3}.type       = 'nonlinear'; 
-M{3}.modelpred  = @fdf2_modelpred_add;
+M{3}.modelpred  = @ra_modelpred_add;
 M{3}.numGparams = 17;  % 14 free theta params in Fx0 and 3 additive params
 M{3}.theta0     = [Fx0;add_vals];
 M{3}.name       = 'Additive';
 
 % Additive independent + Scaling model combo
 M{4}.type       = 'nonlinear'; 
-M{4}.modelpred  = @fdf2_modelpred_addsc;
+M{4}.modelpred  = @ra_modelpred_addsc;
 M{4}.numGparams = 20; % 14 free theta params in Fx0 and 3 free scaling params + 3 additive params
 M{4}.theta0     = [Fx0;scale_vals;add_vals];
 M{4}.name       = 'Combination';
