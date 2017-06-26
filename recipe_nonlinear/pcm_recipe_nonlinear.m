@@ -112,6 +112,7 @@ M{3}.theta0     = [];
     'runEffect',runEffect,'isCheckDeriv',0,'groupFit',theta_all);
  
 % Can scale and plot group likelihoods of model fits.
+figure(1); 
 T = pcm_plotModelLikelihood(Tcross,M,'upperceil',Tgroup.likelihood(:,3),'style','bar');
 % Returns T with subfields for scaled likelihoods (relative to null model (M1)
 % and noise ceiling (M3). 
@@ -132,29 +133,14 @@ title('group G-hat')
 subplot(1,2,2);
 imagesc(G_scaling,colorLimits);
 title('group scaling G')
-
-% We can also evalute how effective the scaling parameter estimtes using
-% simple line plots. For example, we can take the diagonal of G_mean and
-% G_scaling:
-figure(3); 
-hold on; 
-plot(diag(G_mean),'LineWidth',2); 
-plot(diag(G_scaling),'LineWidth',2); 
-hold off;
-legend({'observed','scaling'});
-legend boxoff
-xlabel('condition number');
-xlim([1 20]);
-ylabel('variance (a.u.)');
-box off        
  
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 % (5) Fit Model to single subjects and plot fits for one subj
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [Tindivid,~,G_pred_individ] = pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,...
     'runEffect',runEffect,'isCheckDeriv',0);
-figure(4); 
-pcm_plotModelLikelihood(Tindivid,Mi,'subj',4,'normalize',0,'plotceil',0);
+figure(3); 
+pcm_plotModelLikelihood(Tindivid,M,'subj',4,'normalize',0,'plotceil',0);
 % We don't plot a lower noise ceiling because the noiseceiling model in 
 % Tindivid is NOT crossvalidated, and so it is not appropriate for a lower 
 % noise ceiling.
