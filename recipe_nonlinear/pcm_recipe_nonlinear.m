@@ -149,20 +149,21 @@ end
 G_scaling     = mean(G_scaling,3);
 G_additive    = mean(G_additive,3);
 G_combo       = mean(G_combo,3);
+clim_max   = max([max(max(G_scaling)) max(max(G_additive)) max(max(G_combo)) max(max(G_mean))]);
 % plot group crossval fitted G_scaling against mean of G_hat
 figure(2);
 subplot(1,4,1);
-imagesc(G_mean);
+imagesc(G_mean,[0 clim_max]);
 title('group G-hat')
 subplot(1,4,2);
-imagesc(G_scaling);
+imagesc(G_scaling,[0 clim_max]);
 title('group scaling G')
 subplot(1,4,3);
-imagesc(G_additive);
+imagesc(G_additive,[0 clim_max]);
 title('group additive G')
 subplot(1,4,4);
-imagesc(G_combo);
-title('group combination G')
+imagesc(G_combo,[0 clim_max]);
+title('group combination G');
 
 % We can also evalute how effective the scaling parameter estimtes using
 % simple line plots. For example, we can take the diagonal of G_mean and
@@ -185,7 +186,7 @@ box off
 [Tindivid,~,G_pred_individ] = pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,...
     'runEffect',runEffect,'isCheckDeriv',0);
 figure(4); 
-pcm_plotModelLikelihood(Tindivid,Mi,'subj',4,'normalize',0,'plotceil',0);
+pcm_plotModelLikelihood(Tindivid,M,'subj',4,'normalize',0,'plotceil',0);
 % We don't plot a lower noise ceiling because the noiseceiling model in 
 % Tindivid is NOT crossvalidated, and so it is not appropriate for a lower 
 % noise ceiling.
