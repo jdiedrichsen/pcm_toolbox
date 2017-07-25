@@ -24,8 +24,15 @@ function [T,M,Ti,Mi] = pcm_recipe_nonlinear
 %               on the number of presses (G_2 = s*G_1, where G is the second 
 %               moment martix at one pressing speed, and s is # presses scaling 
 %               constant)
+%   'Additive': patterns are shifted from baseline by a constant background
+%               patten dependent on the speed. Therefore, the covariances
+%               will remain approximately consistent, but the variance of
+%               each condition in the second moment will increase with
+%               pressing speed.
+%   'Combination': patterns are scaled multiplicatively and shifted from
+%                  baseline by some additive background pattern.
 % 
-% In addition to the nonlinear scaling model, we fit two additional
+% In addition to the above three nonlinear models, we fit two additional
 % models:
 %   'Null':     model that returns data where all distances are equal (i.e.
 %               a bad model). This is used as the zero point when scaling 
@@ -60,6 +67,7 @@ end;
 % Starting vals can be arbitrary but can drastically increase computation
 % time.
 scale_vals = [log(0.30);log(0.62);log(0.85)];
+add_vals   = [log(0.2);  log(0.62); log(1)];
 
 % Get starting values for the finger structure (Omega). Because we're interested
 % in how these patterns scale, we use the (co-)variances from the portion
@@ -89,13 +97,28 @@ M{2}.type       = 'nonlinear';
 M{2}.name       = 'Scaling';
 M{2}.modelpred  = @ra_modelpred_scale;
 M{2}.numGparams = 17; % 14 free theta params in Fx0 and 3 free scaling params
-M{2}.theta0     = [Fx0;scale_vals];                   
+M{2}.theta0     = [Fx0;scale_vals]; 
+
+% Additive independent model- adds independent pattern (NOT mean
+% pattern) that scales with pressing speed
+M{3}.type       = 'nonlinear'; 
+M{3}.modelpred  = @ra_modelpred_add;
+M{3}.numGparams = 17;  % 14 free theta params in Fx0 and 3 additive params
+M{3}.theta0     = [Fx0;add_vals];
+M{3}.name       = 'Additive';
+
+% Additive independent + Scaling model combo
+M{4}.type       = 'nonlinear'; 
+M{4}.modelpred  = @ra_modelpred_addsc;
+M{4}.numGparams = 20; % 14 free theta params in Fx0 and 3 free scaling params + 3 additive params
+M{4}.theta0     = [Fx0;scale_vals;add_vals];
+M{4}.name       = 'Combination';
 
 % Naive averaging model- noise ceiling
-M{3}.type       = 'noiseceiling';   
-M{3}.name       = 'Noiseceiling';
-M{3}.numGparams = 0; % totally fixed model- no free params
-M{3}.theta0     = [];
+M{5}.type       = 'noiseceiling';   
+M{5}.name       = 'noiseceiling';
+M{5}.numGparams = 0; % totally fixed model- no free params
+M{5}.theta0     = [];
 %   Use likelihood fit of this model as 1 scaling point in each subject
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -112,34 +135,57 @@ M{3}.theta0     = [];
     'runEffect',runEffect,'isCheckDeriv',0,'groupFit',theta_all);
  
 % Can scale and plot group likelihoods of model fits.
-figure(1); 
-T = pcm_plotModelLikelihood(Tcross,M,'upperceil',Tgroup.likelihood(:,3),'style','bar');
+T = pcm_plotModelLikelihood(Tcross,M,'upperceil',Tgroup.likelihood(:,5),'style','bar');
 % Returns T with subfields for scaled likelihoods (relative to null model (M1)
-% and noise ceiling (M3). 
+% and noise ceiling (M5). 
         
 % We can also plot and compare the real/observed and estimate (co-)variance
 % matrices.
 for s = 1:size(G_pred{2},3) % for each subject
-    G_scaling(:,:,s) = G_pred{2}(:,:,s).*Tcross.scale(s,2);
+    G_scaling(:,:,s)  = G_pred{2}(:,:,s).*Tcross.scale(s,2);
+    G_additive(:,:,s) = G_pred{3}(:,:,s).*Tcross.scale(s,2);
+    G_combo(:,:,s)    = G_pred{4}(:,:,s).*Tcross.scale(s,2);
 end
 G_scaling     = mean(G_scaling,3);
-maxColorLimit = max([max(max(G_mean)), max(max(G_scaling))]);
-colorLimits   = [0 maxColorLimit];
+G_additive    = mean(G_additive,3);
+G_combo       = mean(G_combo,3);
+clim_max   = max([max(max(G_scaling)) max(max(G_additive)) max(max(G_combo)) max(max(G_mean))]);
 % plot group crossval fitted G_scaling against mean of G_hat
 figure(2);
-subplot(1,2,1);
-imagesc(G_mean,colorLimits);
+subplot(1,4,1);
+imagesc(G_mean,[0 clim_max]);
 title('group G-hat')
-subplot(1,2,2);
-imagesc(G_scaling,colorLimits);
+subplot(1,4,2);
+imagesc(G_scaling,[0 clim_max]);
 title('group scaling G')
+subplot(1,4,3);
+imagesc(G_additive,[0 clim_max]);
+title('group additive G')
+subplot(1,4,4);
+imagesc(G_combo,[0 clim_max]);
+title('group combination G');
+
+% We can also evalute how effective the scaling parameter estimtes using
+% simple line plots. For example, we can take the diagonal of G_mean and
+% G_scaling:
+figure(3); 
+hold on; 
+plot(diag(G_mean),'LineWidth',2); 
+plot(diag(G_scaling),'LineWidth',2); 
+hold off;
+legend({'observed','scaling'});
+legend boxoff
+xlabel('condition number');
+xlim([1 20]);
+ylabel('variance (a.u.)');
+box off        
  
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 % (5) Fit Model to single subjects and plot fits for one subj
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [Tindivid,~,G_pred_individ] = pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,...
     'runEffect',runEffect,'isCheckDeriv',0);
-figure(3); 
+figure(4); 
 pcm_plotModelLikelihood(Tindivid,M,'subj',4,'normalize',0,'plotceil',0);
 % We don't plot a lower noise ceiling because the noiseceiling model in 
 % Tindivid is NOT crossvalidated, and so it is not appropriate for a lower 

@@ -134,9 +134,9 @@ end;
 % Set the error function.
 switch varfcn
     case 'sem'
-        vfcn = @(x)nanstd(x)/sqrt(length(x));
+        vfcn = @(x)std(x)/sqrt(length(x));
     case 'std'
-        vfcn = @nanstd;
+        vfcn = @std;
     otherwise
         error('Unkown variance function for errobars')
 end

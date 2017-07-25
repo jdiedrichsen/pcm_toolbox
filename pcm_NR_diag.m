@@ -1,8 +1,8 @@
-function [G,theta,u,l,k]=pcm_NR_diag(y,Z,varargin)
+function [G,theta,u,l,numIter]=pcm_NR_diag(Y,Z,varargin)
 % pcm_NR: estimate random-effects variance component coefficients using
 % Newton-Raphson gradient descent.
 %
-% function [G,th,u,l,k]=pcm_NR_diag(y,Z,varargin)
+% function [G,theta,u,l,numIter]=pcm_NR_diag(y,Z,varargin)
 % The G-matrix has diagonal, but otherwise arbitrarily constrained
 % structure with diag(G)=sum(Gc*hc))
 %
@@ -12,10 +12,10 @@ function [G,theta,u,l,k]=pcm_NR_diag(y,Z,varargin)
 % Diedrichsen, Ridgway, Friston & Wiestler (2011).
 %
 % y_n = X b_n + Z u_n + e,
-%         u ~ (b, G)
+%         u ~ N(0, G)
 %           G = sum (h * diag(Gc))
 %
-% y: N x P observations
+% Y: N x P observations
 % Z: N x Q random effects matrix
 % X: N x L fixed effects matrix
 %
@@ -33,31 +33,24 @@ function [G,theta,u,l,k]=pcm_NR_diag(y,Z,varargin)
 %                    (otherwise uses starting guess based on Laird & Lange)
 %   'TolL'         : Tolerance of the likelihood (l-l'), where l' is
 %                    projected likelihood
-%   'meanS'        : Remove the mean for each pattern component (a)
-%                    (Logical flag, true by default)
 %   'X'            : Fixed effects matrix that will be removed from y
 %                    In this case, ReML will be used for the estimation of
 %                    G.
 %
 % OUTPUT:
-%   G     : variance-covariance matrix
-%   th    : coefficients (one column for each iteration)
-%   u     : hidden patterns components
-%   l     : likelihood
+%   G       : variance-covariance matrix
+%   theta   : (log-)parameters
+%   u       : hidden patterns components
+%   l       : log-likelihood
+%   numIter : Numer of iterations 
 %
 % Examples:
-% See mva_component_examples
+% v.3.0:
 %
-% See also: mva_component_examples, spm_reml, spm_reml_sc, spm_sp_reml
-% Where spm_* are from the SPM software, http://www.fil.ion.ucl.ac.uk/spm
-%
-% v.2.0:
-%
-% Copyright 2014 Joern Diedrichsen, j.diedrichsen@ucl.ac.uk
+% Copyright 2017 Joern Diedrichsen, joern.diedrichsen@googlemail.com 
 
 % Defaults
 %--------------------------------------------------------------------------
-meanS   = 0;                    % Mean subtract
 ac      = [];                      % Which terms do I want to include?
 numIter = 32;                 % Maximal number of iterations
 Gc      = {};
@@ -65,20 +58,18 @@ Gd      = [];
 h0      = [];
 low     = -16;
 thres   = 1e-2;
-hE      = -8;                 % Hyper prior: Set of the floor to collect evidence
-hP      = 1/256;
 X       = [];
 
 % Variable argument otions
 %--------------------------------------------------------------------------
 vararginoptions(varargin, ...
-    {'Gc','Gd','meanS','h0','ac','hE','hP','thres','X','numIter'});
+    {'Gc','Gd','meanS','h0','ac','thres','X','numIter'});
 
 % check input size
 %--------------------------------------------------------------------------
-y=double(y);
+Y=double(Y);
 Z=double(Z);
-[N,P]  =  size(y);
+[N,P]  =  size(Y);
 [N2,Q] =  size(Z);
 if N2  ~= N
     error('Mismatched numbers of rows in data (%d) and design (%d)', N, N2)
@@ -103,25 +94,8 @@ else
     error('Either Gd or Gc option should be given');
 end;
 
-% If necessary, subtract the fixed effects estimates (a)
-%--------------------------------------------------------------------------
-if (meanS)
-    a  =  pinv(Z)*sum(y,2)/P;
-    r  =  bsxfun(@minus,y,Z*a);
-else
-    r  =  y;
-end;
-
-YY   =  r*r';                        % This is Suffient stats 1 (S1)
+YY   =  Y*Y';                        % This is Suffient stats 1 (S1)
 trYY =  sum(diag(YY));
-
-
-% Scale YY
-%--------------------------------------------------------------------------
-sY = 1; % trace(YY)/(P*N);
-sYY = YY/sY;
-trYY = trYY/sY;
-rs=r/sqrt(sY);
 
 % Figure out which terms to include into the model (set others to -32)
 %--------------------------------------------------------------------------
@@ -136,6 +110,7 @@ end;
 % initialise h
 %--------------------------------------------------------------------------
 if (isempty(h0))
+    rs     = Y-X*pinv(X)*Y; 
     h      =  ones(H,1)*low;
     u      =  pinv(Z)*rs;
     h(H,1) =  (trYY-traceAB(u'*Z',rs))/(P*N);
@@ -154,9 +129,6 @@ h(nas) = low;
 dF    = Inf;
 dFdh  = zeros(H,1);
 dFdhh = zeros(H,H);
-hE = hE*ones(H,1);             % Prior mean of h
-hP = hP*speye(H,H);          % Prior precision (1/variance) of h
-
 
 for k = 1:numIter
     % compute current estimate of covariance
@@ -185,9 +157,9 @@ for k = 1:numIter
     % Gradient dF/dh (first derivatives)
     %----------------------------------------------------------------------
     A     = iVr*Z;
-    B     = sYY*A/P;
+    B     = YY*A/P;
     dFdh(1:H-1) = -P/2*(sum(A.*Z)-sum(A.*B)) * Gd;
-    dFdh(H) = -P/2*traceABtrans(iVr,(speye(N)-sYY*iVr/P));
+    dFdh(H) = -P/2*traceABtrans(iVr,(speye(N)-YY*iVr/P));
     
     
     % Expected curvature E{dF/dhh} (second derivatives)
@@ -202,13 +174,7 @@ for k = 1:numIter
     %----------------------------------------------------------------------
     dFdh  = dFdh.*exp(h);
     dFdhh = dFdhh.*(exp(h)*exp(h)');
-    
-    % add hyperpriors
-    %----------------------------------------------------------------------
-    e     = h     - hE;
-    dFdh  = dFdh  - hP*e;
-    dFdhh = dFdhh - hP;
-    
+        
     % Fisher scoring: update dh = -inv(ddF/dhh)*dF/dh
     %----------------------------------------------------------------------
     % dh    = spm_dx(dFdhh(as,as),dFdh(as),{t}); % This is actually much
@@ -239,10 +205,10 @@ end
 
 % return exp(h) and rescale
 %--------------------------------------------------------------------------
-theta  = sY*exp(h);
+theta  = h;
 G     = zeros(Q);
 for i = as(1:end-1);
-    G = G + full(Gc{i})*theta(i);
+    G = G + full(Gc{i})*exp(theta(i));
 end
 
 % Find the inverse of V - while dropping the zero dimensions in G
@@ -251,7 +217,7 @@ end
 dS    = diag(s);
 idx   = dS>eps;
 Zu     = Z*u(:,idx);
-iV    = (eye(N)-Zu/(diag(1./dS(idx))*theta(H)+Zu'*Zu)*Zu')./theta(H); % Matrix inversion lemma
+iV    = (eye(N)-Zu/(diag(1./dS(idx))*exp(theta(H))+Zu'*Zu)*Zu')./exp(theta(H)); % Matrix inversion lemma
 
 if (~isempty(X))
     iVX   = iV * X;
@@ -261,7 +227,7 @@ else
 end;
 
 if nargout > 2
-    u=G*Z'*(iV)*r;
+    u=G*Z'*(iV)*Y;
 end;
 if ~all(isreal(u(:)));
     keyboard;

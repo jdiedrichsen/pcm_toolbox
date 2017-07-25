@@ -293,6 +293,6 @@ for s = 1:numSubj
         if (strcmp(runEffect,'random'))
             T.run(s,m)   = exp(th{m}(fitScale+1,s));
         end;
-    end;
-    theta_hat{m}=th{m}'; 
-end;
+        theta_hat{m}=th{m}'; 
+    end;   % Loop over Models 
+end; % Loop over Subjects 
