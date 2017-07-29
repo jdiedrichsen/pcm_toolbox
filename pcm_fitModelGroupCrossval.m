@@ -74,8 +74,8 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditi
 %   'verbose':      Optional flag to show display message in the command
 %                   line (e.g., elapsed time). Default is 1.
 % 
-%   'groupFit',T:   Parameters theta from the group fit: This provides better starting
-%                   values and can speed up the computation
+%   'groupFit',theta:Parameters theta from the group fit: This provides better starting
+%                    values and can speed up the computation. 
 % 
 %   'S':            Specific assumed noise structure - usually inv(XX'*XX),
 %                   where XX is the first-level design matrix used to
@@ -179,7 +179,10 @@ end;
 % with those values
 for m = 1:numModels
      if (~isempty(groupFit))
-        theta0{m}      = groupFit{m}(1:M{m}.numGparams);
+        if (size(groupFit{m},2)>1)
+            error('Group Fit needs to be a cell array with numParam x 1 vectors for each model'); 
+        end; 
+        theta0{m}      = groupFit{m}(1:M{m}.numGparams,1);
         indx           = M{m}.numGparams; 
         noise0(:,m)     = groupFit{m}(indx+1:indx+numSubj);
         indx           = indx+numSubj; 
