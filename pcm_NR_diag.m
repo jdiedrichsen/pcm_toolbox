@@ -12,8 +12,9 @@ function [G,theta,u,l,numIter]=pcm_NR_diag(Y,Z,varargin)
 % Diedrichsen, Ridgway, Friston & Wiestler (2011).
 %
 % y_n = X b_n + Z u_n + e,
-%         u ~ N(0, G)
-%           G = sum (h * diag(Gc))
+%         u_n ~ N(0, G)
+%           G = sum (exp(theta_c) * Gc)
+%         e_n ~ N(0,S exp(theta_e)) 
 %
 % Y: N x P observations
 % Z: N x Q random effects matrix
@@ -25,8 +26,8 @@ function [G,theta,u,l,numIter]=pcm_NR_diag(Y,Z,varargin)
 %
 % VARARGIN:
 %   'numIter'     : Maximal number of iterations
-%   'Gc'           : Cell array (Hx1) of components of variance components
-%                    matrix G = sum(h_m Gc{m}), with m=1...H
+%   'Gc'           : (QxQxH) tensor of variance components
+%                    matrix G = sum(h_m Gc(:,:,i)), with m=1...H
 %   'Gd'           : Q x H matrix with each column referring the the diagonal of the
 %                    variance component
 %   'h0'           : Starting values for the parameters (Hx1 vector)
@@ -36,6 +37,10 @@ function [G,theta,u,l,numIter]=pcm_NR_diag(Y,Z,varargin)
 %   'X'            : Fixed effects matrix that will be removed from y
 %                    In this case, ReML will be used for the estimation of
 %                    G.
+%   'S':            Explicit noise covariance matrix structure matrix. The For speed, 
+%                   this is a cell array that contains
+%                   S.S:     Structure of noise 
+%                   S.invS:  inverse of the noise covariance matrix 
 %
 % OUTPUT:
 %   G       : variance-covariance matrix
@@ -53,17 +58,19 @@ function [G,theta,u,l,numIter]=pcm_NR_diag(Y,Z,varargin)
 %--------------------------------------------------------------------------
 ac      = [];                      % Which terms do I want to include?
 numIter = 32;                 % Maximal number of iterations
-Gc      = {};
+Gc      = [];
 Gd      = [];
 h0      = [];
 low     = -16;
 thres   = 1e-2;
 X       = [];
-
+S       = [];
+hP      = 1/256;                  % Precision on hyper prior  
+i  = 0; 
 % Variable argument otions
 %--------------------------------------------------------------------------
 vararginoptions(varargin, ...
-    {'Gc','Gd','meanS','h0','ac','thres','X','numIter'});
+    {'Gc','Gd','meanS','h0','ac','thres','X','numIter','S'});
 
 % check input size
 %--------------------------------------------------------------------------
@@ -78,15 +85,14 @@ end
 % Intialize the Model structure
 %--------------------------------------------------------------------------
 if (isempty(Gd) && ~isempty(Gc))
-    H     =  length(Gc)+1;       % Number of Hyperparameters (+ 1 for noise term)
-    for h = 1:H-1
-        Gd(:,h)=diag(Gc{h});
-        Gc{h} = sparse(Gc{h});
+    H     =  size(Gc,3)+1;       % Number of Hyperparameters (+ 1 for noise term)
+    for i = 1:H-1
+        Gd(:,i)=diag(Gc(:,:,i));
     end;
 elseif (isempty(Gc) && ~isempty(Gd))
     H    = size(Gd,2)+1;
     for h = 1:H-1
-        Gc{h}=diag(Gd(:,h));
+        Gc(:,:,h)=diag(Gd(:,h));
     end;
 elseif (~isempty(Gc) && ~isempty(Gd))
     error('Only Gd or Gc option should be given');
@@ -129,13 +135,15 @@ h(nas) = low;
 dF    = Inf;
 dFdh  = zeros(H,1);
 dFdhh = zeros(H,H);
+hP = hP*speye(H,H);          % Prior precision (1/variance) of h
+
 
 for k = 1:numIter
     % compute current estimate of covariance
     %----------------------------------------------------------------------
-    G     = sparse(Q,Q);
+    G     = zeros(Q,Q);
     for i = as(1:end-1);
-        G = G + Gc{i}*exp(h(i));
+        G = G + Gc(:,:,i)*exp(h(i));
     end
     
     % Find the inverse of V - while dropping the zero dimensions in G
@@ -143,8 +151,12 @@ for k = 1:numIter
     dS    = diag(s);
     idx   = dS>eps;
     Zu     = Z*u(:,idx);
-    iV    = (eye(N)-Zu/(diag(1./dS(idx))*exp(h(H))+Zu'*Zu)*Zu')./exp(h(H)); % Matrix inversion lemma
-    
+    if (isempty(S))
+        iV    = (eye(N)-Zu/(diag(1./dS(idx))*exp(h(H))+Zu'*Zu)*Zu')./exp(h(H)); % Matrix inversion lemma
+    else
+        iV    = (S.invS-S.invS*Zu/(diag(1./dS(idx))*exp(h(H))+Zu'*S.invS*Zu)*Zu'*S.invS)./exp(h(H)); % Matrix inversion lemma
+    end; 
+
     if (~isempty(X))
         iVX   = iV * X;
         iVr   = iV - iVX*((X'*iVX)\iVX');  % Correction for the fixed effects
@@ -159,14 +171,23 @@ for k = 1:numIter
     A     = iVr*Z;
     B     = YY*A/P;
     dFdh(1:H-1) = -P/2*(sum(A.*Z)-sum(A.*B)) * Gd;
-    dFdh(H) = -P/2*traceABtrans(iVr,(speye(N)-YY*iVr/P));
-    
+    if (isempty(S)) 
+        dFdh(H) = -P/2*traceABtrans(iVr,(speye(N)-YY*iVr/P));
+    else 
+        dFdh(H) = -P/2*traceABtrans(iVr*S.S,(speye(N)-YY*iVr/P));
+    end; 
     
     % Expected curvature E{dF/dhh} (second derivatives)
     %----------------------------------------------------------------------
     dFdhh(1:H-1,1:H-1)  = -P/2*Gd'*((Z'*A).*(Z'*A))*Gd; % Short form
-    dFdhh(H,H)          = -P/2*traceABtrans(iVr,iVr);
-    dFdhh(1:H-1,H)      = -P/2*Gd'*diag(Z'*iVr*A);
+    if (isempty(S)) 
+        dFdhh(H,H)          = -P/2*traceABtrans(iVr,iVr);
+        dFdhh(1:H-1,H)      = -P/2*Gd'*sum((Z'*iVr).*A',2); %  -P/2*Gd'*diag(Z'*iVr*A);
+    else
+        iVrS = iVrS; 
+        dFdhh(H,H)          = -P/2*traceABtrans(iVrS,iVrS);
+        dFdhh(1:H-1,H)      = -P/2*Gd'*sum((Z'*iVrS).*A',2);
+    end; 
     dFdhh(H,1:H-1)      = dFdhh(1:H-1,H)';
     
     
@@ -175,6 +196,9 @@ for k = 1:numIter
     dFdh  = dFdh.*exp(h);
     dFdhh = dFdhh.*(exp(h)*exp(h)');
         
+    % Regularise second moment by a little bit 
+    dFdhh = dFdhh - hP;
+
     % Fisher scoring: update dh = -inv(ddF/dhh)*dF/dh
     %----------------------------------------------------------------------
     % dh    = spm_dx(dFdhh(as,as),dFdh(as),{t}); % This is actually much
@@ -208,7 +232,7 @@ end
 theta  = h;
 G     = zeros(Q);
 for i = as(1:end-1);
-    G = G + full(Gc{i})*exp(theta(i));
+    G = G + full(Gc(:,:,i))*exp(theta(i));
 end
 
 % Find the inverse of V - while dropping the zero dimensions in G
@@ -217,7 +241,11 @@ end
 dS    = diag(s);
 idx   = dS>eps;
 Zu     = Z*u(:,idx);
-iV    = (eye(N)-Zu/(diag(1./dS(idx))*exp(theta(H))+Zu'*Zu)*Zu')./exp(theta(H)); % Matrix inversion lemma
+if (isempty(S))
+    iV    = (eye(N)-Zu/(diag(1./dS(idx))*exp(theta(H))+Zu'*Zu)*Zu')./exp(theta(H)); % Matrix inversion lemma
+else 
+    iV    = (S.invS-S.invS*Zu/(diag(1./dS(idx))*exp(theta(H))+Zu'*S.invS*Zu)*Zu'*S.invS)./exp(theta(H)); % Matrix inversion lemma
+end; 
 
 if (~isempty(X))
     iVX   = iV * X;

@@ -33,10 +33,10 @@ c=1;
 while c<=length(options)
     a=[];
     if ~ischar(options{c})
-        error(sprintf('Options must be strings on argument %d',c));
+        error('Options must be strings on argument %d',c);
     end;
     if checkflags
-        a=strmatch(options{c},allowed_flags);
+        a=find(strcmp(options{c},allowed_flags));
     end;
     if ~isempty(a)
         assignin('caller',options{c},1);
