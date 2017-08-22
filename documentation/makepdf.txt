@@ -1,0 +1,1 @@
+pandoc -o pcm_toolbox_manual.pdf pcm_toolbox_manual.md --latex-engine=xelatex -F pandoc-crossref -F pandoc-citeproc
