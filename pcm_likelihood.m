@@ -2,19 +2,15 @@ function [negLogLike,dnldtheta] = pcm_likelihood(theta,YY,M,Z,X,P,varargin);
 % function [negLogLike,dnldtheta,L,dLdtheta] = pcm_likelihood(theta,YY,M,Z,X,P,varargin);
 % Returns negative log likelihood for the model, and the derivatives in
 % respect to the model parameters for an individual subject / dataset 
-% It works very similar to pcm_likelihood, only that a run-effect can be
-% specified to model as an extra random effect 
-%
 %
 % INPUT:
 %      theta:   Vector of (log-)model parameters: These include model
 %               parameters, noise parameter, and (option) run parameter
-%      YY:      NxN Matrix of data
-%      M:      Model specification. Model can be either given by
-%               b. Model Structure containing the fields
+%      YY:      NxN Matrix of inner product of the data
+%      M:       Model specification. Structures with fields
 %                  Model.type:        fixed, component, feature, nonlinear
 %                  Model.numGparams:  Number of model parameters (without the noise or run parameter)
-%                  Model.modelpred:   Function handle for nonlinear model, returning [G,dGdtheta]= modelpred(theta);
+%                  ... 
 %      Z:       NxK Design matrix - relating the trials (N) to the random effects (K)
 %      X:       Fixed effects design matrix - will be accounted for by ReML
 %      P:       Number of voxels
@@ -39,8 +35,7 @@ N = size(YY,1);
 K = size(Z,2);
 S = [];
 
-runEffect =[];
-pcm_vararginoptions(varargin,{'S','runEffect'});
+pcm_vararginoptions(varargin,{'S'});
 
 
 % Get G-matrix and derivative of G-matrix in respect to parameters

@@ -25,7 +25,7 @@ author:
 \pagebreak
 
 # How to use this manual
-This manual provides an introduction to how to use the Pattern component modelling (PCM) toolbox. The theory behind this approach is laid out in an accompanying paper (REF) - but the main ideas are sketched out here in the introduction. We then provide an overview over the toolbox functions, and explain the different steps of model specification, model estimation, visualisation, and model comparison following real examples presented in the paper. The toolbox comes with a few example "recipes", which we hope will be useful to provide a full example of usage. Finally, the last section contains some of the mathematical details readers that would like to understand all algorithmic details.
+This manual provides an introduction to how to use the Pattern component modelling (PCM) toolbox. The theory behind this approach is laid out in an accompanying paper [@RN3702] - but the main ideas are described here in the introduction. We then provide an overview over the toolbox functions, and explain the different steps of model specification, model estimation, visualisation, and model comparison following the real examples presented in the paper. The toolbox comes with a few example "recipes" that provide examples of usage on empricial data. Finally, the last section contains some of the mathematical and algorithmic details necessary to understand the implementation.
 
 # Introduction 
 The study of brain representations aims to illuminate the relationship between complex patterns of activity occurring in the brain and "things in the world" - be it objects, actions, or abstract concepts. By understanding internal syntax of brain representations, and especially how the structure of representations changes across different brain regions, we ultimately hope to gain insight into the way the brain processes information.
@@ -50,7 +50,7 @@ In this manual we will show how to use the PCM toolbox to estimate and compare f
 \pagebreak
 
 # Overview
-the toolbox provides function for model fitting, comparison, and some basic visualization. What the toolbox does *not* provide are functions to extract the required data from the first-level GLM or raw data, search-light code or code for ROI definition. We have omitted these function as they strongly depend on the analysis package used for basic imaging analysis. Some useful tools for the extraction of multivariate data from the standard first-level GLM, please see the [RSA-toolbox](https://github.com/rsagroup/rsatoolbox) and [Surfing toolbox](https://github.com/nno/surfing). 
+The toolbox provides function for model fitting, model comparison, and some basic visualization. What the toolbox does *not* provide are functions to extract the required data from the first-level GLM or raw data, or to run search-light or ROI analyses. We have omitted these function as they strongly depend on the analysis package used for the basic imaging analysis. Some useful tools for the extraction of multivariate data from the standard first-level GLM, please see the [RSA-toolbox](https://github.com/rsagroup/rsatoolbox) and [Surfing toolbox](https://github.com/nno/surfing). 
 
 The functions provided in the toolbox can be categorized into different categories:  
 
@@ -59,14 +59,15 @@ The functions provided in the toolbox can be categorized into different categori
 These are the functions that perform the core statistical functions of the toolbox.  
 
 | 	Function 			    | Comment  
-|:--------------------------|:-----------------------------
-|	`pcm_likelihoodIndivid` | Likelihood of a single data set under a model
-|   `pcm_likelihoodGroup`   | Likelihood of a group data set under a model
-|   `pcm_NR`				| Newton Raphson optimisation 
-|   `pcm_NR_diag`			| Newton Raphson for diagonalized models (faster)
-|   `pcm_NR_free`			| Newton Raphson for a free model 
-|   `pcm_EM`				| Expectation-Maximization 
-|   `pcm_minimize`			| Conjugate gradient descent 
+|:-----------------------------------|:-----------------------------
+|  `pcm_likelihood` |  Likelihood of a single data set under a model
+|  `pcm_likelihoodIndivid` | pcm_likelihood with optional random block effect
+|  `pcm_likelihoodGroup`   | Likelihood of a group data set under a model
+|  `pcm_NR`				| Newton Raphson optimisation 
+|  `pcm_NR_diag`			| Newton Raphson for diagonalized models (faster)
+|  `pcm_NR_free`			| Newton Raphson for a free model 
+|  `pcm_EM`				| Expectation-Maximization 
+|  `pcm_minimize`			| Conjugate gradient descent 
 
 ### Model Evaluation
 These functions are higher level functions that perform fitting and crossvalidation of either individual data set or group data sets.  
