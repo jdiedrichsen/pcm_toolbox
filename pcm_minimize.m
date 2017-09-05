@@ -35,21 +35,14 @@ function [G,theta,u,l,k]=pcm_minimize(Y,Z,M,varargin)
 %   G     : variance-covariance matrix
 %   theta : Variance coefficients (one column for each iteration)
 %   u     : hidden patterns components
-%   l     : 1x2 vector of likelihoods 
-%           l(1) = likelihood p(y|theta) for maximal theta, i.e. the maximal 
+%   l     : log-likelihood p(y|theta) for maximal theta, i.e. the maximal 
 %               liklihood type II  for the best estimates of theta, integrated over u
-%           l(2) = marginal liklihood p(y) based on the Laplace (Normal) 
-%           approximation around the posterior mode of log(theta) 
 %
 % Examples:
-% See mva_component_examples
 %
-% See also: mva_component_examples, spm_reml, spm_reml_sc, spm_sp_reml
-% Where spm_* are from the SPM software, http://www.fil.ion.ucl.ac.uk/spm
+% v.1.1:
 %
-% v.3.0:
-%
-% Copyright 2014 Joern Diedrichsen, j.diedrichsen@ucl.ac.uk
+% Copyright 2017 Joern Diedrichsen, joern.diedrichsen@googlemail.com 
 
 % Defaults
 %--------------------------------------------------------------------------

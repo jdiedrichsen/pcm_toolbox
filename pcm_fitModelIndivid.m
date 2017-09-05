@@ -48,9 +48,6 @@ function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,
 %                            as a seperate random effects parameter.
 %                  'fixed': Consider run effect a fixed effect, will be removed
 %                            implicitly using ReML.
-%                  'remove': Forced removal of the run effect before
-%                            random effects modelling - Simply adjusts the
-%                            error covariance matrix to reflect he removal
 %
 %   'isCheckDeriv: Check the derivative accuracy of theta params. Done using
 %                  'checkderiv'. This function compares input to finite

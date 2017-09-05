@@ -28,9 +28,8 @@ function [negLogLike,dnldtheta] = pcm_likelihoodIndivid(theta,YY,M,Z,X,P,varargi
 %      negLogLike:  Negative Log likelihood of all subject's data
 %                   We use the negative log liklihood to be able to plug the function into
 %                   minimize or other optimisation routines.
-%      dnldtheta:   Derivative of the negtive log-likelihood
-%      L:           Log likelihood (not inverted) for all the subject
-%      dLdtheta:    Derivate of Log likelihood for each subject
+%      dnldtheta:   Derivative of the negative log-likelihood in respect to
+%                   the parameters 
 %
 %   Joern Diedrichsen & Atsushi Yokoi, 6/2016, joern.diedrichsen@googlemail.com
 %

@@ -92,7 +92,7 @@ These functions are higher level functions that perform fitting and crossvalidat
 | 	Function 			       | Comment  
 |:-----------------------------|:-----------------------------
 | `pcm_classicalMDS`           | Multidimensional scaling  
-| `pcm_plotModelLikelihood`    | Displays marginal likelihood (results from `pcm_fitModel` functions)
+| `pcm_plotModelLikelihood`    | Displays marginal likelihood for different models
 
 ### Recipes 
 | 	Function 			       | Comment  
@@ -641,7 +641,7 @@ $$
 ## Expected second derivative of the log-likelihood
 For the Newton-Raphson algorithm of optimisation, we need also the negative expected second derivative of the restricted log-likelihood, also called Fisher-information 
 $$
-I_{i,j}(\theta) = - E \left[ \frac{\partial^2 }{\partial \theta_i \partial \theta_j} L_{ReML}\right]=trace\left(\mathbf{V}^{-1}_{R} \frac{\partial \mathbf{V}}{\partial \theta_i}\mathbf{V}^{-1}_{R} \frac{\partial \mathbf{V}}{\partial \theta_j}  \right).
+I_{i,j}(\theta) = - E \left[ \frac{\partial^2 }{\partial \theta_i \partial \theta_j} L_{ReML}\right]=\frac{P}{2}trace\left(\mathbf{V}^{-1}_{R} \frac{\partial \mathbf{V}}{\partial \theta_i}\mathbf{V}^{-1}_{R} \frac{\partial \mathbf{V}}{\partial \theta_j}  \right).
 $$
 
 ## Conjugate Gradient descent
@@ -652,7 +652,7 @@ One way of optiminzing the likelihood is simply using the first derviative and d
 
 The Newton-Raphson algorithm is currently implemented and used for feature and component models. Generally is is by factor 10-20 times faster than conjugate gradient descent. The implementation is provided by the function `pcm_NR` for unconstrained problems in which $\mathbf{G}$ can take any form. The algorithm first finds reasonable starting values for the parameters ($\boldsymbol{\theta}^0$) from cross-validated estimates, and then updates on every step the current estimates by 
 $$
-\boldsymbol{\theta}^{u+1}=\boldsymbol{\theta}^{u}+\mathbf{I}(\boldsymbol{\theta}^{u})^{-1}\frac{\partial}{\partial \boldsymbol{\theta}^{u}} L_{ReML}.
+\boldsymbol{\theta}^{u+1}=\boldsymbol{\theta}^{u}-\mathbf{I}(\boldsymbol{\theta}^{u})^{-1}\frac{\partial L_{ReML}}{\partial \boldsymbol{\theta}^{u}} .
 $$
 Because the update can become in tad unstable, we are regularising the Fisher information matrix by adding a small value to the diagonal.
 
@@ -660,7 +660,7 @@ The algorithm can be sped up by another tick if the component matrices $\mathbf{
 
 
 ## Acceleration of matrix inversion 
-In most functions, the inverse of the variance-covariance has to be computed. Because this can become quickly very costly (especially if original time series data is to be fitted), we can  exploit the special structure of $\mathbf{V}$ to speed up the computation: 
+When calculating the likelihood or the derviatives of the likelihood, the inverse of the variance-covariance has to be computed. Because this can become quickly very costly (especially if original time series data is to be fitted), we can  exploit the special structure of $\mathbf{V}$ to speed up the computation: 
 $$
 \begin{array}{c}{{\bf{V}}^{ - 1}} = {\left( {s{\bf{ZG}}{{\bf{Z}}^T} + {\bf{S}}\sigma _\varepsilon ^2} \right)^{ - 1}}\\ = {{\bf{S}}^{ - 1}}\sigma _\varepsilon ^{ - 2} - {{\bf{S}}^{ - 1}}{\bf{Z}}\sigma _\varepsilon ^{ - 2}{\left( {{s^{ - 1}}{\mathbf{G}^{ - 1}} + {{\bf{Z}}^T}{{\bf{S}}^{ - 1}}{\bf{Z}}\sigma _\varepsilon ^{ - 2}} \right)^{ - 1}}{{\bf{Z}}^T}{{\bf{S}}^{ - 1}}\sigma _\varepsilon ^{ - 2}\\ = \left( {{{\bf{S}}^{ - 1}} - {{\bf{S}}^{ - 1}}{\bf{Z}}{{\left( {{s^{ - 1}}{\mathbf{G}^{ - 1}}\sigma _\varepsilon ^2 + {{\bf{Z}}^T}{{\bf{S}}^{ - 1}}{\bf{Z}}} \right)}^{ - 1}}{{\bf{Z}}^T}{{\bf{S}}^{ - 1}}} \right)/\sigma _\varepsilon ^2 \end{array}
 $$

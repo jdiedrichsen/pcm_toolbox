@@ -55,16 +55,13 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,va
 %                            as a seperate random effects parameter.
 %                  'fixed': Consider run effect a fixed effect, will be removed
 %                            implicitly using ReML.
-%                  'remove': Forced removal of the run effect before
-%                            random effects modelling - Simply adjusts the
-%                            error covariance matrix to reflect he removal
 %   'fitScale':    Fit additional scaling parameter for each of the
 %                  subjects? Defaults to 1. This makes a lot of sense, if the scaling of the 
 %                  data is not of the same intensity across subjects. 
 %                  However, when you want to test strongly against a null model that
 %                  does not predict any difference between different conditions, 
 %                  then the scaling parameter makes the alternative model
-%                  more flexible and it will more often. 
+%                  more flexible  
 %   'isCheckDeriv: Check the derivative accuracy of theta params. Done using
 %                  'pcm_checkderiv'. This function compares input to finite
 %                  differences approximations. See function documentation.
@@ -87,7 +84,7 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,va
 %       run:            Run variance (if runEffect = 'random'); 
 %
 %    theta_hat:  Estimated parameters at the overall fitting (including
-%                noise and scale parameters).  
+%                noise, scale and run parameters).  
 %    Gpred:      Predicted second moment matrix for the model from group
 %                fit for each model 
 
