@@ -37,6 +37,8 @@ function [T] = pcm_plotModelLikelihood(T,M,varargin)
 %
 % ----------------------------- Options -----------------------------------
 %
+%   'fig':          Figure axis space to plot to. If empty (default), plots
+%                    to new figure space.
 %   'Nnull':        Null model #. Default is 1. 
 %   'Nceil':        Noiseceiling model #. If set to NaN, upper noise ceiling is 
 %                    not plotted as a line/patch. If no # is given nor is it
@@ -66,6 +68,7 @@ function [T] = pcm_plotModelLikelihood(T,M,varargin)
 % - - - - - - -
 % Defaults
 % - - - - - - -
+fig       = [];
 Nnull     = 1;                 % null model #
 Nceil     = [];                % noiseceiling model #
 varfcn    = 'sem';             % errorbar metric
@@ -159,6 +162,13 @@ switch style
                                    'Color',[0 0 0]);
 end
 
+% Bring specified axis space to front for plotting
+if isempty(fig)
+    figure('Color',[1 1 1]);
+else 
+    fig;
+end
+
 % - - - - - - -
 % Scale Likelihoods
 % - - - - - - -
@@ -204,7 +214,7 @@ end;
 % - - - - - - -
 % Plot scaled fits
 % - - - - - - -
-hold on;
+hold on
 i = 1;
 for m = mindx
     % Model fit(s)
