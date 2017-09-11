@@ -121,8 +121,7 @@ h(nas) = low;
 dF    = Inf;
 dFdh  = zeros(H,1);
 dFdhh = zeros(H,H);
-hE = hE*ones(H,1);             % Prior mean of h
-hP = hP*speye(H,H);          % Prior precision (1/variance) of h
+HessReg = HessReg*speye(H,H);          % Prior precision (1/variance) of h
 
 
 for k = 1:numIter

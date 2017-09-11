@@ -1,9 +1,9 @@
-function [negLogLike,dnldtheta] = pcm_likelihoodIndivid(theta,YY,M,Z,X,P,varargin);
-% function [negLogLike,dnldtheta,L,dLdtheta] = pcm_likelihoodIndivid(theta,YY,M,Z,X,P,varargin);
+function [negLogLike,dnl,d2nl] = pcm_likelihoodIndivid2(theta,YY,M,Z,X,P,varargin);
+% function [negLogLike,dnl,d2nl] = pcm_likelihoodIndivid(theta,YY,M,Z,X,P,varargin);
 % Returns negative log likelihood for the model, and the derivatives in
-% respect to the model parameters for an individual subject / dataset 
+% respect to the model parameters for an individual subject / dataset
 % It works very similar to pcm_likelihood, only that a run-effect can be
-% specified to be modelled as an extra random effect 
+% specified to be modelled as an extra random effect
 %
 % INPUT:
 %      theta:   Vector of (log-)model parameters: These include model
@@ -12,7 +12,7 @@ function [negLogLike,dnldtheta] = pcm_likelihoodIndivid(theta,YY,M,Z,X,P,varargi
 %      M:       Model structure with fields
 %                  Model.type:        fixed, component, feature, nonlinear
 %                  Model.numGparams:  Number of model parameters (without the noise or run parameter)
-%                  ... 
+%                  ...
 %      Z:       NxK Design matrix - relating the trials (N) to the random effects (K)
 %      X:       Fixed effects design matrix - will be accounted for by ReML
 %      P:       Number of voxels
@@ -23,13 +23,17 @@ function [negLogLike,dnldtheta] = pcm_likelihoodIndivid(theta,YY,M,Z,X,P,varargi
 %              this is a cell array that contains
 %              S.S:     Structure of noise
 %              S.invS:  inverse of the noise covariance matrix
-% 
+%       'calcLikelihood': If set to zero, will skip calculating the
+%              log-liklihood
+%
 % OUTPUT:
 %      negLogLike:  Negative Log likelihood of all subject's data
 %                   We use the negative log liklihood to be able to plug the function into
 %                   minimize or other optimisation routines.
-%      dnldtheta:   Derivative of the negative log-likelihood in respect to
-%                   the parameters 
+%      dnl      :   Derivative of the negative log-likelihood in respect to
+%                   the parameters
+%      d2nl     :   Expected second derivative of the negative
+%                   log-likelihood
 %
 %   Joern Diedrichsen & Atsushi Yokoi, 6/2016, joern.diedrichsen@googlemail.com
 %
@@ -37,9 +41,10 @@ function [negLogLike,dnldtheta] = pcm_likelihoodIndivid(theta,YY,M,Z,X,P,varargi
 N = size(YY,1);
 K = size(Z,2);
 S = [];
-
+calcLikelihood = 1;
 runEffect =[];
-pcm_vararginoptions(varargin,{'S','runEffect'});
+
+pcm_vararginoptions(varargin,{'S','runEffect','calcLikelihood'});
 
 
 % Get G-matrix and derivative of G-matrix in respect to parameters
@@ -71,7 +76,7 @@ dS    = diag(s);
 idx   = dS>eps;
 Zu     = Z*u(:,idx);
 % Apply the matrix inversion lemma. The following statement is the same as
-% V   = (Z*G*Z' + S.S*exp(theta(H))); % As S is not identity, matrix inversion lemma does not have big advantage here (ay)?
+% V   = (Z*G*Z' + S.S*exp(theta(H)));
 % iV  = pinv(V);
 if (isempty(S))
     iV    = (eye(N)-Zu/(diag(1./dS(idx))*exp(noiseParam)+Zu'*Zu)*Zu')./exp(noiseParam); % Matrix inversion lemma
@@ -89,39 +94,57 @@ else
 end;
 
 % Computation of (restricted) likelihood
-ldet  = -2* sum(log(diag(chol(iV))));        % Safe computation of the log determinant (V) Thanks to code from D. lu
-l     = -P/2*(ldet)-0.5*traceABtrans(iVr,YY);
-if (~isempty(X)) % Correct for ReML estimates
-    l = l - P*sum(log(diag(chol(X'*iV*X))));  % - P/2 log(det(X'V^-1*X));
+if (calcLikelihood)
+    ldet  = -2* sum(log(diag(chol(iV))));        % Safe computation of the log determinant (V) Thanks to code from D. lu
+    l     = -P/2*(ldet)-0.5*traceABtrans(iVr,YY);
+    if (~isempty(X)) % Correct for ReML estimates
+        l = l - P*sum(log(diag(chol(X'*iV*X))));  % - P/2 log(det(X'V^-1*X));
+    end;
+    negLogLike = -l; % Invert sign
 end;
 
 
-% Precompute some matrices
-A     = iVr*Z;
-B     = YY*A/P;
-
-% Get the derivatives for all the parameters
-for i = 1:M.numGparams
-    C  = (A*pcm_blockdiag(dGdtheta(:,:,i),zeros(numRuns)));
-    dLdtheta(i,1) = -P/2*(traceABtrans(C,Z)-traceABtrans(C,B));
-end
-
-% Get the derivatives for the Noise parameters
-indx             = M.numGparams+1;  % Which number parameter is it?
-if (isempty(S))
-    dLdtheta(indx,1)     = -P/2*traceABtrans(iVr,(speye(N)-YY*iVr/P))*exp(noiseParam);
-else
-    dLdtheta(indx,1)     = -P/2*traceABtrans(iVr*S.S,(speye(N)-YY*iVr/P))*exp(noiseParam);
+% Calcualte the first derivative
+if (nargout>1)
+    A     = iVr*Z;      % Precompute some matrices
+    B     = YY*iVr;
+    % Get the derivatives for all the parameters
+    for i = 1:M.numGparams
+        iVdV{i} = A*pcm_blockdiag(dGdtheta(:,:,i),zeros(numRuns))*Z';
+        dLdtheta(i,1) = -P/2*trace(iVdV{i})+1/2*traceABtrans(iVdV{i},B);
+    end
+    
+    % Get the derivatives for the Noise parameters
+    i             = M.numGparams+1;  % Which number parameter is it?
+    if (isempty(S))
+        dVdtheta{i}          = eye(N)*exp(noiseParam);
+    else
+        dVdtheta{i}          = S.S*exp(noiseParam);
+    end;
+    iVdV{i}     = iVr*dVdtheta{i};
+    dLdtheta(i,1) = -P/2*trace(iVdV{i})+1/2*traceABtrans(iVdV{i},B);
+    
+    % Get the derivatives for the block parameter
+    if (~isempty(runEffect) && ~isempty(runEffect))
+        i = M.numGparams+2;  % Which number parameter is it?
+        %C          = A*pcm_blockdiag(zeros(size(G,1)),eye(numRuns));
+        iVdV{i}     = A*pcm_blockdiag(zeros(K),eye(numRuns))*Z'*exp(runParam);
+        dLdtheta(i,1) = -P/2*trace(iVdV{i})+1/2*traceABtrans(iVdV{i},B);
+    end;
+    
+    % invert sign
+    dnl   = -dLdtheta;
+    numTheta=i;
 end;
 
-% Get the derivatives for the block parameter
-if (~isempty(runEffect) && ~isempty(runEffect))
-    indx             = M.numGparams+2;  % Which number parameter is it?
-    %C          = A*pcm_blockdiag(zeros(size(G,1)),eye(numRuns));
-    C          = A*pcm_blockdiag(zeros(K),eye(numRuns));
-    dLdtheta(indx,1) = -P/2*(traceABtrans(C,Z)-traceABtrans(C,B))*exp(runParam);
+% Calculate expected second derivative?
+if (nargout>2)
+    for i=1:numTheta
+        for j=i:numTheta;
+            d2nl(i,j)=-P/2*traceABtrans(iVdV{i},iVdV{j});
+            d2nl(j,i)=d2nl(i,j);
+        end;
+    end;
+    d2nl=-d2nl;
 end;
 
-% invert sign
-negLogLike = -l;
-dnldtheta   = -dLdtheta;

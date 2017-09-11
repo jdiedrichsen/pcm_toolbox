@@ -46,7 +46,14 @@ OPT.HessReg = OPT.HessReg*speye(H,H);          % Prior precision (1/variance) of
 theta=theta0; 
 as = true(H,1); 
 for k = 1:OPT.numIter
-    [logLik(k),dFdh,dFdhh]=likefcn(theta);
+    [nl(k),dFdh,dFdhh]=likefcn(theta);
+    
+    % Safety check if likelihood decreased
+    %----------------------------------------------------------------------
+    if (k>1 & nl(k)>nl(k-1))
+        warning('likelihood decreased. Exiting...\n'); 
+        break; 
+    end; 
     
     % Add slight regularisation to second derivative 
     %----------------------------------------------------------------------
