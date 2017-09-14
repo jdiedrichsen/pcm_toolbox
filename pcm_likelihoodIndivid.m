@@ -1,4 +1,4 @@
-function [negLogLike,dnl,d2nl] = pcm_likelihoodIndivid2(theta,YY,M,Z,X,P,varargin);
+function [negLogLike,dnl,d2nl] = pcm_likelihoodIndivid(theta,YY,M,Z,X,P,varargin);
 % function [negLogLike,dnl,d2nl] = pcm_likelihoodIndivid(theta,YY,M,Z,X,P,varargin);
 % Returns negative log likelihood for the model, and the derivatives in
 % respect to the model parameters for an individual subject / dataset
@@ -40,11 +40,10 @@ function [negLogLike,dnl,d2nl] = pcm_likelihoodIndivid2(theta,YY,M,Z,X,P,varargi
 
 N = size(YY,1);
 K = size(Z,2);
-S = [];
-calcLikelihood = 1;
-runEffect =[];
+OPT.S = [];
+OPT.runEffect =[];
 
-pcm_vararginoptions(varargin,{'S','runEffect','calcLikelihood'});
+OPT=pcm_vararginoptions(varargin,OPT,{'S','runEffect'});
 
 
 % Get G-matrix and derivative of G-matrix in respect to parameters
@@ -60,11 +59,11 @@ end;
 % design matrix
 noiseParam = theta(M.numGparams+1);
 
-if (~isempty(runEffect))
-    numRuns = size(runEffect,2);
+if (~isempty(OPT.runEffect))
+    numRuns = size(OPT.runEffect,2);
     runParam = theta(M.numGparams+2);    % Subject run effect parameter
     G = pcm_blockdiag(G,eye(numRuns)*exp(runParam));  % Include run effect in G
-    Z = [Z runEffect];                 % Include run effect in design matrix
+    Z = [Z OPT.runEffect];                 % Include run effect in design matrix
 else
     numRuns = 0;                                % No run effects modelled
 end;
@@ -78,10 +77,10 @@ Zu     = Z*u(:,idx);
 % Apply the matrix inversion lemma. The following statement is the same as
 % V   = (Z*G*Z' + S.S*exp(theta(H)));
 % iV  = pinv(V);
-if (isempty(S))
+if (isempty(OPT.S))
     iV    = (eye(N)-Zu/(diag(1./dS(idx))*exp(noiseParam)+Zu'*Zu)*Zu')./exp(noiseParam); % Matrix inversion lemma
 else
-    iV    = (S.invS-S.invS*Zu/(diag(1./dS(idx))*exp(noiseParam)+Zu'*S.invS*Zu)*Zu'*S.invS)./exp(noiseParam); % Matrix inversion lemma
+    iV    = (OPT.S.invS-OPT.S.invS*Zu/(diag(1./dS(idx))*exp(noiseParam)+Zu'*OPT.S.invS*Zu)*Zu'*OPT.S.invS)./exp(noiseParam); % Matrix inversion lemma
 end;
 iV  = real(iV); % sometimes iV gets complex
 
@@ -94,17 +93,15 @@ else
 end;
 
 % Computation of (restricted) likelihood
-if (calcLikelihood)
     ldet  = -2* sum(log(diag(chol(iV))));        % Safe computation of the log determinant (V) Thanks to code from D. lu
     l     = -P/2*(ldet)-0.5*traceABtrans(iVr,YY);
     if (~isempty(X)) % Correct for ReML estimates
         l = l - P*sum(log(diag(chol(X'*iV*X))));  % - P/2 log(det(X'V^-1*X));
     end;
     negLogLike = -l; % Invert sign
-end;
 
 
-% Calcualte the first derivative
+% Calculate the first derivative
 if (nargout>1)
     A     = iVr*Z;      % Precompute some matrices
     B     = YY*iVr;
@@ -116,16 +113,16 @@ if (nargout>1)
     
     % Get the derivatives for the Noise parameters
     i             = M.numGparams+1;  % Which number parameter is it?
-    if (isempty(S))
+    if (isempty(OPT.S))
         dVdtheta{i}          = eye(N)*exp(noiseParam);
     else
-        dVdtheta{i}          = S.S*exp(noiseParam);
+        dVdtheta{i}          = OPT.S.S*exp(noiseParam);
     end;
     iVdV{i}     = iVr*dVdtheta{i};
     dLdtheta(i,1) = -P/2*trace(iVdV{i})+1/2*traceABtrans(iVdV{i},B);
     
     % Get the derivatives for the block parameter
-    if (~isempty(runEffect) && ~isempty(runEffect))
+    if (~isempty(OPT.runEffect) && ~isempty(OPT.runEffect))
         i = M.numGparams+2;  % Which number parameter is it?
         %C          = A*pcm_blockdiag(zeros(size(G,1)),eye(numRuns));
         iVdV{i}     = A*pcm_blockdiag(zeros(K),eye(numRuns))*Z'*exp(runParam);

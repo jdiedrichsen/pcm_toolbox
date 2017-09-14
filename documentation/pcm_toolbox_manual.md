@@ -172,7 +172,7 @@ The weights for each component need to be positive - allowing negative weights w
 For fast optimization of the likelihood, we require the derivate of the second moment matrix in respect to each of the parameters. Thus derivative can then be used to calculate the derivative of the log-likelihood in respect to the parameters (see section 4.3. Derivative of the log-likelihood). In the case of linear component models this is easy to obtain.
 
 $$
-\frac{\partial G}{\partial {\theta }_{h}}=\exp(\theta_{h}) {\bf{G}}_{h} 
+\frac{\partial \mathbf{G}}{\partial {\theta }_{h}}=\exp(\theta_{h}) {\bf{G}}_{h}
 $$
 {#eq:derivative_componentModel}
 
@@ -384,9 +384,13 @@ To be provided
 
 ##  Fitting to group data sets
 
-The function `pcm_fitModelGroup` fits a model to a group of subjects. All parameters that change the G matrix, that is all `M.numGparams`, are shared across all subjects. To account for the individual signal-to-noise level, by default a separate signal strength (scale) and noise parameter are fitted for each subject. The scaling parameter for each subject is additionally stored under `T.scale` in the output structure. The fitting of an additional scale parameter can be switched off by providing the optional input argument `pcm_fitModelGroup(...,'fitScale',0)`.  Often, it speeds up the computation to perform a group fit first, so it can serve as a starting value for the crossvalidated group fit (see below). Otherwise the input and output parameters are identical to `pcm_fitModelIndivid`. 
+The function `pcm_fitModelGroup` fits a model to a group of subjects. All parameters that change the **G** matrix, that is all `M.numGparams`, are shared across all subjects. To account for the individual signal-to-noise level, by default a separate signal strength ($s_i$) and noise parameter ($\sigma^{2}_{\epsilon,i}$) are fitted for each subject. That is, for each individual subject, the predicted covariance matrix of the data is:
 
-The output `theta` for each model contains not only the `M.numGparams` model parameters, but also the noise parameters for all the subjects, then (optional) the scale parameters for all the subjects, and (if the runEffect is set to random)  the run-effect parameter for all the subjects.  
+
+$$
+{\bf{V}_i}=s_i\bf{ZGZ^{T}+S}\sigma^{2}_{\epsilon,i}.
+$$
+The output `theta` for each model contains not only the `M.numGparams` model parameters, but also the noise parameters for all the subjects, then (optional) the scale parameters for all the subjects, and (if the runEffect is set to random)  the run-effect parameter for all the subjects.  The resultant scaling parameter for each subject is additionally stored under `T.scale` in the output structure. The fitting of an additional scale parameter can be switched off by providing the optional input argument `pcm_fitModelGroup(...,'fitScale',0)`.  Often, it speeds up the computation to perform a group fit first, so it can serve as a starting value for the crossvalidated group fit (see below). Otherwise the input and output parameters are identical to `pcm_fitModelIndivid`. 
 
 Note that the introduction of the scale parameter introduces a certain amount of parameter redundancy. For example, if a model has only one single component and parameter, then the overall scaling is simply `s*theta`. One can remove the redundancy by forcing one model parameter to be 1 - in practice this, however, is not necessary.    
 
@@ -573,7 +577,7 @@ $$
 {#eq:restrictedLikelihodTrick}
 
 ## First derivatives of the log-likelihood 
-Next, we find the derivatives of *L* with respect to each hyper parameter $\theta_{i}$, which influence G. Also we need to estimate the hyper parameters that describe the noise, at least the noise parameter $\sigma_{\epsilon}^{2}$. To take these derivatives we need to use two general rules of taking derivatives of matrices (or determinants) of matrices:
+Next, we find the derivatives of *L* with respect to each hyper parameter $\theta_{i}$, which influence G. Also we need to estimate the hyper-parameters that describe the noise, at least the noise parameter $\sigma_{\epsilon}^{2}$. To take these derivatives we need to use two general rules of taking derivatives of matrices (or determinants) of matrices:
 $$
 \frac{{\partial \ln \left( {\bf{V}} \right)}}{{\partial {\theta _i}}} = trace\left( {{{\bf{V}}^{ - 1}}\frac{{\partial {\bf{V}}}}{{\partial {\theta _i}}}} \right)
 $$
@@ -618,9 +622,8 @@ $$
 $$
 {#eq:derivative_restrictedLogLikelihood2}
 
-The last step is not easily proven, except for diligently applying the product rule and seeing a lot of terms cancel. 
+The last step is not easily proven, except for diligently applying the product rule and seeing a lot of terms cancel. Putting these two results together with the derivative of the normal likelihood gives us: 
 
-Putting these two results together with the derivative of the normal likelihood gives us: 
 $$
 \frac{\partial(L_{ReML})}{\partial{\theta_i}}=-\frac{P}{2}trace\left( \mathbf{V}^{-1}\frac{\partial{\mathbf{V}}}{\partial{\theta_i}} \right)
 $$
@@ -637,6 +640,23 @@ $$
 =-\frac{P}{2}trace\left( \mathbf{V}_{R}^{-1} \frac{\partial{\mathbf{V}}}{\partial{\theta_i}} \right) + \frac{1}{2}trace\left(\mathbf{V}_{R}^{-1} \frac{\partial{\mathbf{V}}}{\partial{\theta_i}} \mathbf{V}_{R}^{-1} \mathbf{Y}\mathbf{Y}^T \right)
 $$
 {#eq:derivative_restrictedLogLikelihoodSimple}
+
+## Derivates for specific parameters 
+From the general term for the derivative of the log-likelihood, we can derive the specific expressions for each parameter. In general, we model $\mathbf{V}$ 
+
+
+Each model provides the partial derivaratives for $\mathbf{G}$ in respect to the parameters (see above). From this we can easily obtain the derviative of $\mathbf{V}$
+$$
+\frac{\partial{\mathbf{V}}}{\partial{\theta_i}} = \mathbf{Z} \frac{\partial{\mathbf{G}}}{\partial{\theta_i}}\mathbf{Z}^T
+$$
+
+The noise  
+
+
+$$
+\frac{\partial{\mathbf{V}}}{\partial{\theta_{\epsilon}}} = \mathbf{S}exp(\theta_{\epsilon})
+$$
+
 
 ## Expected second derivative of the log-likelihood
 For the Newton-Raphson algorithm of optimisation, we need also the negative expected second derivative of the restricted log-likelihood, also called Fisher-information 
