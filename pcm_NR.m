@@ -27,33 +27,40 @@ function [theta,l,k]=pcm_NR(theta0,likefcn,varargin)
 
 % Defaults
 %--------------------------------------------------------------------------
-ac      = [];                      % Which terms do I want to include?
 OPT.numIter = 32;                 % Maximal number of iterations
-OPT.low     = -16;                % Low value of parameters to cut them out  
-OPT.thres   = 1e-2;                     
+OPT.thres   = 1e-5;                     
 OPT.HessReg = 1/256;                  % Regularisation on the Hessian (Fisher) matrix 
 
 % Variable argument otions
 %--------------------------------------------------------------------------
-rsa.getUserOptions(varargin, {'theta0','HessReg','thres','low','numIter'});
+OPT=rsa.getUserOptions(varargin,OPT,{'HessReg','thres','low','numIter'});
 
 
 % Initialize Interations 
 %--------------------------------------------------------------------------
 dF    = Inf;
 H     = length(theta0); % Number of parameters 
-OPT.HessReg = OPT.HessReg*speye(H,H);          % Prior precision (1/variance) of h
+OPT.HessReg = OPT.HessReg*eye(H,H);          % Prior precision (1/variance) of h
 theta=theta0; 
-as = true(H,1); 
 for k = 1:OPT.numIter
+    thetaH(:,k)=theta;
     [nl(k),dFdh,dFdhh]=likefcn(theta);
     
     % Safety check if likelihood decreased
     %----------------------------------------------------------------------
-    if (k>1 & nl(k)>nl(k-1))
-        warning('likelihood decreased. Exiting...\n'); 
-        break; 
+    if (k>1 & (nl(k)-nl(k-1))>eps)
+        OPT.HessReg = OPT.HessReg*10; 
+        % warning('likelihood decreased. Regularisation %2.3f\n',OPT.HessReg(1)); 
+        theta = thetaH(:,k-1); 
+        thetaH(:,k)=theta;
+        nl(k)=nl(k-1); 
+        dFdh = dFdh_old; 
+        dFdhh = dFdhh_old; 
+    else 
+        OPT.HessReg = OPT.HessReg/10; 
     end; 
+    dFdh_old=dFdh; 
+    dFdhh_old = dFdhh; 
     
     % Add slight regularisation to second derivative 
     %----------------------------------------------------------------------
@@ -61,9 +68,10 @@ for k = 1:OPT.numIter
     
     % Fisher scoring: update dh = inv(ddF/dhh)*dF/dh
     %----------------------------------------------------------------------
-    dtheta   =  dFdhh(as,as)\dFdh(as);
-    theta(as) = theta(as) - dtheta;
-    dF    = dFdh(as)'*dtheta;
+    dtheta   =  dFdhh\dFdh;
+    % dtheta   =  -spm_dx(-dFdhh,-dFdh,{1});
+    theta = theta - dtheta;
+    dF    = dFdh'*dtheta;
     
     % convergence
     %----------------------------------------------------------------------
@@ -74,7 +82,7 @@ for k = 1:OPT.numIter
         % h(h<low)=low;
         % as  = as(:)';
     end
-    thetaH(:,k)=theta;
+    
 end
 % Return likelihood 
 if(nargout>1)

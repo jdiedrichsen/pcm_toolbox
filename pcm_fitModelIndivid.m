@@ -141,7 +141,7 @@ for s = 1:numSubj
         
         % Get starting guess for theta if not provided
         if (isfield(M{m},'theta0'))
-            theta0 = M{m}.theta0;
+            theta0 = M{m}.theta0(1:M{m}.numGparams);
         else
             theta0 = pcm_getStartingval(M{m},G_hat(:,:,s));   
         end;
@@ -163,9 +163,9 @@ for s = 1:numSubj
         switch (M{m}.fitAlgorithm)
             case 'minimize'  % Use minimize to find maximum liklhood estimate runEffect',B{s});
                 if (isempty(S)) 
-                    fcn = @(x) pcm_likelihoodIndividFirstDeriv(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
+                    fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
                 else 
-                    fcn = @(x) pcm_likelihoodIndividFirstDeriv(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
+                    fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
                 end; 
                 [theta_hat{m}(:,s),fX,T.iterations(s,m)]      =  ...
                         minimize(x0, fcn, MaxIteration);
