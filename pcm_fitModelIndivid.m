@@ -159,7 +159,7 @@ for s = 1:numSubj
                 x0  = [theta0;noise0(s);run0(s)];
         end; 
         
-        % Now set up the function that returns likelihood and derivative 
+        % Now do the fitting, using the preferred optimization routine 
         switch (M{m}.fitAlgorithm)
             case 'minimize'  % Use minimize to find maximum liklhood estimate runEffect',B{s});
                 if (isempty(S)) 

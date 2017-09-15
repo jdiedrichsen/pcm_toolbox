@@ -77,7 +77,7 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,va
 %--------------------------------------------------------------------------
 % OUTPUT:
 %   T:      Structure with following subfields:
-%       SN:                 Subject number
+%       SN:             Subject number
 %       likelihood:     Group-fit likelihood (with subj included)
 %       noise:          Noise Variance 
 %       scale:          Scale parameter for each subject (if fitScale set to 1)  
@@ -96,12 +96,17 @@ fitScale        = 1;   % Fit an additional scaling parameter for each subject?
 S               = [];  % Structure of noise matrix 
 pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration',...
                       'verbose','fitScale','S'});
-
 numSubj     = numel(Y);
 numModels   = numel(M);
 
+
 % Preallocate output structure
 T.SN = [1:numSubj]';
+T.iterations = zeros(numSubj,1); 
+T.time = zeros(numSubj,1); 
+
+% Determine optimal algorithm for each of the models 
+M = pcm_optimalAlgorithm(M); 
 
 % --------------------------------------------------------
 % Figure out a starting values for the noise parameters
@@ -158,6 +163,7 @@ for m = 1:numModels
             fprintf('Overall fitting model:%d\n',m);
         end;
     end;
+    tic; 
     
     % Get starting guess for theta if not provided
     if (isfield(M{m},'theta0'))
@@ -177,8 +183,6 @@ for m = 1:numModels
             G0 = pcm_calculateG(M{m},theta0);
     end; 
     g0 = G0(:);
-    
-    % Estimate starting scaling value for each subject
     if (fitScale) 
         for s = 1:numSubj
             g_hat         = G_hat(:,:,s);
@@ -191,7 +195,7 @@ for m = 1:numModels
     
     % Put together the vector of starting value 
     x0 = theta0; 
-    x0=[x0;noise0]; 
+    x0 = [x0;noise0]; 
     if(fitScale) 
         x0 = [x0;scale0(:,m)]; 
     end; 
@@ -200,13 +204,18 @@ for m = 1:numModels
     end; 
     
     % Now do the fitting
-    if (M{m}.numGparams==0) 
-        fcn = @(x) pcm_likelihoodGroup(x,YY,G0,Z,X,P,'runEffect',B,'S',S,'fitScale',fitScale);
-    else 
-        fcn = @(x) pcm_likelihoodGroup(x,YY,M{m},Z,X,P,'runEffect',B,'S',S,'fitScale',fitScale);
-    end;
-    [theta_hat{m},fx]       = minimize(x0, fcn, MaxIteration);
-    
+    switch (M{m}.fitAlgorithm)
+        case 'minimize'  % Use minimize to find maximum liklhood estimate runEffect',B{s});
+            fcn = @(x) pcm_likelihoodGroup(x,YY,M{m},Z,X,P,'runEffect',B,'S',S,'fitScale',fitScale);
+            [theta_hat{m},~,T.iterations(:,m)] = minimize(x0, fcn, MaxIteration);
+        case 'NR' 
+            fcn = @(x) pcm_likelihoodGroup(x,YY,M{m},Z,X,P,'runEffect',B,'S',S,'fitScale',fitScale);
+            [theta_hat{m},~,T.iterations(:,m)] = pcm_NR(x0, fcn);
+        otherwise 
+            error('unknown fitting Algorith: %s',M{m}.fitAlgorithm);
+    end; 
+
+    % retrieve parameters 
     T.noise(:,m)      = exp(theta_hat{m}(M{m}.numGparams+1:M{m}.numGparams+numSubj));
     if (fitScale) 
         T.scale(:,m)      = exp(theta_hat{m}(M{m}.numGparams+numSubj+1:M{m}.numGparams+2*numSubj));
@@ -214,14 +223,14 @@ for m = 1:numModels
     if (strcmp(runEffect,'random'))
         T.run(:,m)  = exp(theta_hat{m}(M{m}.numGparams+(1+fitScale)*numSubj+1:M{m}.numGparams+(2+fitScale)*numSubj));
     end;
-    
     G_pred{m}        = pcm_calculateG(M{m},theta_hat{m}(1:M{m}.numGparams));
     
     % Compute log-likelihood under the estimated parameters
-    [~,~,T.likelihood(:,m)] = fcn(theta_hat{m});
+    [~,~,~,T.likelihood(:,m)] = fcn(theta_hat{m});
     
+    T.time(:,m) = toc; 
     % This is an optional check if the dervivate calculation is correct
     if (isCheckDeriv)
-        d = pcm_checkderiv(fcn,thetaAll-0.01,0.0000001);
+        d = pcm_checkderiv(fcn,theta_hat{m}-0.01,0.0000001);
     end;
 end;

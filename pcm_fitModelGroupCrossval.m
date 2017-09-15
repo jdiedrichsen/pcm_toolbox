@@ -96,7 +96,6 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditi
 %   Gpred{model}(:,:,subject): Predicted second moment matrix for each model
 %                              from cross-validation fit. 3rd dimension is for
 %                              subjects
-
 runEffect       = 'random';
 isCheckDeriv    = 0;
 MaxIteration    = 1000;
@@ -115,9 +114,13 @@ if (~iscell(M))
 end; 
 numModels = numel(M); 
 
-
 % Preallocate output structure
 T.SN = [1:numSubj]';
+T.iterations = zeros(numSubj,1); 
+T.time = zeros(numSubj,1); 
+
+% Determine optimal algorithm for each of the models 
+M = pcm_optimalAlgorithm(M); 
 
 % --------------------------------------------------------
 % Figure out a starting values for the noise parameters
@@ -236,14 +239,6 @@ for s = 1:numSubj
                 G = pcm_makePD(G);
                 i = 0;
             otherwise
-                if (isempty(S))
-                    fcn = @(x) pcm_likelihoodGroup(x,{YY{notS}},M{m},{Z{notS}},{X{notS}},P(notS(:)),...
-                        'runEffect',{B{notS}},'fitScale',fitScale);
-                else
-                    fcn = @(x) pcm_likelihoodGroup(x,{YY{notS}},M{m},{Z{notS}},{X{notS}},P(notS(:)),...
-                        'runEffect',{B{notS}},'S',S(notS),'fitScale',fitScale);
-                end;
-                
                 % Generate the starting vector
                 x0 = [theta0{m};noise0(notS,m)];
                 if (fitScale)
@@ -252,9 +247,25 @@ for s = 1:numSubj
                 if (strcmp(runEffect,'random'))
                     x0  = [x0;run0(notS,m)];       % Start with G-params from group fit
                 end;
-                [theta,fX,i] =  minimize(x0, fcn, MaxIteration);
-                M{m}.thetaCross(:,s)=theta(1:M{m}.numGparams);
-                G   = pcm_calculateG(M{m},M{m}.thetaCross(1:M{m}.numGparams,s));
+
+                % Now do the Group fit
+                if (isempty(S))
+                    fcn = @(x) pcm_likelihoodGroup(x,{YY{notS}},M{m},{Z{notS}},{X{notS}},P(notS(:)),...
+                        'runEffect',{B{notS}},'fitScale',fitScale);
+                else
+                    fcn = @(x) pcm_likelihoodGroup(x,{YY{notS}},M{m},{Z{notS}},{X{notS}},P(notS(:)),...
+                        'runEffect',{B{notS}},'S',S(notS),'fitScale',fitScale);
+                end;
+                
+                switch (M{m}.fitAlgorithm)
+                    case 'minimize' 
+                        [theta,~,i] = minimize(x0, fcn, MaxIteration);
+                     case 'NR' 
+                        [theta,~,i] = pcm_NR(x0, fcn);
+                end; 
+
+                theta_hat{m}(:,s)=theta(1:M{m}.numGparams);
+                G   = pcm_calculateG(M{m},theta_hat{m}(1:M{m}.numGparams,s));
         end;
         
         % Collect G_pred used for each left-out subject
@@ -278,21 +289,18 @@ for s = 1:numSubj
                 'runEffect',{B{s}},'S',S(s),'fitScale',fitScale);   % Minize scaling params only
         end;
         
-        [th{m}(:,s),fX] =  minimize(x0, fcn, MaxIteration);
-        
-        T.likelihood(s,m) = -fX(end);
+        [theta,T.likelihood(s,m)] =  pcm_NR(x0, fcn);
         T.iterations(s,m) = i;
         T.time(s,m)       = toc;
         if verbose
             fprintf('\t Iterations %d, Elapsed time: %3.3f\n',T.iterations(s,m),T.time(s,m));
         end;
-        T.noise(s,m) = exp(th{m}(1,s));
+        T.noise(s,m) = exp(theta(1));
         if (fitScale)
-            T.scale(s,m) = exp(th{m}(2,s));
+            T.scale(s,m) = exp(theta(2));
         end;
         if (strcmp(runEffect,'random'))
-            T.run(s,m)   = exp(th{m}(fitScale+1,s));
+            T.run(s,m)   = exp(theta(fitScale+1));
         end;
-        theta_hat{m}=th{m}'; 
     end;   % Loop over Models 
 end; % Loop over Subjects 

@@ -43,7 +43,7 @@ K = size(Z,2);
 OPT.S = [];
 OPT.runEffect =[];
 
-OPT=pcm_vararginoptions(varargin,OPT,{'S','runEffect'});
+OPT=pcm_getUserOptions(varargin,OPT,{'S','runEffect'});
 
 
 % Get G-matrix and derivative of G-matrix in respect to parameters

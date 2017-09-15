@@ -66,10 +66,14 @@ else
     M.numGparams=0;
 end;
 
-% Loop over subjects
+% Preallocate arrays
 numSubj = length(YY);
-for s=1:numSubj
-    
+numParams = 1 + (~isempty(OPT.runEffect{1})) + (OPT.fitScale>0); % Number of parameters per subject 
+numParams = numSubj * numParams + M.numGparams;                  % Total number of subjects 
+dLdtheta=zeros(numParams,numSubj); 
+d2L=zeros(numParams,numParams,numSubj); 
+
+for s=1:numSubj    
     % Get parameter and sizes
     noiseParam = theta(M.numGparams+s);             % Subject Noise Parameter
     if (OPT.fitScale)
@@ -78,7 +82,7 @@ for s=1:numSubj
         scaleParam = 0;
     end;
     Gs = G*exp(scaleParam);         % Scale the subject G matrix up by individual scale parameter
-    N  = size(Z{s},1);
+    [N,K]  = size(Z{s});
     
     % If Run effect is to ne modelled as a random effect - add to G and
     % design matrix
@@ -145,42 +149,52 @@ for s=1:numSubj
         B     = YY{s}*iVr;
         
         % Get the derivatives for all the parameters
-        for i = 1:M.numGparams
+        indx = [1:M.numGparams]; 
+        for i = indx 
             iVdV{i} = A*pcm_blockdiag(dGdtheta(:,:,i),zeros(numRuns))*Z{s}'*exp(scaleParam);
             dLdtheta(i,s) = -P(s)/2*trace(iVdV{i})+1/2*traceABtrans(iVdV{i},B);
         end
         
         % Get the derivatives for the Noise parameters
-        i             = M.numGparams+s;  % Which number parameter is it?
+        i = M.numGparams+1; 
+        indx(i) = M.numGparams+s;  % Which number parameter is it?
         if (isempty(OPT.S))
-            dVdtheta{i}          = eye(N)*exp(noiseParam);
+            dVdtheta  = eye(N)*exp(noiseParam);
         else
-            dVdtheta{i}          = sS*exp(noiseParam);
+            dVdtheta  = sS*exp(noiseParam);
         end;
-        iVdV{i}     = iVr*dVdtheta{i};
-        dLdtheta(i,s) = -P(s)/2*trace(iVdV{i})+1/2*traceABtrans(iVdV{i},B);
+        iVdV{indx(i)}     = iVr*dVdtheta;
+        dLdtheta(indx(i),s) = -P(s)/2*trace(iVdV{indx(i)})+1/2*traceABtrans(iVdV{indx(i)},B);
         
         % Get the derivatives for the scaling parameters
         if (OPT.fitScale)
-            i                = M.numGparams+numSubj+s;  % Which number parameter is it?
-            iVdV{i}          = A*pcm_blockdiag(G,zeros(numRuns))*Z{s}'*exp(scaleParam);
-            dLdtheta(i,s)    = -P(s)/2*trace(iVdV{i})-1/2*traceABtrans(iVdV,B);
+            i = i+1; 
+            indx(i) = M.numGparams+numSubj+s;    % Which number parameter is it?
+            iVdV{indx(i)}          = A*pcm_blockdiag(G,zeros(numRuns))*Z{s}'*exp(scaleParam);
+            dLdtheta(indx(i),s)    = -P(s)/2*trace(iVdV{indx(i)})+1/2*traceABtrans(iVdV{indx(i)},B);
         end;
         
         % Get the derivatives for the block parameter
-        if (~isempty(OPT.runEffect) && ~isempty(OPT.runEffect))
-            i             = M.numGparams+numSubj*(1+fitScale)+s;  % Which number parameter is it?
-            iVdV{i}       = A*pcm_blockdiag(zeros(K),eye(numRuns))*Z{s}'*exp(runParam);
-            dLdtheta(i,s) = -P(s)/2*trace(iVdV{i})+1/2*traceABtrans(iVdV{i},B);
+        if (~isempty(OPT.runEffect{s}))
+            i = i+1; 
+            indx(i) = M.numGparams+numSubj*(1+OPT.fitScale)+s;  % Which number parameter is it?
+            iVdV{indx(i)}       = A*pcm_blockdiag(zeros(K),eye(numRuns))*Z{s}'*exp(runParam);
+            dLdtheta(indx(i),s) = -P(s)/2*trace(iVdV{indx(i)})+1/2*traceABtrans(iVdV{indx(i)},B);
         end;
-        
-    end;
-    if (narargout>2)
-        keyboard;
     end;
     
+    % Determine second derivative for non-zero entries 
+    if (nargout>2)
+        for i=1:length(indx)
+            for j=i:length(indx)
+                d2L(indx(i),indx(j),s)=-P(s)/2*traceABtrans(iVdV{indx(i)},iVdV{indx(j)});
+                d2L(indx(j),indx(i),s)=d2L(indx(i),indx(j),s); 
+            end;
+        end;
+    end;
 end
 
 % Sum over participants
 negLogLike = -sum(LogLike);
 dnl        = -sum(dLdtheta,2);
+d2nl       = -sum(d2L,3);

@@ -35,6 +35,7 @@ end;
 M{1}.Ac(:,11  ,11)  = [ones(5,1);zeros(5,1)];  % Hand-specific component contra  (theta_d)
 M{1}.Ac(:,12  ,12)  = [zeros(5,1);ones(5,1)];  % Hand-specific component ipsi    (theta_e)
 M{1}.theta0=ones(12,1);                        % Starting values: could be closer, but converges anyways 
+M{1}.fitAlgorithm = 'NR'; 
 
 % --------------------------------------
 % Model2: Model with a flexible correlation for each finger 
@@ -51,6 +52,7 @@ end;
 M{2}.Ac(:,11  ,16)  = [ones(5,1);zeros(5,1)];  % Hand-specific component contra  (theta_d)
 M{2}.Ac(:,12  ,17)  = [zeros(5,1);ones(5,1)];  % Hand-specific component ipsi    (theta_e)
 M{2}.theta0=ones(17,1);
+M{2}.fitAlgorithm = 'NR'; 
 
 % --------------------------------------
 % Model3: Model with a fixed r=1 correlation (ipsilateral = scaled version of contralateral pattern) 
@@ -66,7 +68,7 @@ end;
 M{3}.Ac(:,6,11)  = [ones(5,1);zeros(5,1)]; % Hand-specific component contra  (theta_d)
 M{3}.Ac(:,7,12)  = [zeros(5,1);ones(5,1)]; % Hand-specific component ipsi    (theta_e)
 M{3}.theta0=ones(12,1);
-
+M{3}.fitAlgorithm = 'NR'; 
 % --------------------------------------
 % 1. Calculate empricial correlation
 for p=1:12
