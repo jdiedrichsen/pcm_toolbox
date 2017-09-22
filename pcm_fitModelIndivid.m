@@ -183,7 +183,7 @@ for s = 1:numSubj
                 else 
                     fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
                 end; 
-                [theta_hat{m}(:,s),T.likelihood(s,m),T.iterations(s,m)]=pcm_NR(x0,fcn); 
+                [theta_hat{m}(:,s),T.likelihood(s,m),T.iterations(s,m),T.reg(s,m)]=pcm_NR(x0,fcn,'verbose',verbose); 
         end; 
             
         G_pred{m}(:,:,s)  =  pcm_calculateG(M{m},theta_hat{m}(1:M{m}.numGparams,s));

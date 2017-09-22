@@ -210,7 +210,7 @@ for m = 1:numModels
             [theta_hat{m},~,T.iterations(:,m)] = minimize(x0, fcn, MaxIteration);
         case 'NR' 
             fcn = @(x) pcm_likelihoodGroup(x,YY,M{m},Z,X,P,'runEffect',B,'S',S,'fitScale',fitScale);
-            [theta_hat{m},~,T.iterations(:,m)] = pcm_NR(x0, fcn);
+            [theta_hat{m},~,T.iterations(:,m),T.reg(:,m)] = pcm_NR(x0, fcn);
         otherwise 
             error('unknown fitting Algorith: %s',M{m}.fitAlgorithm);
     end; 

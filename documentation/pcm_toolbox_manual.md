@@ -64,7 +64,7 @@ These are the functions that perform the core statistical functions of the toolb
 |  `pcm_likelihoodIndivid` | pcm_likelihood with optional random block effect
 |  `pcm_likelihoodGroup`   | Likelihood of a group data set under a model
 |  `pcm_NR`				| Newton Raphson optimisation 
-|  `pcm_NR_diag`			| Newton Raphson for diagonalized models (faster)
+|  `pcm_NR_diag`			| Newton Raphson for diagonalized component models 
 |  `pcm_NR_free`			| Newton Raphson for a free model 
 |  `pcm_EM`				| Expectation-Maximization 
 |  `pcm_minimize`			| Conjugate gradient descent 
@@ -279,7 +279,7 @@ The last option is to estimate the covariance structure of the noise from the da
 ADD EXAMPLE AND CODE SNIPPETS FOR THE DIFFERENT OPTIONS
 
 # Model fitting and crossvalidation 
-Details of the different optimization routines that maximize the likelihood can be found in section on Mathematical and Algorithmic details. Currently, the toolbox is using `pcm_minimize` (conjugate gradient descent), as it provides a universal solution for all model types. However, Newton-Raphson (especially when exploiting special forms) can be substantially faster in some cases. Future versions will select the optimisation of adaptively.   
+Details of the different optimization routines that maximize the likelihood can be found in section on Mathematical and Algorithmic details. Currently, the toolbox is using `minimize` (conjugate gradient descent), as it provides a universal and stable solution for all model types. However, Newton-Raphson can be substantially faster in cases in which there are relatively few free parameters.  The optimisation routine can be set for each model seperately . Future versions will select the optimisation of adaptively.   
 
 The following routines are wrapper functions around the actual optimisation routines that fit models to individual or group data. Noise and (possibly) scale paramaters are added to the fit for each subject. To compare models of different complexity, 2 types of crossvalidation are implemented. 
 
@@ -642,41 +642,48 @@ $$
 {#eq:derivative_restrictedLogLikelihoodSimple}
 
 ## Derivates for specific parameters 
-From the general term for the derivative of the log-likelihood, we can derive the specific expressions for each parameter. In general, we model $\mathbf{V}$ 
-
-
-Each model provides the partial derivaratives for $\mathbf{G}$ in respect to the parameters (see above). From this we can easily obtain the derviative of $\mathbf{V}$
+From the general term for the derivative of the log-likelihood, we can derive the specific expressions for each parameter. In general, we model the co-variance matrix of the data $\mathbf{V}$ as:
 $$
-\frac{\partial{\mathbf{V}}}{\partial{\theta_i}} = \mathbf{Z} \frac{\partial{\mathbf{G}}}{\partial{\theta_i}}\mathbf{Z}^T
-$$
-
-The noise  
-
-
-$$
-\frac{\partial{\mathbf{V}}}{\partial{\theta_{\epsilon}}} = \mathbf{S}exp(\theta_{\epsilon})
+{\bf{V}}=s{\bf{ZG}}(\boldsymbol{\theta}_h){\bf{Z}}^{T}+S\sigma^{2}_{\epsilon}\\
+s=exp(\theta_{s})\\
+\sigma^2_{\epsilon} = exp(\theta_{\epsilon})
 $$
 
-
-## Expected second derivative of the log-likelihood
-For the Newton-Raphson algorithm of optimisation, we need also the negative expected second derivative of the restricted log-likelihood, also called Fisher-information 
+Where $\theta_s$ is the signal scaling parameter, the $\theta_{\epsilon}$ the noise parameter. We are using the exponential of the parameter, to ensure that the noise variance and the scaling will always be strictly positive. When taking the derivatives, we use the simple rule of $\partial exp(x) / \partial x=exp(x)$.  Each model provides the partial derivaratives for $\mathbf{G}$ in respect to the model parameters (see above). From this we can easily obtain the derviative of $\mathbf{V}$
 $$
-I_{i,j}(\theta) = - E \left[ \frac{\partial^2 }{\partial \theta_i \partial \theta_j} L_{ReML}\right]=\frac{P}{2}trace\left(\mathbf{V}^{-1}_{R} \frac{\partial \mathbf{V}}{\partial \theta_i}\mathbf{V}^{-1}_{R} \frac{\partial \mathbf{V}}{\partial \theta_j}  \right).
+\frac{\partial{\mathbf{V}}}{\partial{\theta_h}} = \mathbf{Z} \frac{\partial{\mathbf{G(\boldsymbol{\theta_h})}}}{\partial{\theta_h}}\mathbf{Z}^T exp(\theta_{s}).
+$$
+
+The derivate in respect to the noise parameter  
+
+$$
+\frac{\partial{\mathbf{V}}}{\partial{\theta_{\epsilon}}} = \mathbf{S}exp(\theta_{\epsilon}).
+$$
+
+And in respect to the signal scaling parameter  
+$$
+\frac{\partial{\mathbf{V}}}{\partial{\theta_{s}}} = {\bf{ZG}}(\boldsymbol{\theta}_h){\bf{Z}}^T exp(\theta_s).
 $$
 
 ## Conjugate Gradient descent
-
-One way of optiminzing the likelihood is simply using the first derviative and doing a line-search algorith, as implemented in the function `minimize`, written by Carl Rassmussen. The function `pcm_minimize` forms a wrapper that allows the optimisation of simple models. 
+One way of optiminzing the likelihood is simply using the first derviative and performing a conjugate-gradient descent algorithm. For this, the routines `pcm_likelihoodIndivid` and `pcm_likelihoodGroup` return the negative log-likelihood, as well as a vector of the first derivatives of the negative log-likelihood in respect to the parameter. The implementation of conjugate-gradient descent we are using here based on Carl Rassmussen's excellent  function `minimize`. 
 
 ## Newton Raphson algorithm 
-
-The Newton-Raphson algorithm is currently implemented and used for feature and component models. Generally is is by factor 10-20 times faster than conjugate gradient descent. The implementation is provided by the function `pcm_NR` for unconstrained problems in which $\mathbf{G}$ can take any form. The algorithm first finds reasonable starting values for the parameters ($\boldsymbol{\theta}^0$) from cross-validated estimates, and then updates on every step the current estimates by 
+A alternative to conjugate gradients, which can be considerably faster, are optimisation routines that exploit the matrix of second derivatives of the log-liklihood. The local curvature information is then used to  "jump" to suspected bottom of the bowl of the likelihood surface. The negative expected second derivative of the restricted log-likelihood, also called Fisher-information can be calculated efficiently from terms that we needed to compute for the first derivative anyway: 
 $$
-\boldsymbol{\theta}^{u+1}=\boldsymbol{\theta}^{u}-\mathbf{I}(\boldsymbol{\theta}^{u})^{-1}\frac{\partial L_{ReML}}{\partial \boldsymbol{\theta}^{u}} .
+{\mathbf{F}}_{i,j}(\theta) = - E \left[ \frac{\partial^2 }{\partial \theta_i \partial \theta_j} L_{ReML}\right]=\frac{P}{2}trace\left(\mathbf{V}^{-1}_{R} \frac{\partial \mathbf{V}}{\partial \theta_i}\mathbf{V}^{-1}_{R} \frac{\partial \mathbf{V}}{\partial \theta_j}  \right).
 $$
-Because the update can become in tad unstable, we are regularising the Fisher information matrix by adding a small value to the diagonal.
 
-The algorithm can be sped up by another tick if the component matrices $\mathbf{G}_c$ are all diagonal. This can be achieved by redefining $\mathbf{Z}_c=\mathbf{Z}_c \mathbf{v}$, where $\mathbf{v}$ are the eigenvectors of $\mathbf{G}_c$, and redefining $\mathbf{G_c}$ to the diagonal martrix of eigenvalues. The function `pcm_NR_diag` then exploits this special structure to speed up the computation of the first and second derivative. Using this function is definitely worth it when the model is diagonal to begin with. 
+The update then uses a slightly regularized version of the second derviate to compute the next update on the parameters. 
+
+$$
+\boldsymbol{\theta}^{u+1}=\boldsymbol{\theta}^{u}-\left( \mathbf{F}(\boldsymbol{\theta}^{u})+{\mathbf{I}}\lambda\right)^{-1}\frac{\partial L_{ReML}}{\partial \boldsymbol{\theta}^{u}} .
+$$
+Because the update can become  unstable, we are regularising the Fisher information matrix by adding a small value to the diagonal, similar to a Levenberg regularisation for least-square problems. If the likelihood increased,  $\lambda$ is decreases, if the liklihood accidentially decreased, then we take a step backwards and increase  $\lambda$.  The algorithm is implemented in  `pcm_NR` . 
+
+## Choosing an optimisation algorithm
+
+While the Newton-Raphson algorithm can be considerably faster for many problems, it is not always the case. Newton-Raphson usually arrives at the goal with many fewer steps than conjugate gradient descent, but on each step it has to calculate the matrix second derviatives, which grows in the square of the number of parameters . So for highly-parametrized models, the simple conjugate gradient algorithm is better. You can set for each model the desired algorithm by setting the field  `M.fitAlgorithm = 'NR';`  for Newton-Raphson and   `M.fitAlgorithm = 'minimize';` for conjugate gradient descent. If no such field is given, then fitting function will call `M=pcm_optimalAlgorithm(M)` to obtain a guess of what will be the best algorithm for the problem. While this function provides a good heuristic strategy, it is recommended to try both and compare both the returned likelihood and time. Small differences in the likelihood ($<0.1$) are due to different stopping criteria and should be of no concern. Larger differences can indicate failed convergence. 
 
 
 ## Acceleration of matrix inversion 

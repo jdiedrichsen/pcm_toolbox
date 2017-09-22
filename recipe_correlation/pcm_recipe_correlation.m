@@ -18,7 +18,7 @@ function varargout=pcm_recipe_correlation
 %                  component 
 load data_recipe_correlation.mat
 runEffect  = 'fixed';
-
+alg = 'minimize'; 
 
 % --------------------------------------
 % Model1: Model with independent contra and ipsilateral patterns (zero
@@ -35,7 +35,7 @@ end;
 M{1}.Ac(:,11  ,11)  = [ones(5,1);zeros(5,1)];  % Hand-specific component contra  (theta_d)
 M{1}.Ac(:,12  ,12)  = [zeros(5,1);ones(5,1)];  % Hand-specific component ipsi    (theta_e)
 M{1}.theta0=ones(12,1);                        % Starting values: could be closer, but converges anyways 
-M{1}.fitAlgorithm = 'NR'; 
+M{1}.fitAlgorithm = alg; 
 
 % --------------------------------------
 % Model2: Model with a flexible correlation for each finger 
@@ -52,7 +52,7 @@ end;
 M{2}.Ac(:,11  ,16)  = [ones(5,1);zeros(5,1)];  % Hand-specific component contra  (theta_d)
 M{2}.Ac(:,12  ,17)  = [zeros(5,1);ones(5,1)];  % Hand-specific component ipsi    (theta_e)
 M{2}.theta0=ones(17,1);
-M{2}.fitAlgorithm = 'NR'; 
+M{2}.fitAlgorithm = alg; 
 
 % --------------------------------------
 % Model3: Model with a fixed r=1 correlation (ipsilateral = scaled version of contralateral pattern) 
@@ -68,7 +68,7 @@ end;
 M{3}.Ac(:,6,11)  = [ones(5,1);zeros(5,1)]; % Hand-specific component contra  (theta_d)
 M{3}.Ac(:,7,12)  = [zeros(5,1);ones(5,1)]; % Hand-specific component ipsi    (theta_e)
 M{3}.theta0=ones(12,1);
-M{3}.fitAlgorithm = 'NR'; 
+M{3}.fitAlgorithm = alg; 
 % --------------------------------------
 % 1. Calculate empricial correlation
 for p=1:12
@@ -93,12 +93,12 @@ end;
 
 % --------------------------------------
 % 3. Fit model 2  and infer correlations from the parameters 
-[D,theta,G_hat] = pcm_fitModelIndivid(Data,M(2),partVec,condVec,'runEffect',runEffect);
+[D,theta,G_hat] = pcm_fitModelIndivid(Data,M,partVec,condVec,'runEffect',runEffect);
 
 % Get the correlations 
-var1       = (theta{1}(1:5,:).^2)';
-var2       = (theta{1}(6:10,:).^2+theta{1}(11:15,:).^2)';
-cov12      = (theta{1}(1:5,:).*theta{1}(6:10,:))';
+var1       = (theta{2}(1:5,:).^2)';
+var2       = (theta{2}(6:10,:).^2+theta{2}(11:15,:).^2)';
+cov12      = (theta{2}(1:5,:).*theta{2}(6:10,:))';
 T.r_model2 =  mean(cov12,2)./sqrt(mean(var1,2).*mean(var2,2));
             
 % --------------------------------------
@@ -123,6 +123,7 @@ title('PCM-model');
 [Tcross,thetaCr] = pcm_fitModelGroupCrossval(Data,M,partVec,condVec,'runEffect',runEffect,'groupFit',thetaGr,'fitScale',1);
 subplot(1,4,4);
 pcm_plotModelLikelihood(Tcross,M,'normalize',0,'Nnull',1); 
+varargout={D,Tgroup,Tcross};
 
 % --------------------------------------
 % Get the correlation from a a covariance matrix

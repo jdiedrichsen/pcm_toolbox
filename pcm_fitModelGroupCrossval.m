@@ -259,9 +259,10 @@ for s = 1:numSubj
                 
                 switch (M{m}.fitAlgorithm)
                     case 'minimize' 
-                        [theta,~,i] = minimize(x0, fcn, MaxIteration);
+                        [theta,nlv,T.iterations(s,m)] = minimize(x0, fcn, MaxIteration);
+                        T.fitLike(s,m)=-nlv(end); 
                      case 'NR' 
-                        [theta,~,i] = pcm_NR(x0, fcn);
+                        [theta,T.fitLike(s,m),T.iterations(s,m),T.reg(s,m)] = pcm_NR(x0, fcn);
                 end; 
 
                 theta_hat{m}(:,s)=theta(1:M{m}.numGparams);
@@ -290,7 +291,6 @@ for s = 1:numSubj
         end;
         
         [theta,T.likelihood(s,m)] =  pcm_NR(x0, fcn);
-        T.iterations(s,m) = i;
         T.time(s,m)       = toc;
         if verbose
             fprintf('\t Iterations %d, Elapsed time: %3.3f\n',T.iterations(s,m),T.time(s,m));
