@@ -1,17 +1,15 @@
-function [U,G] = pcm_estimateU(M,theta,Y,Z,X,varargin);
-% function [U,G] = pcm_estimateU(M,theta,Y,M,Z,X,varargin);
-% Returns the random effects estimate of a PCM model, using the current set
-% of parameters of the model 
+function [W,A] = pcm_estimateW(M,theta,Y,Z,X,varargin);
+% function [W,A] = pcm_estimateW(M,theta,Y,Z,X,varargin);
+% Returns the voxel-feature weights for a PCM feature model. It calculates the BLUP 
+% estimate of of W, given the best current model fit. 
 %
 % INPUT:
-%       M:      Model specification. Model can be either given by
-%               b. Model Structure containing the fields
-%                  Model.type:        fixed, component, feature, nonlinear
-%                  Model.... 
+%       M:      Model specification. Model must be of type='feature'; 
+%               The function also returns the best feature design matrix under the current model  
 %      theta:   Vector of (log-)model parameters: These include model
 %               parameters, noise parameter, and (option) run parameter
 %      Y:       NxP Matrix of data
-%      Z:       NxK Design matrix - relating the trials (N) to the random effects (K)
+%      Z:       NxK Design matrix - relating the trials (N) to conditions (K)
 %      X:       Fixed effects design matrix - subtracted out before 
 % VARARGIN:
 %      'runEffect',B:  design matrice for the run effect,
@@ -22,9 +20,12 @@ function [U,G] = pcm_estimateU(M,theta,Y,Z,X,varargin);
 %              S.invS:  inverse of the noise covariance matrix
 %              if empty, this defaults to the indentity matrix 
 % OUTPUT:
-%      U:     KxP matrix   BLUP estimates of the activity patterns for the K 
-%                          experimental conditions.
+%      W:     QxP matrix. Voxel-feature weights for each of the a flexible
+%             feature model. 
+%      A:     Feature matrix for the optimal model fit. This is
+%             sum(Ac_i*theta_i); 
 %   Joern Diedrichsen 3/2017, joern.diedrichsen@googlemail.com
+%
 
 [N,P] = size(Y);
 K = size(Z,2);
@@ -34,12 +35,17 @@ pcm_vararginoptions(varargin,{'S','runEffect'});
 
 % Get G-matrix and derivative of G-matrix in respect to parameters
 if (isstruct(M))
-    G = pcm_calculateG(M,theta(1:M.numGparams));
+    if (~strcmp(M.type,'feature'))
+        error('voxel-feature weights can only be estiamted for feature models'); 
+    end; 
+    A = bsxfun(@times,M.Ac,permute(theta(1:M.numGparams),[3 2 1]));
+    A = sum(A,3); 
 else
-    G=M;
+    A=M;
     M=[];
     M.numGparams=0;
 end;
+G = A*A'; 
 
 % If Run effect is to ne modelled as a random effect - add to G and
 % design matrix
@@ -77,7 +83,4 @@ else
 end;
 
 % Compute the random effects 
-U=G*Z'*iVr*Y;
-if (~isempty(runEffect)) 
-    U=U(1:K,:); 
-end; 
+W=A'*Z'*iVr*Y;
