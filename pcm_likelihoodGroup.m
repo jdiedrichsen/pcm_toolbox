@@ -88,9 +88,9 @@ for s=1:numSubj
     % design matrix
     if (~isempty(OPT.runEffect{s}))
         numRuns = size(OPT.runEffect{s},2);
-        runParam = theta(M.numGparams+numSubj*(1+fitScale)+s);    % Subject run effect parameter
+        runParam = theta(M.numGparams+numSubj*(1+OPT.fitScale)+s);    % Subject run effect parameter
         Gs = pcm_blockdiag(Gs,eye(numRuns)*exp(runParam));  % Include run effect in G
-        Z{s} = [Z{s} runEffect{s}];                 % Include run effect in design matrix
+        Z{s} = [Z{s} OPT.runEffect{s}];                 % Include run effect in design matrix
     else
         numRuns = 0;                                % No run effects modelled
     end;

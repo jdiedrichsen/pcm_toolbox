@@ -58,6 +58,8 @@ function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,
 %   'verbose':      Optional flag to show display message in the command
 %                   line (e.g., elapsed time). Default is 1.
 % 
+%   'S':             Optional specific covariance structureof the noise 
+% 
 %--------------------------------------------------------------------------
 % OUTPUT:
 %   T:      Structure with following subfields:
@@ -147,7 +149,7 @@ for s = 1:numSubj
         end;
         
         % if naive noise ceiling model, use crossvalidated G as component 
-        if strcmp(M{m}.type,'noiseceiling')
+        if strcmp(M{m}.type,'freedirect')
             M{m}.Gc = pcm_makePD(G_hat(:,:,s)); 
         end; 
         

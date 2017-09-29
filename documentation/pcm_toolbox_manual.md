@@ -76,17 +76,22 @@ These functions are higher level functions that perform fitting and crossvalidat
 |:-----------------------------|:-----------------------------
 | `pcm_fitModelIndivid`        | Fits G and noise parameter to individual data
 | `pcm_fitModelIndividCrossval`| Within-subject crossvalidation of models 
-| `pcm_fitModelGroup`          | Fit common G to all subjects, using individual noise and scale parameter
+| `pcm_fitModelGroup`          | Fit common G to all subjects
 | `pcm_fitModelGroupCrossval`  | Between-subject crossvalidation of models  
-
 
 ### Utility functions
 | 	Function 			       | Comment  
 |:-----------------------------|:-----------------------------
-| `pcm_checkderiv`             | Checks derivate of a nonlinear model 
-| `pcm_estGcrossval`           | Cross-validated estimate of G 
-| `pcm_indicatorMatrix`        | Generates indicator matrices 
-| `pcm_vararginoptions`		   | Dealing with variable options to functions 
+| `pcm_checkderiv`                  | Checks derivate of a nonlinear model 
+| `pcm_estGcrossval`              | Cross-validated estimate of G 
+| `pcm_indicatorMatrix`       | Generates indicator matrices 
+| `pcm_vararginoptions`	    | Dealing with variable options to functions 
+| `pcm_optimalAlgorithm`    | Makes a recommendation for the best optimisation algorithm
+| `pcm_getStartingval`         | Estimates starting values for optimisation 
+| `pcm_estimateU`         | Calculates voxel-pattern estimates under the current model
+| `pcm_prepFreeModel`         |  Sets up free model (freechol)
+| `pcm_makePD`         | Forces covariance estimate to be semipositive 
+| `pcm_generateData`         | Generates data under a specific model for simulations 
 
 ### Visualization functions
 | 	Function 			       | Comment  
@@ -268,18 +273,18 @@ M.name       = 'noiseceiling';
 M            = pcm_prepFreeModel(M); 
 ```
 
-## Noise models 
+For a quick and approximate noise ceiling, you can also set the model type to `freedirect`. In the case, the fitting algorithms simply use the crossvalidated second moment to determine the parameters - basically the starting values of the complete model. This may lead to a slightly lower noise ceiling, as full optimization is avoided in the interest of speed. 
 
-The noise is assumed to come from a multivariate normal distribution with covariance matrix $\mathbf{S}\sigma^{2}$. What is a reasonable noise structure to assume? First, the data can usually be assumed to be independent across imaging runs. If the data are regression estimates from a first-level model, and if the design of the experiment is balanced, then it is usually also permissible to make the assumption that the noise is independent within each imaging run $\mathbf{S}=\mathbf{I}$, [@RN3033]. Usually, however, the regression coefficients from a single imaging run show positive correlations with each other. This is due to the fact that the regression weights measure the activation during a condition as compared to a resting baseline, and the resting baseline is common to all conditions within the run [@RN3033]. To account for this, one can model the mean activation (across conditions) for each voxel with a separate fixed effect for each run. This effectively accounts for any uniform correlation.
+## Noise assumptions 
 
-Usually, assuming equal correlations of the activation estimates within a run is only a rough approximation to the real co-varince structure. A better estimate can be obtained by using an estimate derived from the design matrix and the estimated temporal autocorrelation of the raw signal. As pointed out recently [@RN3638], the particular design can have substantial influence on the estimation of the second moment matrix. This is especially evident in cases where the design is such that the trial sequence is not random, but has an invariant structure (where trials of one condition are often to follow trials of another specific condition). The accuracy of our approximation hinges critically on the quality of our estimate of the temporal auto-covariance structure of the true noise. Note that it has been recently demonstrated that especially for high sampling rates, a simple autoregressive model of the noise is insufficient [@RN3550]. 
+The noise is assumed to come from a multivariate normal distribution with covariance matrix $\mathbf{S}\sigma^{2}$. What is a reasonable noise structure to assume? First, the data can usually be assumed to be independent across imaging runs. If the data are regression estimates from a first-level model, and if the design of the experiment is balanced, then it is usually also permissible to make the assumption that the noise is independent within each imaging run $\mathbf{S}=\mathbf{I}$, [@RN3033]. Usually, however, the regression coefficients from a single imaging run show positive correlations with each other. This is due to the fact that the regression weights measure the activation during a condition as compared to a resting baseline, and the resting baseline is common to all conditions within the run [@RN3033]. To account for this, it is recommended to remove the mean pattern across by modeling the run mean as a fixed effects. This can be done by setting the option `runEffect = 'fixed'` in the model fittting routines mentioned below.  This effectively accounts for any uniform correlation between activity estimates withn a run.
 
-The last option is to estimate the covariance structure of the noise from the data itself. This can be achieved by introducing random effects into the generative model equation in section \ref{generativemodel}, which account for the covariance structure across the data. One example used here is to assume that the data are independent within each imaging run, but share an unknown covariance within each run, which is then estimated as a part of the covariance matrix [@RN3033]. While this approach is similar to just removing the run mean from the data as a fixed effect (see above) it is a good strategy if we actually want to model the difference of each activation pattern against the resting baseline. When treating the mean activation pattern in each run as a random effect, the algorithm finds a compromise between how much of the shared pattern in each run to ascribe to the random run-to-run fluctuations, and how much to ascribe to a stable mean activation.
+Usually, assuming equal correlations of the activation estimates within a run is only a rough approximation to the real co-varince structure. A better estimate can be obtained by using an estimate derived from the design matrix and the estimated temporal autocorrelation of the raw signal. As pointed out recently [@RN3638], the particular design can have substantial influence on the estimation of the second moment matrix. This is especially evident in cases where the design is such that the trial sequence is not random, but has an invariant structure (where trials of one condition are often to follow trials of another specific condition). The accuracy of our approximation hinges critically on the quality of our estimate of the temporal auto-covariance structure of the true noise. Note that it has been recently demonstrated that especially for high sampling rates, a simple autoregressive model of the noise is insufficient [@RN3550]. In all optimisation routine, a specific noise covariance structure can be specified by setting the option `'S'` in the model fitting routines to the NxN covariance estimate.   
 
-ADD EXAMPLE AND CODE SNIPPETS FOR THE DIFFERENT OPTIONS
+The last option is to estimate the covariance structure of the noise from the data itself. This can be achieved by introducing random effects into the generative model equation in section \ref{generativemodel}, which account for the covariance structure across the data. One example used here is to assume that the data are independent within each imaging run, but share an unknown covariance within each run, which is then estimated as a part of the covariance matrix [@RN3033]. While this approach is similar to just removing the run mean from the data as a fixed effect, it is a good strategy if we actually want to model the difference of each activation pattern against the resting baseline. When treating the mean activation pattern in each run as a random effect, the algorithm finds a compromise between how much of the shared pattern in each run to ascribe to the random run-to-run fluctuations, and how much to ascribe to a stable mean activation. This can be done by setting the option `runEffect = 'random'` in the model fitting routines. This approach is taken for example in `pcm_recipe_nonlinear` as here the resting baseline is of interest and should not be artificially removed. 
 
 # Model fitting and crossvalidation 
-Details of the different optimization routines that maximize the likelihood can be found in section on Mathematical and Algorithmic details. Currently, the toolbox is using `minimize` (conjugate gradient descent), as it provides a universal and stable solution for all model types. However, Newton-Raphson can be substantially faster in cases in which there are relatively few free parameters.  The optimisation routine can be set for each model seperately . Future versions will select the optimisation of adaptively.   
+Details of the different optimization routines that maximize the likelihood can be found in section on Mathematical and Algorithmic details. Currently, the toolbox either uses `minimize` (conjugate gradient descent) or `pcm_NR` (Newton-Raphson). Newton-Raphson can be substantially faster in cases in which there are relatively few free parameters.  The optimisation routine can be set for each model seperately by setting the field `M.fitAlgorithm`. 
 
 The following routines are wrapper functions around the actual optimisation routines that fit models to individual or group data. Noise and (possibly) scale paramaters are added to the fit for each subject. To compare models of different complexity, 2 types of crossvalidation are implemented. 
 
@@ -386,10 +391,17 @@ To be provided
 
 The function `pcm_fitModelGroup` fits a model to a group of subjects. All parameters that change the **G** matrix, that is all `M.numGparams`, are shared across all subjects. To account for the individual signal-to-noise level, by default a separate signal strength ($s_i$) and noise parameter ($\sigma^{2}_{\epsilon,i}$) are fitted for each subject. That is, for each individual subject, the predicted covariance matrix of the data is:
 
-
 $$
 {\bf{V}_i}=s_i\bf{ZGZ^{T}+S}\sigma^{2}_{\epsilon,i}.
 $$
+
+To prevent scaling or noise variance parameters to become negative, we  actually optimise the log of these parameter, such that   
+
+$$
+s_i = exp(\theta_{s,i})\\
+\sigma^{2}_{\epsilon,i} = exp(\theta_{\epsilon, i}).
+$$
+
 The output `theta` for each model contains not only the `M.numGparams` model parameters, but also the noise parameters for all the subjects, then (optional) the scale parameters for all the subjects, and (if the runEffect is set to random)  the run-effect parameter for all the subjects.  The resultant scaling parameter for each subject is additionally stored under `T.scale` in the output structure. The fitting of an additional scale parameter can be switched off by providing the optional input argument `pcm_fitModelGroup(...,'fitScale',0)`.  Often, it speeds up the computation to perform a group fit first, so it can serve as a starting value for the crossvalidated group fit (see below). Otherwise the input and output parameters are identical to `pcm_fitModelIndivid`. 
 
 Note that the introduction of the scale parameter introduces a certain amount of parameter redundancy. For example, if a model has only one single component and parameter, then the overall scaling is simply `s*theta`. One can remove the redundancy by forcing one model parameter to be 1 - in practice this, however, is not necessary.    
@@ -500,6 +512,10 @@ Another approach to visualize model results is to plot the model evidence (i.e. 
 ```
 T = pcm_plotModelLikelihood(Tcross,M,'upperceil',Tgroup.likelihood(:,5)); 
 ```
+
+### Visualising the voxel-feature weights
+
+Finally, like in an encoding model, we can also estimate and visualise the voxel-feature weights for feature models. 
 
 # Mathematical and Algorithmic details
 

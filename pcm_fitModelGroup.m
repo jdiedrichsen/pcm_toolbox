@@ -175,7 +175,7 @@ for m = 1:numModels
     % Use normal linear regression to get scaling parameter for the
     % subject
     switch (M{m}.type)
-        case 'noiseceiling'
+        case 'freedirect'
             G0 = mean(G_hat,3); 
             M{m}.numGparams=0; 
             M{m}.Gc = G0;

@@ -114,7 +114,7 @@ M{4}.numGparams = 20;
 M{4}.theta0     = [Fx0;scale_vals;add_vals];   
 
 % Naive averaging model- noise ceiling
-M{5}.type       = 'noiseceiling';   
+M{5}.type       = 'freedirect';   
 M{5}.name       = 'noiseceiling';
 M{5}.numGparams = 0; % totally fixed model- no free params
 M{5}.theta0     = [];
@@ -136,7 +136,7 @@ Mi = M; % create a copy of the model structure for use in the Individual fitting
     'runEffect',runEffect,'isCheckDeriv',0,'groupFit',theta_all);
  
 % Can scale and plot group likelihoods of model fits.
-figure(1); 
+subplot(2,3,1); 
 T = pcm_plotModelLikelihood(Tcross,M,'upperceil',Tgroup.likelihood(:,5),'style','bar','normalize',1);
 % Returns T with subfields for scaled likelihoods (relative to null model (M1)
 % and noise ceiling (M3). 
@@ -157,27 +157,16 @@ maxColorLimit = max([max(max(G_mean)),...
                      max(max(G_combo))]);
 colorLimits   = [0 maxColorLimit];
 % plot group crossval fitted G_scaling against mean of G_hat
-figure(2);
-subplot(1,4,1);
+subplot(2,3,2); 
 imagesc(G_mean,colorLimits);
 title('group G-hat')
-subplot(1,4,2);
+subplot(2,3,3); 
 imagesc(G_scaling,colorLimits);
 title('group scaling G')
-subplot(1,4,3);
+subplot(2,3,5); 
 imagesc(G_additive,colorLimits);
 title('group additive G')
-subplot(1,4,4);
+subplot(2,3,6); 
 imagesc(G_combo,colorLimits);
 title('group combination G')
  
-% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-% (5) Fit Model to single subjects and plot fits for one subj
-% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[Tindivid,~,G_pred_individ] = pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,...
-    'runEffect',runEffect,'isCheckDeriv',0);
-figure(3); 
-pcm_plotModelLikelihood(Tindivid,M,'subj',4,'normalize',0,'plotceil',0);
-% We don't plot a lower noise ceiling because the noiseceiling model in 
-% Tindivid is NOT crossvalidated, and so it is not appropriate for a lower 
-% noise ceiling.

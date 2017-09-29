@@ -26,9 +26,9 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditi
 %                                 weighted components Ac
 %                             'nonlinear': Nonlinear model with own function
 %                                 to return G-matrix and derivatives
-%                             'noiseceiling': Uses the mean estimated
+%                             'freedirect': Uses the mean estimated
 %                                 G-matrix from crossvalidation to get an
-%                                 estimate of the best achievavle fit
+%                                 estimate of the best achievable fit
 %              .numGparams:  Scalar that defines the number of parameters
 %                             included in model.
 %              .theta0:      Vector of starting values for theta. If not given,
@@ -233,11 +233,11 @@ for s = 1:numSubj
                 else
                     G = M{m}.Gc;
                 end
-                i = 0;
-            case 'noiseceiling'
+                T.iterations(s,m)=0; 
+            case 'freedirect'
                 G = mean(G_hat(:,:,notS),3);    % uses the mean of all other subjects
                 G = pcm_makePD(G);
-                i = 0;
+                T.iterations(s,m)=0; 
             otherwise
                 % Generate the starting vector
                 x0 = [theta0{m};noise0(notS,m)];
