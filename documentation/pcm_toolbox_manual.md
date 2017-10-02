@@ -118,8 +118,6 @@ $$
 \epsilon_p \sim N(\mathbf{0},\mathbf{S}\sigma^{2}) \end{array}
 $$
 
-{#eq:GenerativeModelEq}
-
 There are a five assumptions in this generative model. First, the activity profiles ( $\mathbf{u}_p,$ columns of \textbf{U}) are considered to be a random variable drawn from a normal distribution. Representational models therefore do not specify the exact activity profiles of specific voxels, but simply the characteristics of the distribution from which they originate. Said differently, PCM is not interested in which voxel has which activity profiles - it ignores their spatial arrangement. This makes sense considering that activity patterns can vary widely across different participants[@RN3415] and do not directly impact what can be decoded from a region. For this, only the distribution of these activity profiles in this region is considered.
 
 The second assumption is that the mean of the activity profiles (across voxels) is the same across conditions, and that it is modeled using the effects of no interests . Therefore, we most often model in  $\mathbf{X}$ the mean of each voxel across conditions. While one could also artificially remove the mean of each condition across voxels [@RN3565], this approach would remove differences that, from the persepctive of decoding and representation, are highly meaningful [@RN3672]. 
@@ -135,7 +133,6 @@ When we fit a PCM model, we are not trying to estimate specific values of the th
 $$
 p\left(\mathbf{Y}|\theta\right)=\int p\left(\mathbf{Y}|\mathbf{U},\theta\right) p\left(\mathbf{U}|\theta\right) d\mathbf{U}.
 $$
-{#eq:MarginalLilelihood}
 
 This is the likelihood that is maximized in PCM in respect to the model parameters $\theta$. For more details, see mathematical and algorithmic details.  
 
@@ -169,7 +166,6 @@ A more flexible model is to express the second moment matrix as a linear combina
 $$
 \mathbf{G}= \sum_{h}{\exp(\theta_{h})\mathbf{G}_{h}}.
 $$
-{#eq:componentModel}
 
 
 The weights for each component need to be positive - allowing negative weights would not guarantee that the overall second moment matrix would be positive definite. Therefore we use the exponential of the weighing parameter here, such that we can use unconstrained optimization to estimate the parameters.
@@ -179,7 +175,6 @@ For fast optimization of the likelihood, we require the derivate of the second m
 $$
 \frac{\partial \mathbf{G}}{\partial {\theta }_{h}}=\exp(\theta_{h}) {\bf{G}}_{h}
 $$
-{#eq:derivative_componentModel}
 
 #### Example
 
@@ -204,7 +199,6 @@ Each parameter $\theta_h$ determines how strong the corresponding set of feature
 $$
 \mathbf{G}=\mathbf{UU}^{T}/P=\frac{1}{P}\sum_{h}\theta_{h}^{2}\mathbf{M}_{h}\mathbf{M}_{h}^{T}+\sum_{i}\sum_{j}\theta_{i}\theta_{j}\mathbf{M}_{i}\mathbf{M}_{j}^{T}.
 $$
-{#eq:featureModel2}
 
 From the last expression we can see that, if features that belong to different components are independent of each other, i.e. $\mathbf{M}_{i} \mathbf{M}_{j} = \mathbf{0}$, then a feature model is equivalent to a component model with $\mathbf{G}_h = \mathbf{M}_{h}\mathbf{M}_{h}^{T}$.  The only technical difference is that we use the square of the parameter $\theta_h$, rather than its exponential, to enforce non-negativity. Thus, component models assume that the different features underlying each component are encoded independently in the population of voxels - i.e.\ knowing something about the tuning to feature of component A does not tell you anything about the tuning to a feature of component B. If this cannot be assumed, then the representational model is better formulated as a feature model. 
 
@@ -212,7 +206,6 @@ By the product rule for matrix derivatives, we have
 $$
 \frac{{\partial {\bf{G}}}}{{\partial {\theta_h}}} = {{\bf{M}}_h}{\bf{M}}{\left( \bf{\theta} \right)^T} + {\bf{M}}\left( \theta \right){\bf{M}}_h^T
 $$
-{#eq:derivative_featureModel}
 
 #### Example 
 In the example `pcm_recipe_correlation`, we want to model the correlation between the patterns for the left hand and the corresponding fingers for the right hand. 
@@ -545,13 +538,11 @@ $$
 {\bf{y}} \sim N \left(0,{\bf{V}} \right)\\ {\bf{V}}=\bf{ZGZ^{T}+S}\sigma^{2}_{\epsilon}
 \end{array}
 $$
-{#eq:dataDistribution}
 
 To calculate the likelihood, let us consider at the level of the single voxel, namely, $\mathbf{Y}=[\mathbf{y_1},\mathbf{y_2},...,\mathbf{y_p}]$. Then the likelihood over all voxels, assuming that the voxels are independent (e.g. effectively pre-whitened) is
 $$
 p \left( {\bf{Y}}|{\bf{V}} \right)= \prod^{P}_{i=1} (2\pi)^{-\frac{N}{2}} |{\bf{V}}|^{-\frac{1}{2}} exp \left( -\frac{1}{2}{\bf{y}}_i^T {\bf{V}}^{-1} {\bf{y}}_i \right)
 $$
-{#eq:likelihoodAllVoxels}
 
 When we take the logarithm of this expression, the product over the individual Gaussian probabilities becomes a sum and the exponential disappears:
 $$
@@ -567,14 +558,12 @@ $$
 -\frac{P}{2}\mathrm{ln}\left(|\bf{V}|\right)
 -\frac{1}{2} trace \left({\bf{Y}}^{T}{\bf{V}}^{-1} \bf{Y} \right)
 $$
-{#eq:logLikelihood}
 
 
 Using the trace trick, which allows $\mathrm{trace}\left(\bf{ABC}\right) = \mathrm{trace}\left(\bf{BCA}\right)$, we can obtain a form of the likelihood that does only depend on the second moment of the data, $\bf{YY}^{T}$ ,as a sufficient statistics:
 $$
 L =-\frac{NP}{2}\mathrm{ln}\left(2\pi \right)-\frac{P}{2}\mathrm{ln}\left(|\bf{V}|\right)-\frac{1}{2}trace\left({\bf{Y}\bf{Y}}^{T}{\bf{V}}^{-1}\right)
 $$
-{#eq:logLikelihoodTraceTrick}
 
 ## Restricted likelihood 
 
@@ -584,48 +573,43 @@ $$
 \left( {\bf{X}}^T {\bf{V}}^{-1} {\bf{X}} \right)^{-1}
 {\bf{X}}^T{\bf{V}}^{-1}{\bf{Y}}
 $$
-{#eq:fixedEffectEstimate}
 
 Under the assumption of fixed effects, the distribution of the data is
 $$
 {\bf{y_i}} \sim N \left(\bf{Xb_i},{\bf{V}} \right)
 $$
-{#eq:fixedEffectDistrubution}
 
 To compute the likelihood we need to remove these fixed effects from the data, using the residual forming matrix
 $$
 {\bf{R}} = \bf{X}{\left( {{{\bf{X}}^T}{{\bf{V}}^{ - 1}}{\bf{X}}} \right)^{ - 1}}{{\bf{X}}^T}{{\bf{V}}^{ - 1}}\\ {\bf{r_i}} = \bf{Ry_i}
 $$
-{#eq:residualFormingMatrix}
 
 For the optimization of the random effects we therefore also need to take into account the uncertainty in the random effects estimates. Together this leads to a modified likelihood - the restricted likelihood that we which to optimize.
 $$
 L_{ReML} =-\frac{NP}{2}\mathrm{ln}\left(2\pi \right)-\frac{P}{2}\mathrm{ln}\left(|\bf{V}|\right)-\frac{1}{2}trace\left({\bf{Y}\bf{Y}}^{T}\bf{R}^{T}{\bf{V}}^{-1}\bf{R}\right)-\frac{P}{2}\mathrm{ln}|\bf{X}^{T}\bf{V}^{-1}\bf{X}|
 $$
-{#eq:restrictedLikelihood}
 
 Note that the third term can be simplified by noting that
 $$
 \bf{R}^{T}{\bf{V}}^{-1}\bf{R} = \bf{V}^{-1} - \bf{V}^{-1}\bf{X} (\bf{X}{\bf{V}}^{-1}\bf{X})^{-1}\bf{X}^{T}\bf{V}^{-1}=\bf{V}^{-1}\bf{R}=\bf{V}_{R}^{-1}
 $$
-{#eq:restrictedLikelihodTrick}
 
 ## First derivatives of the log-likelihood 
 Next, we find the derivatives of *L* with respect to each hyper parameter $\theta_{i}$, which influence G. Also we need to estimate the hyper-parameters that describe the noise, at least the noise parameter $\sigma_{\epsilon}^{2}$. To take these derivatives we need to use two general rules of taking derivatives of matrices (or determinants) of matrices:
 $$
 \frac{{\partial \ln \left( {\bf{V}} \right)}}{{\partial {\theta _i}}} = trace\left( {{{\bf{V}}^{ - 1}}\frac{{\partial {\bf{V}}}}{{\partial {\theta _i}}}} \right)
 $$
-{#eq:partialV}
+
 $$
 \frac{{\partial {{\bf{V}}^{ - 1}}}}{{\partial {\theta _i}}} = {{\bf{V}}^{ - 1}}\left( {\frac{{\partial {\bf{V}}}}{{\partial {\theta _i}}}} \right){{\bf{V}}^{ - 1}}
 $$
-{#eq:partialVinv}
+
 
 Therefore the derivative of the log-likelihood in [@eq:logLikelihood]. in respect to each parameter is given by:
 $$
 \frac{{\partial {L_{ML}}}}{{\partial {\theta _i}}} = - \frac{P}{2}trace\left( {{{\bf{V}}^{ - 1}}\frac{{\partial {\bf{V}}}}{{\partial {\theta _i}}}} \right) + \frac{1}{2}trace\left( {{{\bf{V}}^{ - 1}}\frac{{\partial {\bf{V}}}}{{\partial {\theta _i}}}{{\bf{V}}^{ - 1}}{\bf{Y}}{{\bf{Y}}^T}} \right)
 $$
-{#eq:derivative_logLikelihood}
+
 
 ## First derivatives of the restricted log-likelihood 
 First, let’s tackle the last term of the restricted likelihood function: 
@@ -644,7 +628,6 @@ $$
 $$
 = \frac{P}{2}trace\left( \mathbf{V}^{-1}\mathbf{X}\left(\mathbf{X}^T\mathbf{V}^{-1}\mathbf{X} \right)^{-1}\mathbf{X}^T\mathbf{V}^{-1}\frac{\partial{\mathbf{V}}}{\partial{\theta_i}} \right)
 $$
-{#eq:derivative_restrictedLogLikelihood1}
 
 Secondly, the derivative of the third term is 
 $$
@@ -654,7 +637,6 @@ $$
 $$
 \frac{\partial{l}}{\partial{\theta_i}}=\frac{1}{2}trace\left( \mathbf{V}_{R}^{-1}\frac{\partial{\mathbf{V}}}{\partial{\theta_i}}\mathbf{V}_{R}^{-1}\mathbf{Y}\mathbf{Y}^T \right)
 $$
-{#eq:derivative_restrictedLogLikelihood2}
 
 The last step is not easily proven, except for diligently applying the product rule and seeing a lot of terms cancel. Putting these two results together with the derivative of the normal likelihood gives us: 
 
@@ -673,7 +655,6 @@ $$
 $$
 =-\frac{P}{2}trace\left( \mathbf{V}_{R}^{-1} \frac{\partial{\mathbf{V}}}{\partial{\theta_i}} \right) + \frac{1}{2}trace\left(\mathbf{V}_{R}^{-1} \frac{\partial{\mathbf{V}}}{\partial{\theta_i}} \mathbf{V}_{R}^{-1} \mathbf{Y}\mathbf{Y}^T \right)
 $$
-{#eq:derivative_restrictedLogLikelihoodSimple}
 
 ## Derivates for specific parameters 
 From the general term for the derivative of the log-likelihood, we can derive the specific expressions for each parameter. In general, we model the co-variance matrix of the data $\mathbf{V}$ as:
@@ -725,7 +706,6 @@ When calculating the likelihood or the derviatives of the likelihood, the invers
 $$
 \begin{array}{c}{{\bf{V}}^{ - 1}} = {\left( {s{\bf{ZG}}{{\bf{Z}}^T} + {\bf{S}}\sigma _\varepsilon ^2} \right)^{ - 1}}\\ = {{\bf{S}}^{ - 1}}\sigma _\varepsilon ^{ - 2} - {{\bf{S}}^{ - 1}}{\bf{Z}}\sigma _\varepsilon ^{ - 2}{\left( {{s^{ - 1}}{\mathbf{G}^{ - 1}} + {{\bf{Z}}^T}{{\bf{S}}^{ - 1}}{\bf{Z}}\sigma _\varepsilon ^{ - 2}} \right)^{ - 1}}{{\bf{Z}}^T}{{\bf{S}}^{ - 1}}\sigma _\varepsilon ^{ - 2}\\ = \left( {{{\bf{S}}^{ - 1}} - {{\bf{S}}^{ - 1}}{\bf{Z}}{{\left( {{s^{ - 1}}{\mathbf{G}^{ - 1}}\sigma _\varepsilon ^2 + {{\bf{Z}}^T}{{\bf{S}}^{ - 1}}{\bf{Z}}} \right)}^{ - 1}}{{\bf{Z}}^T}{{\bf{S}}^{ - 1}}} \right)/\sigma _\varepsilon ^2 \end{array}
 $$
-{#eq:matrixInversion}
 
 With pre-inversion of $\mathbf{S}$ (which can occur once outside of the iterations), we make a $N{\times}N$ matrix inversion into a $K{\times}K$ matrix inversion. 
 
