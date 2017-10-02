@@ -24,11 +24,6 @@ if nargin<3
     checkflags=0;
 end;
 
-% Check if options is a structure of length 1 
-if (length(options)==1 & isstruct(options{1}))
-    options=struct2list(options{1}); 
-end; 
-
 c=1;
 while c<=length(options)
     a=[];
@@ -36,22 +31,35 @@ while c<=length(options)
         error(sprintf('Options must be strings on argument %d',c));
     end;
     if checkflags
-        a=strmatch(options{c},allowed_flags);
+        a=find(strcmp(options{c},allowed_flags));
     end;
     if ~isempty(a)
         assignin('caller',options{c},1);
         c=c+1;
     else
         if checkvars
-            a=strmatch(options{c},allowed_vars);
+            a=find(strcmp(options{c},allowed_vars));
             if (isempty(a))
-                error(['unknown option: ' options{c}]);
+                error(['unknown option:' options{c}]);
             end;
         end;
         if (c==length(options))
             error(sprintf('Option %s must be followed by a argument',options{c}));
         end;
-        assignin('caller',options{c},options{c+1});
+        p=strfind(options{c},'.');
+        if (~isempty(p))
+            structname=options{c}(1:p-1); 
+            fieldname=options{c}(p+1:end); 
+            if (evalin('caller',['exist(''' structname ''')']));
+                S=evalin('caller',structname);
+            else 
+                S=[]; 
+            end; 
+            S.(fieldname)=options{c+1};
+            assignin('caller',structname,S);
+        else         
+            assignin('caller',options{c},options{c+1});
+        end; 
         c=c+2;
     end;
 end;

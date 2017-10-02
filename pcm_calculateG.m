@@ -21,7 +21,7 @@ else
         error('M should have a type of fixed / component / feature / nonlinear');
     end;
     switch (M.type)
-        case {'fixed','noiseceiling'}
+        case {'fixed','freedirect'}
             G        = mean(M.Gc,3);
             dGdtheta =[]; 
         case 'component'

@@ -1,26 +1,15 @@
-function [G,theta,u,l,numIter]=pcm_NR_diag(Y,Z,varargin)
-% function [G,theta,u,l,numIter]=pcm_NR_diag(y,Z,varargin)
+function [G,theta,u,l,k]=pcm_NR_comp(Y,Z,varargin)
+% function [G,theta,u,l,k]=pcm_NR_comp(Y,Z,varargin)
 % Estimate random-effects variance component coefficients using
 % Newton-Raphson gradient descent.
-% For this form of the algorithm, the G-matrix components need to be diagnoal 
-% But otherwise can be arbitrarily constrained 
-% with diag(G)=sum(Gc*hc))
-% The diagonal structure can be specified by giving either Gd or Gc
-% 
-% For models with non-diagnoal Gc matrices, use pcm_NR.  
-% In many applications pcm_NR_diag should be faster. 
-% 
-% Estimates the variance coefficients of the model described in:
 % Diedrichsen, Ridgway, Friston & Wiestler (2011).
 %
 % y_n = X b_n + Z u_n + e,
-%         u_n ~ N(0, G)
-%           G = sum (exp(theta_c) * Gc)
-%         e_n ~ N(0,S exp(theta_e)) 
+%         u ~ (b, G)
+%           G = sum (theta * Gc)
 %
 % Y: N x P observations
 % Z: N x Q random effects matrix
-% X: N x L fixed effects matrix
 %
 % N: numbers of observations (trials)
 % P: numbers of experimental units (voxels)
@@ -28,14 +17,14 @@ function [G,theta,u,l,numIter]=pcm_NR_diag(Y,Z,varargin)
 %
 % VARARGIN:
 %   'numIter'     : Maximal number of iterations
-%   'Gc'           : (QxQxH) tensor of variance components
-%                    matrix G = sum(h_m Gc(:,:,i)), with m=1...H
-%   'Gd'           : Q x H matrix with each column referring the the diagonal of the
-%                    variance component
+%   'Gc'           : QxQxH tensor of variance components
+%                    matrix G = sum(h_m Gc(:,:,m)), with m=1...H
 %   'h0'           : Starting values for the parameters (Hx1 vector)
 %                    (otherwise uses starting guess based on Laird & Lange)
 %   'TolL'         : Tolerance of the likelihood (l-l'), where l' is
 %                    projected likelihood
+%   'meanS'        : Remove the mean for each pattern component (a)
+%                    (Logical flag, true by default)
 %   'X'            : Fixed effects matrix that will be removed from y
 %                    In this case, ReML will be used for the estimation of
 %                    G.
@@ -46,40 +35,41 @@ function [G,theta,u,l,numIter]=pcm_NR_diag(Y,Z,varargin)
 %   'HessReg':      Regulariser on the Hessian to increase the stability of
 %                   the fit (set to 1/256)
 %
+%
+%
 % OUTPUT:
-%   G       : variance-covariance matrix
-%   theta   : (log-)parameters
-%   u       : hidden patterns components
-%   l       : log-likelihood
-%   numIter : Numer of iterations 
+%   G     : variance-covariance matrix
+%   theta : Variance coefficients (one column for each iteration)
+%   u     : hidden patterns components
+%   l     : Log-likelihood of p(y|theta) for maximal theta 
+%           This is Type II liklihood type II  the best estimates of theta, integrated over u
 %
-% Examples:
-% v.3.0:
 %
-% Copyright 2017 Joern Diedrichsen, joern.diedrichsen@googlemail.com 
+% See also: pcm_NR_diag, pcm_NR_comp
+% v.1.1:
+%
+% Copyright 2017 Joern Diedrichsen, joern.diedrichsen@googlemail.com
 
 % Defaults
 %--------------------------------------------------------------------------
+meanS   = 0;                    % Mean subtract
 ac      = [];                      % Which terms do I want to include?
 numIter = 32;                 % Maximal number of iterations
-Gc      = [];
-Gd      = [];
+Gc      = {};
 h0      = [];
 low     = -16;
 thres   = 1e-2;
-X       = [];
-S       = [];
-HessReg = 1/256;                  % Regulariser on Hessian
-i  = 0; 
+HessReg = 1/256;                  % Precision on hyper prior
+X       = [];                 % By default fixed effects are empty
+S       = []; 
+
 % Variable argument otions
 %--------------------------------------------------------------------------
 vararginoptions(varargin, ...
-    {'Gc','Gd','meanS','h0','ac','thres','X','numIter','S','HessReg'});
+    {'Gc','meanS','h0','ac','HessReg','thres','X','numIter','S'});
 
 % check input size
 %--------------------------------------------------------------------------
-Y=double(Y);
-Z=double(Z);
 [N,P]  =  size(Y);
 [N2,Q] =  size(Z);
 if N2  ~= N
@@ -88,24 +78,12 @@ end
 
 % Intialize the Model structure
 %--------------------------------------------------------------------------
-if (isempty(Gd) && ~isempty(Gc))
-    H     =  size(Gc,3)+1;       % Number of Hyperparameters (+ 1 for noise term)
-    for i = 1:H-1
-        Gd(:,i)=diag(Gc(:,:,i));
-    end;
-elseif (isempty(Gc) && ~isempty(Gd))
-    H    = size(Gd,2)+1;
-    for h = 1:H-1
-        Gc(:,:,h)=diag(Gd(:,h));
-    end;
-elseif (~isempty(Gc) && ~isempty(Gd))
-    error('Only Gd or Gc option should be given');
-else
-    error('Either Gd or Gc option should be given');
-end;
+H     =  size(Gc,3)+1;       % Number of Hyperparameters (+ 1 for noise term)
 
+% Caluclate Sufficient Stats on Y 
 YY   =  Y*Y';                        % This is Suffient stats 1 (S1)
 trYY =  sum(diag(YY));
+
 
 % Figure out which terms to include into the model (set others to -32)
 %--------------------------------------------------------------------------
@@ -121,13 +99,17 @@ end;
 %--------------------------------------------------------------------------
 if (isempty(h0))
     rs     = Y-X*pinv(X)*Y; 
+    Gd     =  zeros(Q,H-1);
+    for i=1:H-1
+        Gd(:,i)  = diag(Gc(:,:,i));
+    end;
     h      =  ones(H,1)*low;
     u      =  pinv(Z)*rs;
     h(H,1) =  (trYY-traceAB(u'*Z',rs))/(P*N);
-    D      =  u*u'/P-h(H)*pinv(Z'*Z)/P;
-    hD     =  diag(D);
+    D      =  u*u'/P-h(H)*pinv(Z'*Z)/P;  % Crude approx for variance-covariance matrix
+    hD     =  diag(D);                   % Use the size of the diagnal values to get starting
     % Starting values for constrained estimates
-    h(1:H-1,1) = real(log((Gd'*Gd)\(Gd'*hD(:))));
+    h(1:H-1,1) = real(log(pinv(Gd)*hD(:)));  % (xC'*xC)\(xC'*hD(:))
     h(h<low) = low+1;
 else
     h      = h0;
@@ -139,7 +121,7 @@ h(nas) = low;
 dF    = Inf;
 dFdh  = zeros(H,1);
 dFdhh = zeros(H,H);
-HessReg = HessReg*speye(H,H);          % Regulariser on Hessian 
+HessReg = HessReg*speye(H,H);          % Prior precision (1/variance) of h
 
 
 for k = 1:numIter
@@ -155,12 +137,12 @@ for k = 1:numIter
     dS    = diag(s);
     idx   = dS>eps;
     Zu     = Z*u(:,idx);
-    if (isempty(S))
+    if (isempty(S)) 
         iV    = (eye(N)-Zu/(diag(1./dS(idx))*exp(h(H))+Zu'*Zu)*Zu')./exp(h(H)); % Matrix inversion lemma
-    else
+    else 
         iV    = (S.invS-S.invS*Zu/(diag(1./dS(idx))*exp(h(H))+Zu'*S.invS*Zu)*Zu'*S.invS)./exp(h(H)); % Matrix inversion lemma
     end; 
-
+    
     if (~isempty(X))
         iVX   = iV * X;
         iVr   = iV - iVX*((X'*iVX)\iVX');  % Correction for the fixed effects
@@ -174,35 +156,46 @@ for k = 1:numIter
     %----------------------------------------------------------------------
     A     = iVr*Z;
     B     = YY*A/P;
-    dFdh(1:H-1) = -P/2*(sum(A.*Z)-sum(A.*B)) * Gd;
-    if (isempty(S)) 
-        dFdh(H) = -P/2*traceABtrans(iVr,(speye(N)-YY*iVr/P));
-    else 
-        dFdh(H) = -P/2*traceABtrans(iVr*S.S,(speye(N)-YY*iVr/P));
-    end; 
+    for i = as(1:end-1)
+        
+        % dF/dh = -trace(dF/diC*iC*Q{i}*iC)
+        %------------------------------------------------------------------
+        C{i}  = (A*Gc(:,:,i));
+        CZ{i} = C{i}*Z';
+        dFdh(i) = -P/2*(traceABtrans(C{i},Z)-traceABtrans(C{i},B));
+    end
+    dFdh(H) = -P/2*traceABtrans(iVr,(speye(N)-YY*iVr/P));
     
     % Expected curvature E{dF/dhh} (second derivatives)
     %----------------------------------------------------------------------
-    dFdhh(1:H-1,1:H-1)  = -P/2*Gd'*((Z'*A).*(Z'*A))*Gd; % Short form
-    if (isempty(S)) 
-        dFdhh(H,H)          = -P/2*traceABtrans(iVr,iVr);
-        dFdhh(1:H-1,H)      = -P/2*Gd'*sum((Z'*iVr).*A',2); %  -P/2*Gd'*diag(Z'*iVr*A);
-    else
-        iVrS = iVrS; 
-        dFdhh(H,H)          = -P/2*traceABtrans(iVrS,iVrS);
-        dFdhh(1:H-1,H)      = -P/2*Gd'*sum((Z'*iVrS).*A',2);
+    if (isempty(S))
+        iVrS = iVr; 
+    else 
+        iVrS = iVr*S.S; 
     end; 
-    dFdhh(H,1:H-1)      = dFdhh(1:H-1,H)';
+    for i = 1:length(as)-1
+        for j = i:length(as)-1
+            
+            % dF/dhh = -trace{iV*Z*G*Z'*iV*Z*G*Z'}
+            %--------------------------------------------------------------
+            dFdhh(as(i),as(j)) = -P/2*traceAB(CZ{as(i)},CZ{as(j)});
+            dFdhh(as(j),as(i)) =  dFdhh(as(i),as(j));
+        end
+        dFdhh(as(i),H) = -P/2*traceABtrans(CZ{as(i)},iVrS);
+        dFdhh(H,as(i)) =  dFdhh(as(i),H);
+    end
+    dFdhh(H,H) = -P/2*traceABtrans(iVrS,iVrS);
     
     
     % modulate
     %----------------------------------------------------------------------
     dFdh  = dFdh.*exp(h);
     dFdhh = dFdhh.*(exp(h)*exp(h)');
-        
-    % Regularise second moment by a little bit 
+    
+    % Add slight regularisation to second derivative 
+    %----------------------------------------------------------------------
     dFdhh = dFdhh - HessReg;
-
+    
     % Fisher scoring: update dh = -inv(ddF/dhh)*dF/dh
     %----------------------------------------------------------------------
     % dh    = spm_dx(dFdhh(as,as),dFdh(as),{t}); % This is actually much
@@ -235,17 +228,17 @@ end
 %--------------------------------------------------------------------------
 theta  = h;
 G     = zeros(Q);
-for i = as(1:end-1);
+for i = 1:H-1;
     G = G + full(Gc(:,:,i))*exp(theta(i));
 end
 
 % Find the inverse of V - while dropping the zero dimensions in G
-% V = Z*G*Z' + I sigma 
-[u,s] = eig(G);
+% V = Z*G*Z' + I sigma
+[u,s] = eig(full(G));
 dS    = diag(s);
 idx   = dS>eps;
 Zu     = Z*u(:,idx);
-if (isempty(S))
+if (isempty(S)) 
     iV    = (eye(N)-Zu/(diag(1./dS(idx))*exp(theta(H))+Zu'*Zu)*Zu')./exp(theta(H)); % Matrix inversion lemma
 else 
     iV    = (S.invS-S.invS*Zu/(diag(1./dS(idx))*exp(theta(H))+Zu'*S.invS*Zu)*Zu'*S.invS)./exp(theta(H)); % Matrix inversion lemma
@@ -259,16 +252,17 @@ else
 end;
 
 if nargout > 2
-    u=G*Z'*(iV)*Y;
+    u=G*Z'*iVr*Y;
 end;
 if ~all(isreal(u(:)));
-    keyboard;
+    warning('U-estimates are not all real: should not happen'); 
+    keyboard; 
 end;
 
 if nargout > 3
     ldet  = -2*sum(log(diag(chol(iV))));        % Safe computation of the log determinant (V) Thanks to code from D. lu
     l     = -P/2*(ldet)-0.5*traceABtrans(iVr,YY);
     if (~isempty(X)) % Correct for ReML estimates
-        l = l - P*sum(log(diag(chol(X'*iV*X))));  % - 0.5 * log(det());
-    end;
+        l = l - P*sum(log(diag(chol(X'*iV*X))));  % - P/2 log(det(X'V^-1*X));
+    end; 
 end;

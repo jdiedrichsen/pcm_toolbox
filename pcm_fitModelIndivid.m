@@ -48,9 +48,6 @@ function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,
 %                            as a seperate random effects parameter.
 %                  'fixed': Consider run effect a fixed effect, will be removed
 %                            implicitly using ReML.
-%                  'remove': Forced removal of the run effect before
-%                            random effects modelling - Simply adjusts the
-%                            error covariance matrix to reflect he removal
 %
 %   'isCheckDeriv: Check the derivative accuracy of theta params. Done using
 %                  'checkderiv'. This function compares input to finite
@@ -60,6 +57,8 @@ function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,
 % 
 %   'verbose':      Optional flag to show display message in the command
 %                   line (e.g., elapsed time). Default is 1.
+% 
+%   'S':             Optional specific covariance structureof the noise 
 % 
 %--------------------------------------------------------------------------
 % OUTPUT:
@@ -89,6 +88,9 @@ numModels   = numel(M);
 % Preallocate output structure
 T.SN = [1:numSubj]';
 
+% Determine optimal algorithm for each of the models 
+M = pcm_optimalAlgorithm(M); 
+
 % Now loop over subject and provide inidivdual fits 
 for s = 1:numSubj
     
@@ -109,7 +111,7 @@ for s = 1:numSubj
         Z{s} = cV;
     end;
     
-    % Prepare matrices and data depnding on how to deal with run effect 
+    % Prepare matrices and data depending on how to deal with run effect 
     [N(s,1),P(s,1)] = size(Y{s});
     numCond= size(Z{s},2);
     YY{s}  = (Y{s} * Y{s}');
@@ -141,22 +143,15 @@ for s = 1:numSubj
         
         % Get starting guess for theta if not provided
         if (isfield(M{m},'theta0'))
-            theta0 = M{m}.theta0;
+            theta0 = M{m}.theta0(1:M{m}.numGparams);
         else
             theta0 = pcm_getStartingval(M{m},G_hat(:,:,s));   
         end;
         
         % if naive noise ceiling model, use crossvalidated G as component 
-        if strcmp(M{m}.type,'noiseceiling')
+        if strcmp(M{m}.type,'freedirect')
             M{m}.Gc = pcm_makePD(G_hat(:,:,s)); 
         end; 
-        
-        % Now set up the function that returns likelihood and derivative 
-        if (isempty(S))
-            fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
-        else
-            fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},[],P(s),'runEffect',B{s},'S',S(s));
-        end;
         
         % Set up overall starting values 
         switch (runEffect) 
@@ -166,22 +161,44 @@ for s = 1:numSubj
                 x0  = [theta0;noise0(s);run0(s)];
         end; 
         
-        % Use minimize to find maximum liklhood estimate 
-        [theta,fX,i]      =  minimize(x0, fcn, MaxIteration);
-        theta_hat{m}(:,s) =  theta;
-        G_pred{m}(:,:,s)  =  pcm_calculateG(M{m},theta_hat{m}(1:M{m}.numGparams,s));
-        T.noise(s,m)      =  exp(theta(M{m}.numGparams+1)); 
-        if strcmp(runEffect,'random')
-            T.run(s,m)      =  exp(theta(M{m}.numGparams+2)); 
+        % Now do the fitting, using the preferred optimization routine 
+        switch (M{m}.fitAlgorithm)
+            case 'minimize'  % Use minimize to find maximum liklhood estimate runEffect',B{s});
+                if (isempty(S)) 
+                    fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
+                else 
+                    fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
+                end; 
+                [theta_hat{m}(:,s),fX,T.iterations(s,m)]      =  ...
+                        minimize(x0, fcn, MaxIteration);
+                T.likelihood(s,m) =  -fX(end);  %invert the sign 
+            case 'NR_diag'
+                numDiag = size(M{m}.MM,2); 
+                [~,theta_hat{m}(:,s),~,T.likelihood(s,m),T.iterations(s,m)] = ...
+                    pcm_NR_diag(Y{s},Z{s}*M{m}.MM,'X',X{s},'Gd',ones(numDiag,1));
+            case 'NR_comp'
+                [~,theta_hat{m}(:,s),~,T.likelihood(s,m),T.iterations(s,m)] = ...
+                    pcm_NR_comp(Y{s},Z{s},'X',X{s},'Gc',M{1}.Gc,'h0',x0);
+            case 'NR' 
+                if (isempty(S)) 
+                    fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
+                else 
+                    fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
+                end; 
+                [theta_hat{m}(:,s),T.likelihood(s,m),T.iterations(s,m),T.reg(s,m)]=pcm_NR(x0,fcn,'verbose',verbose); 
         end; 
-        T.likelihood(s,m) =  -fX(end);  %invert the sign 
-        T.iterations(s,m) = i;
+            
+        G_pred{m}(:,:,s)  =  pcm_calculateG(M{m},theta_hat{m}(1:M{m}.numGparams,s));
+        T.noise(s,m)      =  exp(theta_hat{m}(M{m}.numGparams+1,s)); 
+        if strcmp(runEffect,'random')
+            T.run(s,m)      =  exp(theta_hat{m}(M{m}.numGparams+2,s)); 
+        end; 
         T.time(s,m)       = toc; 
         
         % This is an optional check if the dervivate calculation is correct
         if (isCheckDeriv)
-            d = pcm_checkderiv(fcn,theta-0.01,0.0000001);
+            d = pcm_checkderiv(fcn,theta_hat{m}(:,s)-0.01,0.00001);
+            fprintf('discrepency :%d\n',d);
         end;
     end; % for each model
 end; % for each subject
-
