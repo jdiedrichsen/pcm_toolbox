@@ -125,7 +125,7 @@ for s = 1:numSubj
     
     % Prepare matrices and data depnding on how to deal with run effect
     [N,P] = size(Y{s});
-    numCond= size(Z,2);
+    numCond= size(Z{s},2);
     YY  = (Y{s} * Y{s}');
     switch (runEffect)
         case 'random'
@@ -172,19 +172,19 @@ for s = 1:numSubj
         % Now loop over models
         for m = 1:length(M)
             if (verbose)
-                if isfield(M,'name');
-                    fprintf('Fitting Subj: %d model:%s\n',s,M{m}.name);
+                if isfield(M{m},'name');
+                    fprintf('Fitting Subj: %d model:%s partition:%d \n',s,M{m}.name,p);
                 else
-                    fprintf('Fitting Subj: %d model:%d\n',s,m);
+                    fprintf('Fitting Subj: %d model:%d partition:%d \n',s,m,p);
                 end;
             end;
             tic;
             
             
             if (isempty(SS))
-                fcn = @(x) pcm_likelihoodIndivid(x,YY(traiIdx,traiIdx),M{m},Z(traiIdx,:),Xtrai,P,'runEffect',Btrai);
+                fcn = @(x) pcm_likelihoodIndivid(x,YY(traiIdx,traiIdx),M{m},Z{s}(traiIdx,:),Xtrai,P,'runEffect',Btrai);
             else
-                fcn = @(x) pcm_likelihoodIndivid(x,YY(traiIdx,traiIdx),M{m},Z(traiIdx,:),Xtrai,P,'runEffect',Btrai,'S',SS(traiIdx,traiIdx));
+                fcn = @(x) pcm_likelihoodIndivid(x,YY(traiIdx,traiIdx),M{m},Z{s}(traiIdx,:),Xtrai,P,'runEffect',Btrai,'S',SS(traiIdx,traiIdx));
             end;
             
             % Set up overall starting values
@@ -212,13 +212,13 @@ for s = 1:numSubj
             % Evaluation criterion: Simple log-likelihood
             if (isempty(SS))
                 T.likelihood(n,m) =  -pcm_likelihoodIndivid(th,YY(testIdx,testIdx),M{m},...
-                    Z(testIdx,:),Xtest,P,'runEffect',Btest);
+                    Z{s}(testIdx,:),Xtest,P,'runEffect',Btest);
                 % T.likelihood2(n,m) = -pcm_likelihoodIndivid(th,YY(traiIdx,traiIdx),M{m},...
                 %     Z(traiIdx,:),Xtrai,P,'runEffect',Btrai);
                 % T.likelihood3(n,m) = -pcm_likelihoodIndivid(th,YY,M{m},Z,X,P,'runEffect',B);
             else
                 T.likelihood(n,m) =  -pcm_likelihoodIndivid(th,YY(testIdx,testIdx),M{m},...
-                    Z(testIdx,:),Xtest,P,'runEffect',Btest,'S',SS(testIdx,testIdx));
+                    Z{s}(testIdx,:),Xtest,P,'runEffect',Btest,'S',SS(testIdx,testIdx));
             end;
             %             [U,G,iV]=pcm_estimateU(th,Y{s}(traiIdx,:),M{m},...
             %                 Z(traiIdx,:),Xtrai,'runEffect',Btrai);
