@@ -38,7 +38,7 @@ OPT.regularization = 'L';         % Type of regularisation 'L':Levenberg, 'LM': 
 try
 OPT=rsa.getUserOptions(varargin,OPT,{'HessReg','thres','low','numIter','verbose','regularization'});
 catch
-    error('This might need the RSA toolbox to work. Did you had it to the matlab path?')
+    error('This might need the RSA toolbox to work (https://github.com/rsagroup/rsatoolbox). Do you have it in the matlab path?')
 end
 % Set warning to error, so it can be caught 
 warning('error','MATLAB:nearlySingularMatrix');
