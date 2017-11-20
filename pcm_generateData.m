@@ -58,6 +58,7 @@ else
         Za        =  kron(ones(D.numPart,1),ZZ);
     else                    % Or encoding-style design matrix  
         ZZ = design; 
+        D.numCond = size(ZZ,2);
         if (size(G,1)~=size(ZZ,2))
             error('For Encoding-style models, the size(G) needs to be equal to the number of columns in design (feature)'); 
         end; 
