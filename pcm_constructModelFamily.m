@@ -13,6 +13,7 @@ function [M,CompI] = pcm_constructModelFamily(MComp,varargin)
 alwaysInclude = []; % If you have model components that are always included
 pcm_vararginoptions(varargin,{'alwaysInclude'});
 
+% Get number of fixed and variable components 
 numComp = numel(MComp);
 fixComp = ismember([1:numComp],alwaysInclude);
 numVarComp = numComp-sum(fixComp);
@@ -40,6 +41,11 @@ for i=1:size(Comb,1);
             vc=vc+1; 
         end;
     end;
+    M{i}.numGparams=c-1; 
+    if M{i}.numGparams==0 % Empty Model 
+        M{i}.name = 'null'; 
+        M{i}.Gc   = zeros(size(MComp{1}.Gc)); 
+    end; 
 end;
 
 function M=addComp(M,MC,c)

@@ -15,18 +15,23 @@ if (~isstruct(M))
     dGdtheta = [];
 else
     if length(theta)~=M.numGparams
-        error('lenth of column-vector theta should be equal to number of G parameters'); 
+        error('length of column-vector theta should be equal to number of G parameters'); 
     end; 
     if (~isfield(M,'type'))
         error('M should have a type of fixed / component / feature / nonlinear');
     end;
     switch (M.type)
         case {'fixed','freedirect'}
-            G        = mean(M.Gc,3);
+            G        = M.Gc(:,:,1);
             dGdtheta =[]; 
         case 'component'
-            dGdtheta=bsxfun(@times,M.Gc,permute(exp(theta),[3 2 1]));
-            G = sum(dGdtheta,3); 
+            if M.numGparams==0 
+                G        = M.Gc(:,:,1);
+                dGdtheta =[]; 
+            else 
+                dGdtheta=bsxfun(@times,M.Gc,permute(exp(theta),[3 2 1]));
+                G = sum(dGdtheta,3);
+            end; 
         case {'feature'}
             A = bsxfun(@times,M.Ac,permute(theta,[3 2 1]));
             A = sum(A,3); 

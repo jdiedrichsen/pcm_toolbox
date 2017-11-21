@@ -54,7 +54,7 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,va
 %                  'random': Models variance of the run effect for each subject
 %                            as a seperate random effects parameter.
 %                  'fixed': Consider run effect a fixed effect, will be removed
-%                            implicitly using ReML.
+%                            implicitly using ReML (default) 
 %   'fitScale':    Fit additional scaling parameter for each of the
 %                  subjects? Defaults to 1. This makes a lot of sense, if the scaling of the 
 %                  data is not of the same intensity across subjects. 
@@ -88,7 +88,7 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,va
 %    Gpred:      Predicted second moment matrix for the model from group
 %                fit for each model 
 
-runEffect       = 'random';
+runEffect       = 'fixed';
 isCheckDeriv    = 0;
 MaxIteration    = 1000;
 verbose         = 1;    

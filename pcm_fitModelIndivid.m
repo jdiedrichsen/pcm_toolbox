@@ -74,7 +74,7 @@ function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,
 %                 #params x #numSubj matrix 
 %   G_pred{m}     Cell array of estimated G-matrices under the model 
 
-runEffect       = 'random';
+runEffect       = 'fixed';
 isCheckDeriv    = 0;
 MaxIteration    = 1000;
 Iter            = [];

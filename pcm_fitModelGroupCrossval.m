@@ -62,7 +62,7 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditi
 %                  'random': Models variance of the run effect for each subject
 %                            as a seperate random effects parameter.
 %                  'fixed': Consider run effect a fixed effect, will be removed
-%                            implicitly using ReML.
+%                            implicitly using ReML (default). 
 %   'fitScale'      Introduce additional scaling parameter for each
 %                   participant? - default is true
 %   'isCheckDeriv:  Check the derivative accuracy of theta params. Done using
@@ -96,7 +96,7 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditi
 %   Gpred{model}(:,:,subject): Predicted second moment matrix for each model
 %                              from cross-validation fit. 3rd dimension is for
 %                              subjects
-runEffect       = 'random';
+runEffect       = 'fixed';
 isCheckDeriv    = 0;
 MaxIteration    = 1000;
 verbose         = 1;

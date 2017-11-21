@@ -37,6 +37,9 @@ design = [];
 pcm_vararginoptions(varargin,{'noiseDist','signalDist','design'}); 
 
 % Make the overall generative model 
+if (size(theta,1)~=Model.numGparams || size(theta,2)~=1)
+    error('theta needs to be a numParams x 1 vector'); 
+end; 
 G = pcm_calculateG(Model,theta); 
 
 if (isempty(design)) 
