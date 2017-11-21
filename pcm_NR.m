@@ -35,7 +35,7 @@ OPT.regularization = 'L';         % Type of regularisation 'L':Levenberg, 'LM': 
 
 % Variable argument otions
 %--------------------------------------------------------------------------
-OPT=rsa.getUserOptions(varargin,OPT,{'HessReg','thres','low','numIter','verbose','regularization'});
+OPT=pcm_getUserOptions(varargin,OPT,{'HessReg','thres','low','numIter','verbose','regularization'});
 
 % Set warning to error, so it can be caught
 warning('error','MATLAB:nearlySingularMatrix');

@@ -194,11 +194,11 @@ for m = mindx
     else
         labels{i} = sprintf('Model %d',m);
     end
-    % Plot errorbars (if group fits)
-    if length(subj)>1; ebar_fcn(i,Y+U,Y-U); end
     % Plot model's fit
     plot_fcn(i,Y);
     hold on;
+    % Plot errorbars (if group fits)
+    if length(subj)>1; ebar_fcn(i,Y+U,Y-U); end
     % update ticker
     i = i + 1;
 end;
