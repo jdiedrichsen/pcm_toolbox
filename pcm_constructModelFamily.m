@@ -7,11 +7,30 @@ function [M,CompI] = pcm_constructModelFamily(MComp,varargin)
 % VARARGIN:
 %       'alwaysInclude': Indices of model components that are always
 %               included
+%       'fullModel': The model input is a full model, and should be broken
+%                    into components if 'fullModel'==1
+%                    only works if full model is a component model 
+%                    (has MComp.Gc field)
 % OUTPUT:
 %       M:      Cell array of models
 %       CompI:  Component indicator for knock-in and knock-out of models
 alwaysInclude = []; % If you have model components that are always included
-pcm_vararginoptions(varargin,{'alwaysInclude'});
+pcm_vararginoptions(varargin,{'alwaysInclude','fullModel'});
+
+
+% Check if input is full model
+if fullModel==1
+    % break down into components
+    numComp = size(MComp.Gc,3);
+    for n=1:numComp
+        MTemp{n}.Gd = MComp.Gd(n,:);
+        MTemp{n}.Gc = MComp.Gc(:,:,n);
+        MTemp{n}.name = sprintf('Comp%d',n);
+        MTemp{n}.type = MComp.type;
+    end
+    clear MComp;
+    MComp = MTemp;
+end
 
 % Get number of fixed and variable components 
 numComp = numel(MComp);
