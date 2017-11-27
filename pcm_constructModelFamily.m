@@ -15,6 +15,10 @@ function [M,CompI] = pcm_constructModelFamily(MComp,varargin)
 %       M:      Cell array of models
 %       CompI:  Component indicator for knock-in and knock-out of models
 alwaysInclude = []; % If you have model components that are always included
+<<<<<<< HEAD
+=======
+fullModel = 0; 
+>>>>>>> develop
 pcm_vararginoptions(varargin,{'alwaysInclude','fullModel'});
 
 
