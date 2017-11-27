@@ -16,7 +16,6 @@ function [knockIN,knockOUT]=pcm_knockModels(likelihood,compI,varargin);
 %   knockIN:    (numSubj x numFeatures) - knockIn likelihood values 
 %   knockOUT:   (numSubj x numFeatures)
 
- 
 numComp=0;
 indComp=[];
 for c=1:size(compI,2)
@@ -39,8 +38,6 @@ for i=1:numComp
     indx_knockOUT=find(ismember(compI(:,indComp),KnockOut(i,:),'rows'));
     knockIN(:,indComp(i))=likelihood(:,indx_knockIN)-likelihood(:,nullInd);
     knockOUT(:,indComp(i))=likelihood(:,indx_knockOUT)-likelihood(:,fullInd);
-    %knockIN(:,i)=likelihood(:,indx_knockIN)-likelihood(:,nullInd);
-    %knockOUT(:,i)=likelihood(:,indx_knockOUT)-likelihood(:,fullInd);
 end
 
 % check if dimensions are correct 
