@@ -39,8 +39,8 @@ for i=1:numComp
    % calculate posterior probability of component
    % calculate logBayes factor in favor of component 
    if sum(indx)==length(indx) || sum(indx)==0
-       logPosterior(:,i)=logPrior(i);
-       logBayes(:,i)=NaN;
+       logPosterior(1:length(logJoint),i)=logPrior(i);
+       logBayes(1:length(logJoint),i)=NaN;
    else
        logPosterior(:,i)=log(sum(exp(logJoint(:,indx)),2))-log(sum(exp(logJoint),2));
        logBayes(:,i)=log(sum(exp(logJoint(:,indx)),2))-log(sum(exp(logJoint(:,~indx)),2));
