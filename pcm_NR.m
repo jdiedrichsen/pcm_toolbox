@@ -39,6 +39,7 @@ OPT=pcm_getUserOptions(varargin,OPT,{'HessReg','thres','low','numIter','verbose'
 
 % Set warning to error, so it can be caught
 warning('error','MATLAB:nearlySingularMatrix');
+warning('error','MATLAB:singularMatrix'); 
 
 
 % Initialize Interations
@@ -82,8 +83,12 @@ for k = 1:OPT.numIter
     try
         [nl(k),dFdh,dFdhh]=likefcn(theta);
     catch ME  % Catch errors based on invalid parameter settings
-        if any(strcmp(ME.identifier,{'MATLAB:posdef','MATLAB:nearlySingularMatrix','MATLAB:eig:matrixWithNaNInf'}))
-            nl(k)=inf;         % Set new likelihood to -inf: take a step back
+        if any(strcmp(ME.identifier,{'MATLAB:posdef','MATLAB:nearlySingularMatrix','MATLAB:eig:matrixWithNaNInf','MATLAB:singularMatrix'}))
+            if (k==1) 
+                error('bad initial values for theta'); 
+            else 
+                nl(k)=inf;         % Set new likelihood to -inf: take a step back
+            end; 
         else
             ME.rethrow;
         end;
