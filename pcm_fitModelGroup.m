@@ -73,7 +73,9 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,va
 % 
 %   'S',S         : Structure of the NxN noise covariance matrix -
 %                   otherwise independence is assumed
-% 
+%   
+%   'fitAlgorithm': Either 'NR' or 'minimize' - provides over-write for
+%                   model specific algorithms 
 %--------------------------------------------------------------------------
 % OUTPUT:
 %   T:      Structure with following subfields:
@@ -94,8 +96,9 @@ MaxIteration    = 1000;
 verbose         = 1;    
 fitScale        = 1;   % Fit an additional scaling parameter for each subject? 
 S               = [];  % Structure of noise matrix 
+fitAlgorithm    = [];  % Over-write on model specific fit Algorithm 
 pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration',...
-                      'verbose','fitScale','S'});
+                      'verbose','fitScale','S','fitAlgorithm'});
 numSubj     = numel(Y);
 numModels   = numel(M);
 
@@ -106,6 +109,11 @@ T.iterations = zeros(numSubj,1);
 T.time = zeros(numSubj,1); 
 
 % Determine optimal algorithm for each of the models 
+if (~isempty(fitAlgorithm)) 
+    for m=1:numModels
+        M{m}.fitAlgorithm = fitAlgorithm; 
+    end; 
+end; 
 M = pcm_optimalAlgorithm(M); 
 
 % --------------------------------------------------------

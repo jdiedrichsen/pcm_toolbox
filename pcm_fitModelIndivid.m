@@ -60,6 +60,8 @@ function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,
 % 
 %   'S':             Optional specific covariance structureof the noise 
 % 
+%   'fitAlgorithm': Either 'NR' or 'minimize' - provides over-write for
+%                   model specific algorithms 
 %--------------------------------------------------------------------------
 % OUTPUT:
 %   T:      Structure with following subfields:
@@ -80,7 +82,8 @@ MaxIteration    = 1000;
 Iter            = [];
 verbose         = 1; 
 S               = []; 
-pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration','verbose','S'});
+fitAlgorithm    = []; 
+pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration','verbose','S','fitAlgorithm'});
 
 numSubj     = numel(Y);
 numModels   = numel(M);
@@ -89,6 +92,11 @@ numModels   = numel(M);
 T.SN = [1:numSubj]';
 
 % Determine optimal algorithm for each of the models 
+if (~isempty(fitAlgorithm)) 
+    for m=1:numModels
+        M{m}.fitAlgorithm = fitAlgorithm; 
+    end; 
+end; 
 M = pcm_optimalAlgorithm(M); 
 
 % Now loop over subject and provide inidivdual fits 

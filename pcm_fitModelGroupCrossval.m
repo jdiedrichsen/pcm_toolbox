@@ -80,6 +80,10 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditi
 %   'S':            Specific assumed noise structure - usually inv(XX'*XX),
 %                   where XX is the first-level design matrix used to
 %                   estimate the activation estimates 
+%
+%   'fitAlgorithm': Either 'NR' or 'minimize' - provides over-write for
+%                   model specific algorithms 
+% 
 %                   
 %--------------------------------------------------------------------------
 % OUTPUT:
@@ -103,8 +107,9 @@ verbose         = 1;
 groupFit        = [];
 fitScale        = 1;
 S               = []; 
+fitAlgorithm    = []; 
 pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration',...
-    'verbose','groupFit','fitScale','S'});
+    'verbose','groupFit','fitScale','S','fitAlgorithm'});
 
 numSubj     = numel(Y);
 
@@ -120,6 +125,11 @@ T.iterations = zeros(numSubj,1);
 T.time = zeros(numSubj,1); 
 
 % Determine optimal algorithm for each of the models 
+if (~isempty(fitAlgorithm)) 
+    for m=1:numModels
+        M{m}.fitAlgorithm = fitAlgorithm; 
+    end; 
+end; 
 M = pcm_optimalAlgorithm(M); 
 
 % --------------------------------------------------------
