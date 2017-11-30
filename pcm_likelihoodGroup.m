@@ -55,6 +55,7 @@ OPT.S         = [];
 OPT.verbose   = 0;
 OPT.runEffect = [];
 OPT.fitScale  = 1;
+OPT.scalePrior= 10; % stdev of the prior on the scale parameter 
 OPT = pcm_getUserOptions(varargin,OPT,{'S','verbose','runEffect','fitScale'});
 
 % Get G-matrix and derivative of G-matrix in respect to parameters
@@ -142,6 +143,7 @@ for s=1:numSubj
     if (~isempty(X) && ~isempty(X{s})) % Correct for ReML estimates
         LogLike(s) = LogLike(s) - P(s)*sum(log(diag(chol(X{s}'*iV*X{s}))));  % - P/2 log(det(X'V^-1*X));
     end;
+    LogLike(s) = LogLike(s) - scaleParam.^2/(2*OPT.scalePrior); % add prior to for the scale parameter
     
     % Calculate the first derivative
     if (nargout>1)
@@ -172,6 +174,7 @@ for s=1:numSubj
             indx(i) = M.numGparams+numSubj+s;    % Which number parameter is it?
             iVdV{indx(i)}          = A*pcm_blockdiag(G,zeros(numRuns))*Z{s}'*exp(scaleParam);
             dLdtheta(indx(i),s)    = -P(s)/2*trace(iVdV{indx(i)})+1/2*traceABtrans(iVdV{indx(i)},B);
+            dLdtheta(indx(i),s)    = dLdtheta(indx(i),s) - scaleParam/OPT.scalePrior; % add prior to scale parameter 
         end;
         
         % Get the derivatives for the block parameter
@@ -191,6 +194,8 @@ for s=1:numSubj
                 d2L(indx(j),indx(i),s)=d2L(indx(i),indx(j),s); 
             end;
         end;
+        sI = M.numGparams+numSubj+s; % Scale index  
+        d2L(sI,sI,s)=d2L(sI,sI,s)-1./OPT.scalePrior; 
     end;
 end
 
