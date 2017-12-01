@@ -144,20 +144,26 @@ for s = 1:numSubj
     YY{s}  = (Y{s} * Y{s}');
     
     % Depending on the way of dealing with the run effect, set up data
+    % and determine run and noise effects 
     switch (runEffect)
         case 'random'
             B{s}   = pcm_indicatorMatrix('identity_p',pV);
             X{s}   = [];
+            numPart=size(B{s},2);
+            run0(s,1)=log(sum(sum((pinv(B{s})*Y{s}).^2))/(numPart*P)); 
+            RX = eye(N(s))-B{s}*pinv(B{s}); 
         case 'fixed'
             B{s}  =  [];
             X{s}  =  pcm_indicatorMatrix('identity_p',pV);
+            numPart=size(X{s},2);
+            RX = eye(N(s))-X{s}*pinv(X{s}); 
     end;
     
     % Estimate crossvalidated second moment matrix to get noise and run
-    [G_hat(:,:,s),Sig_hat(:,:,s)] = pcm_estGCrossval(Y{s},pV,cV);
-    sh              = Sig_hat(:,:,s);
-    run0(s,1)       = real(log((sum(sum(sh))-trace(sh))/(numCond*(numCond-1))));
-    noise0(s,1)     = real(log(trace(sh)/numCond-exp(run0(s))));
+    G_hat(:,:,s) = pcm_estGCrossval(RX*Y{s},pV,cV);
+    numReg   = size(Z{s},2); 
+    RZ           = eye(N(s))-Z{s}*pinv(Z{s}); 
+    noise0(s,1)  = log(sum(sum((RZ*RX*Y{s}).^2))/(P(s)*(N(s)-numReg-numPart))); 
 end;
 
 % -----------------------------------------------------
@@ -196,7 +202,7 @@ for m = 1:numModels
             g_hat         = G_hat(:,:,s);
             g_hat         = g_hat(:); 
             scaling       = (g0'*g_hat)/(g0'*g0);
-            if ((scaling<10e-6)||~isfinite(scaling)); scaling = 10e-6; end;      % Enforce positive scaling
+            if ((scaling<10e-5)||~isfinite(scaling)); scaling = 10e-5; end;      % Enforce positive scaling
             scale0(s,m)   = log(scaling);
         end;
     end; 
