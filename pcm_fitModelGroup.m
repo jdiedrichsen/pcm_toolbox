@@ -150,7 +150,7 @@ for s = 1:numSubj
             B{s}   = pcm_indicatorMatrix('identity_p',pV);
             X{s}   = [];
             numPart=size(B{s},2);
-            run0(s,1)=log(sum(sum((pinv(B{s})*Y{s}).^2))/(numPart*P)); 
+            run0(s,1)=log(sum(sum((pinv(B{s})*Y{s}).^2))./(numPart*P(s))); 
             RX = eye(N(s))-B{s}*pinv(B{s}); 
         case 'fixed'
             B{s}  =  [];

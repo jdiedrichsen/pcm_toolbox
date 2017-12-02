@@ -55,8 +55,8 @@ OPT.S         = [];
 OPT.verbose   = 0;
 OPT.runEffect = [];
 OPT.fitScale  = 1;
-OPT.scalePrior= 10; % stdev of the prior on the scale parameter 
-OPT = pcm_getUserOptions(varargin,OPT,{'S','verbose','runEffect','fitScale'});
+OPT.scalePrior= 10;     % Variance of the prior on the scale parameter 
+OPT = pcm_getUserOptions(varargin,OPT,{'S','verbose','runEffect','fitScale','scalePrior'});
 
 % Get G-matrix and derivative of G-matrix in respect to parameters
 if (isstruct(M))

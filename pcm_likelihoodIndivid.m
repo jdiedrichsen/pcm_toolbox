@@ -42,9 +42,8 @@ N = size(YY,1);
 K = size(Z,2);
 OPT.S = [];
 OPT.runEffect =[];
-
-OPT=pcm_getUserOptions(varargin,OPT,{'S','runEffect'});
-
+OPT.scalePrior= 10;     % Variance of the prior on the scale parameter 
+OPT=pcm_getUserOptions(varargin,OPT,{'S','runEffect','scalePrior'});
 
 % Get G-matrix and derivative of G-matrix in respect to parameters
 if (isstruct(M))
