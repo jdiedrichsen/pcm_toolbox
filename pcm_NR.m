@@ -1,25 +1,26 @@
 function [theta,l,k,reg]=pcm_NR(theta0,likefcn,varargin)
 % function [theta,l,k]=pcm_NR(theta0,likefcn,varargin)
 % Newton-Raphson algorithm.
-%
-% likefcn:          Function handle that returns the
-%                   a) Negative log-likelihood
-%                   b) First derivative of the negative log-likelihood
-%                   c) Expected second derivative of the negative log-likelhood
+% INPUT: 
+%   theta0            Vector of parameter starting values 
+%   likefcn:          Function handle that returns the
+%                       a) Negative log-likelihood
+%                       b) First derivative of the negative log-likelihood
+%                       c) Expected second derivative of the negative log-likelhood
 %
 % VARARGIN:
 %   'numIter'     : Maximal number of iterations
-%   'theta0'      : Starting values for the parameters (Hx1 vector)
-%   'TolL'         : Tolerance of the likelihood (l-l'), where l' is
-%                    projected likelihood
-%   'HessReg':      Regulariser on the Hessian to increase the stability of
-%                   the fit (set to 1/256)
-%
+%   'thres'       : Stopping criterion on likelihood change 
+%   'HessReg':      Starting regulariser on the Hessian matrix (default starts at 1 
+%                   then being adjusted in decibels)
+%   'regularization': 'L': Levenberg 'LM': Levenberg-Marquardt 
+% 
 % OUTPUT:
-%   theta : Variance coefficients (one column for each iteration)
+%   theta : Variance coefficients 
 %   l     : Log-likelihood of p(y|theta) for maximal theta
 %           This is Type II liklihood type II  the best estimates of theta, integrated over u
-%
+%   k     : Number of iterations 
+%   reg   : Final regularisation value 
 % See also: pcm_NR_diag, pcm_NR_comp
 % v.1:
 %
@@ -35,7 +36,7 @@ OPT.regularization = 'L';         % Type of regularisation 'L':Levenberg, 'LM': 
 
 % Variable argument otions
 %--------------------------------------------------------------------------
-OPT=pcm_getUserOptions(varargin,OPT,{'HessReg','thres','low','numIter','verbose','regularization'});
+OPT=pcm_getUserOptions(varargin,OPT,{'HessReg','thres','numIter','verbose','regularization'});
 
 % Set warning to error, so it can be caught
 warning('error','MATLAB:nearlySingularMatrix');

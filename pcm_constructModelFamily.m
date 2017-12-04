@@ -61,7 +61,7 @@ for i=1:size(Comb,1);
         end;
     end;
     if isempty(M{i}.Gc)
-        M{i}.numGparams=0 % Empty Model 
+        M{i}.numGparams=0; % Empty Model 
         M{i}.name = 'null'; 
         M{i}.Gc   = zeros(size(MComp{1}.Gc)); 
     else  
