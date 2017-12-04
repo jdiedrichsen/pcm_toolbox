@@ -87,7 +87,7 @@ for s=1:numSubj
     
     % If Run effect is to ne modelled as a random effect - add to G and
     % design matrix
-    if (~isempty(OPT.runEffect{s}))
+    if (~isempty(OPT.runEffect) && ~isempty(OPT.runEffect{s}))
         numRuns = size(OPT.runEffect{s},2);
         runParam = theta(M.numGparams+numSubj*(1+OPT.fitScale)+s);    % Subject run effect parameter
         Gs = pcm_blockdiag(Gs,eye(numRuns)*exp(runParam));  % Include run effect in G
@@ -120,7 +120,7 @@ for s=1:numSubj
     
     % Compute inv(V) over matrix inversion lemma - use particular noise
     % structure if given.
-    if (~isempty(OPT.S));
+    if (~isempty(OPT.S) && ~isempty(OPT.S(s)));
         sS = OPT.S(s).S; % noise covariance
         iS = OPT.S(s).invS; % inverse noise covariance
         iV  = (iS-iS*Zu/(diag(1./dS(idx))*exp(noiseParam)+Zu'*iS*Zu)*Zu'*iS)./exp(noiseParam); % Matrix inversion lemma
@@ -178,7 +178,7 @@ for s=1:numSubj
         end;
         
         % Get the derivatives for the block parameter
-        if (~isempty(OPT.runEffect{s}))
+        if (~isempty(OPT.runEffect) &&  ~isempty(OPT.runEffect{s}))
             i = i+1; 
             indx(i) = M.numGparams+numSubj*(1+OPT.fitScale)+s;  % Which number parameter is it?
             iVdV{indx(i)}       = A*pcm_blockdiag(zeros(K),eye(numRuns))*Z{s}'*exp(runParam);

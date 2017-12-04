@@ -1,4 +1,4 @@
-function [T,theta_hat,G_pred]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,varargin);
+function [T,theta_hat,G_pred,theta0]=pcm_fitModelGroup(Y,M,partitionVec,conditionVec,varargin);
 % function [T,theta_hat,G_pred]=pcm_fitModelCrossval(Y,M,partitionVec,conditionVec,varargin);
 % Fits pattern component model(s) specified by M to data from a number of
 % subjects.
@@ -97,10 +97,16 @@ verbose         = 1;
 fitScale        = 1;   % Fit an additional scaling parameter for each subject? 
 S               = [];  % Structure of noise matrix 
 fitAlgorithm    = [];  % Over-write on model specific fit Algorithm 
+theta0          = []; 
 pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration',...
-                      'verbose','fitScale','S','fitAlgorithm'});
+                      'verbose','fitScale','S','fitAlgorithm','theta0'});
 numSubj     = numel(Y);
-numModels   = numel(M);
+
+% Determine number of models 
+if (~iscell(M)) 
+    M={M}; 
+end; 
+numModels = numel(M); 
 
 
 % Preallocate output structure
@@ -116,55 +122,9 @@ if (~isempty(fitAlgorithm))
 end; 
 M = pcm_optimalAlgorithm(M); 
 
-% --------------------------------------------------------
-% Figure out a starting values for the noise parameters
-% --------------------------------------------------------
-for s = 1:numSubj
-    
-    % If condition and partition Vectors are not cells, assume they are the
-    % same 
-    if (iscell(conditionVec)) 
-        cV = conditionVec{s}; 
-        pV = partitionVec{s}; 
-    else 
-        cV = conditionVec; 
-        pV = partitionVec; 
-    end; 
-    
-    % Check if conditionVec is condition or design matrix
-    if size(cV,2)==1;
-        Z{s}   = pcm_indicatorMatrix('identity_p',cV);
-    else
-        Z{s} = cV;
-    end;
-    
-    % Set up the main matrices
-    [N(s,1),P(s,1)] = size(Y{s});   
-    numCond= size(Z{s},2);
-    YY{s}  = (Y{s} * Y{s}');
-    
-    % Depending on the way of dealing with the run effect, set up data
-    % and determine run and noise effects 
-    switch (runEffect)
-        case 'random'
-            B{s}   = pcm_indicatorMatrix('identity_p',pV);
-            X{s}   = [];
-            numPart=size(B{s},2);
-            run0(s,1)=log(sum(sum((pinv(B{s})*Y{s}).^2))./(numPart*P(s))); 
-            RX = eye(N(s))-B{s}*pinv(B{s}); 
-        case 'fixed'
-            B{s}  =  [];
-            X{s}  =  pcm_indicatorMatrix('identity_p',pV);
-            numPart=size(X{s},2);
-            RX = eye(N(s))-X{s}*pinv(X{s}); 
-    end;
-    
-    % Estimate crossvalidated second moment matrix to get noise and run
-    G_hat(:,:,s) = pcm_estGCrossval(RX*Y{s},pV,cV);
-    numReg   = size(Z{s},2); 
-    RZ           = eye(N(s))-Z{s}*pinv(Z{s}); 
-    noise0(s,1)  = log(sum(sum((RZ*RX*Y{s}).^2))/(P(s)*(N(s)-numReg-numPart))); 
-end;
+% Set up all parameters for the upcoming fit 
+[Z,B,X,YY,S,N,P,G_hat,noise0,run0]=...
+    pcm_setUpFit(Y,partitionVec,conditionVec,'runEffect',runEffect,'S',S);
 
 % -----------------------------------------------------
 % Perform the overall group fit across all subjects
@@ -180,21 +140,19 @@ for m = 1:numModels
     tic; 
     
     % Get starting guess for theta if not provided
-    if (isfield(M{m},'theta0'))
-        theta0 = M{m}.theta0;
-    else
-        theta0 = pcm_getStartingval(M{m},mean(G_hat,3));   
+    if (~isfield(M{m},'theta0'))
+        M{m}.theta0 = pcm_getStartingval(M{m},mean(G_hat,3));   
     end;
     
     % Use normal linear regression to get scaling parameter for the
     % subject
     switch (M{m}.type)
         case 'freedirect'
-            G0 = mean(G_hat,3); 
+            G0 = pcm_makePD(mean(G_hat,3)); 
             M{m}.numGparams=0; 
             M{m}.Gc = G0;
         otherwise 
-            G0 = pcm_calculateG(M{m},theta0);
+            G0 = pcm_calculateG(M{m},M{m}.theta0);
     end; 
     g0 = G0(:);
     if (fitScale) 
@@ -208,23 +166,29 @@ for m = 1:numModels
     end; 
     
     % Put together the vector of starting value 
-    x0 = theta0; 
-    x0 = [x0;noise0]; 
-    if(fitScale) 
-        x0 = [x0;scale0(:,m)]; 
+    if (numel(theta0)<m) 
+        theta0{m} = [M{m}.theta0;noise0]; 
+        if(fitScale) 
+            theta0{m} = [theta0{m};scale0(:,m)]; 
+        end; 
+        if (strcmp(runEffect,'random'))
+            theta0{m} = [theta0{m};run0];
+        end; 
     end; 
-    if (strcmp(runEffect,'random'))
-        x0 = [x0;run0];
-    end; 
+    
+    % Set options 
+    OPT.runEffect=B; 
+    OPT.S = S; 
+    OPT.fitScale = fitScale; 
     
     % Now do the fitting
     switch (M{m}.fitAlgorithm)
         case 'minimize'  % Use minimize to find maximum liklhood estimate runEffect',B{s});
-            fcn = @(x) pcm_likelihoodGroup(x,YY,M{m},Z,X,P,'runEffect',B,'S',S,'fitScale',fitScale);
-            [theta_hat{m},~,T.iterations(:,m)] = minimize(x0, fcn, MaxIteration);
+            fcn = @(x) pcm_likelihoodGroup(x,YY,M{m},Z,X,P,OPT);
+            [theta_hat{m},~,T.iterations(:,m)] = minimize(theta0{m}, fcn, MaxIteration);
         case 'NR' 
-            fcn = @(x) pcm_likelihoodGroup(x,YY,M{m},Z,X,P,'runEffect',B,'S',S,'fitScale',fitScale);
-            [theta_hat{m},~,T.iterations(:,m),T.reg(:,m)] = pcm_NR(x0, fcn);
+            fcn = @(x) pcm_likelihoodGroup(x,YY,M{m},Z,X,P,OPT);
+            [theta_hat{m},~,T.iterations(:,m),T.reg(:,m)] = pcm_NR(theta0{m}, fcn);
         otherwise 
             error('unknown fitting Algorith: %s',M{m}.fitAlgorithm);
     end; 

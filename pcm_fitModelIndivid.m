@@ -1,4 +1,4 @@
-function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
+function [T,theta_hat,G_pred,theta0]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
 % function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
 % Fits pattern component model(s) specified by M to data from a number of
 % subjects.
@@ -62,6 +62,7 @@ function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,
 % 
 %   'fitAlgorithm': Either 'NR' or 'minimize' - provides over-write for
 %                   model specific algorithms 
+%   'theta0':       Cell array of starting values (same format as theta{m})
 %--------------------------------------------------------------------------
 % OUTPUT:
 %   T:      Structure with following subfields:
@@ -80,13 +81,19 @@ runEffect       = 'fixed';
 isCheckDeriv    = 0;
 MaxIteration    = 1000;
 Iter            = [];
-verbose         = 1; 
+verbose         = 1;   % 1: Indicating the subject 2: detailed feedback 
 S               = []; 
-fitAlgorithm    = []; 
-pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration','verbose','S','fitAlgorithm'});
+fitAlgorithm    = [];
+theta0          = []; 
+pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration','verbose','S','fitAlgorithm','theta0'});
 
 numSubj     = numel(Y);
-numModels   = numel(M);
+
+% Determine number of models 
+if (~iscell(M)) 
+    M={M}; 
+end; 
+numModels = numel(M); 
 
 % Preallocate output structure
 T.SN = [1:numSubj]';
@@ -99,44 +106,12 @@ if (~isempty(fitAlgorithm))
 end; 
 M = pcm_optimalAlgorithm(M); 
 
-% Now loop over subject and provide inidivdual fits 
+% Set up all parameters for the upcoming fit 
+[Z,B,X,YY,S,N,P,G_hat,noise0,run0]=...
+    pcm_setUpFit(Y,partitionVec,conditionVec,'runEffect',runEffect,'S',S);
+
+% Loop over subject and provide inidivdual fits 
 for s = 1:numSubj
-    
-    % If condition and partition Vectors are not cells, assume they are the
-    % same 
-    if (iscell(conditionVec)) 
-        cV = conditionVec{s}; 
-        pV = partitionVec{s}; 
-    else 
-        cV = conditionVec; 
-        pV = partitionVec; 
-    end; 
-    
-    % Check if conditionVec is condition or design matrix
-    if size(cV,2)==1;
-        Z{s}   = pcm_indicatorMatrix('identity_p',cV);
-    else
-        Z{s} = cV;
-    end;
-    
-    % Prepare matrices and data depending on how to deal with run effect 
-    [N(s,1),P(s,1)] = size(Y{s});
-    numCond= size(Z{s},2);
-    YY{s}  = (Y{s} * Y{s}');
-    switch (runEffect)
-        case 'random'
-            B{s}   = pcm_indicatorMatrix('identity_p',pV);
-            X{s}   = [];
-        case 'fixed'
-            B{s}  =  [];
-            X{s}  =  pcm_indicatorMatrix('identity_p',pV);
-    end;
-    
-    % Estimate starting value run and the noise from a crossvalidated estimate of the second moment matrix 
-    [G_hat(:,:,s),Sig_hat(:,:,s)] = pcm_estGCrossval(Y{s},pV,cV);
-    sh = Sig_hat(:,:,s);
-    run0(s)     = real(log((sum(sum(sh))-trace(sh))/(numCond*(numCond-1))));
-    noise0(s)   = real(log(trace(sh)/numCond-exp(run0(s))));
     
     % Now loop over models 
     for m = 1:length(M)
@@ -149,51 +124,43 @@ for s = 1:numSubj
         end; 
         tic; 
         
-        % Get starting guess for theta if not provided
-        if (isfield(M{m},'theta0'))
-            theta0 = M{m}.theta0(1:M{m}.numGparams);
-        else
-            theta0 = pcm_getStartingval(M{m},G_hat(:,:,s));   
-        end;
-        
         % if naive noise ceiling model, use crossvalidated G as component 
         if strcmp(M{m}.type,'freedirect')
             M{m}.Gc = pcm_makePD(G_hat(:,:,s)); 
         end; 
+
+        % Get starting guess for theta if not provided
+        if (numel(theta0)<m || size(theta0{m},2)<s) 
+            if (isfield(M{m},'theta0'))
+                th0m = M{m}.theta0(1:M{m}.numGparams);
+            else
+                th0m = pcm_getStartingval(M{m},G_hat(:,:,s));   
+            end;
         
-        % Set up overall starting values 
-        switch (runEffect) 
-            case {'fixed','remove'}
-                x0  = [theta0;noise0(s)];
-            case {'random'}
-                x0  = [theta0;noise0(s);run0(s)];
+            if (strcmp(runEffect,'random'))
+                x0 = [th0m;noise0(s);run0(s)];
+            else
+                x0 = [th0m;noise0(s)]; 
+            end;
+            theta0{m}(:,s)=x0; 
+        end; 
+        
+        % Set options 
+        OPT.runEffect=B{s}; 
+        if (~isempty(S)) 
+            OPT.S = S(s); 
         end; 
         
         % Now do the fitting, using the preferred optimization routine 
         switch (M{m}.fitAlgorithm)
             case 'minimize'  % Use minimize to find maximum liklhood estimate runEffect',B{s});
-                if (isempty(S)) 
-                    fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
-                else 
-                    fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
-                end; 
+                fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),OPT);
                 [theta_hat{m}(:,s),fX,T.iterations(s,m)]      =  ...
-                        minimize(x0, fcn, MaxIteration);
+                        minimize(theta0{m}(:,s), fcn, MaxIteration);
                 T.likelihood(s,m) =  -fX(end);  %invert the sign 
-            case 'NR_diag'
-                numDiag = size(M{m}.MM,2); 
-                [~,theta_hat{m}(:,s),~,T.likelihood(s,m),T.iterations(s,m)] = ...
-                    pcm_NR_diag(Y{s},Z{s}*M{m}.MM,'X',X{s},'Gd',ones(numDiag,1));
-            case 'NR_comp'
-                [~,theta_hat{m}(:,s),~,T.likelihood(s,m),T.iterations(s,m)] = ...
-                    pcm_NR_comp(Y{s},Z{s},'X',X{s},'Gc',M{1}.Gc,'h0',x0);
             case 'NR' 
-                if (isempty(S)) 
-                    fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
-                else 
-                    fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),'runEffect',B{s});
-                end; 
-                [theta_hat{m}(:,s),T.likelihood(s,m),T.iterations(s,m),T.reg(s,m)]=pcm_NR(x0,fcn,'verbose',verbose); 
+                fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),OPT);
+                [theta_hat{m}(:,s),T.likelihood(s,m),T.iterations(s,m),T.reg(s,m)]=pcm_NR(theta0{m}(:,s),fcn,'verbose',verbose==2); 
         end; 
             
         G_pred{m}(:,:,s)  =  pcm_calculateG(M{m},theta_hat{m}(1:M{m}.numGparams,s));

@@ -17,14 +17,14 @@ function [negLogLike,dnl,d2nl] = pcm_likelihoodIndivid(theta,YY,M,Z,X,P,varargin
 %      X:       Fixed effects design matrix - will be accounted for by ReML
 %      P:       Number of voxels
 % VARARGIN:
-%      'runEffect',B:  design matrice for the run effect,
+%      'runEffect',B:  design matrices for the run effect,
 %                   which is modelled as a individual subject-specific random effect.
 %      'S':    Explicit noise covariance matrix structure matrix. The For speed,
 %              this is a cell array that contains
 %              S.S:     Structure of noise
 %              S.invS:  inverse of the noise covariance matrix
-%       'calcLikelihood': If set to zero, will skip calculating the
-%              log-liklihood
+%       'scalePrior': Variance of Gaussian prior on scale parameter (if
+%              used)
 %
 % OUTPUT:
 %      negLogLike:  Negative Log likelihood of all subject's data
@@ -42,8 +42,7 @@ N = size(YY,1);
 K = size(Z,2);
 OPT.S = [];
 OPT.runEffect =[];
-OPT.scalePrior= 10;     % Variance of the prior on the scale parameter 
-OPT=pcm_getUserOptions(varargin,OPT,{'S','runEffect','scalePrior'});
+OPT=pcm_getUserOptions(varargin,OPT,{'S','runEffect'});
 
 % Get G-matrix and derivative of G-matrix in respect to parameters
 if (isstruct(M))
@@ -92,12 +91,12 @@ else
 end;
 
 % Computation of (restricted) likelihood
-    ldet  = -2* sum(log(diag(chol(iV))));        % Safe computation of the log determinant (V) Thanks to code from D. lu
-    l     = -P/2*(ldet)-0.5*traceABtrans(iVr,YY);
-    if (~isempty(X)) % Correct for ReML estimates
-        l = l - P*sum(log(diag(chol(X'*iV*X))));  % - P/2 log(det(X'V^-1*X));
-    end;
-    negLogLike = -l; % Invert sign
+ldet  = -2* sum(log(diag(chol(iV))));        % Safe computation of the log determinant (V) Thanks to code from D. lu
+l     = -P/2*(ldet)-0.5*traceABtrans(iVr,YY);
+if (~isempty(X)) % Correct for ReML estimates
+    l = l - P*sum(log(diag(chol(X'*iV*X))));  % - P/2 log(det(X'V^-1*X));
+end;
+negLogLike = -l; % Invert sign
 
 
 % Calculate the first derivative

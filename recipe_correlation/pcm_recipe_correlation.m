@@ -18,7 +18,7 @@ function varargout=pcm_recipe_correlation
 %                  component 
 load data_recipe_correlation.mat
 runEffect  = 'fixed';
-alg = 'minimize'; 
+alg = 'NR'; 
 
 % --------------------------------------
 % Model1: Model with independent contra and ipsilateral patterns (zero
