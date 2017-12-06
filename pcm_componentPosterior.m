@@ -1,6 +1,6 @@
 function [postProb,logBayes]=pcm_componentPosterior(likelihood,compI,varargin); 
 % function p=pcm_componentPosterior(likelihood,compI); 
-% Calculates a posterior proability for the presence of each 
+% Calculates a posterior probability for the presence of each 
 % component from a family of models 
 % INPUT: 
 %   likelihood: (numSubj x numModels) estimated marginal log-likelihood of each model. This can be 

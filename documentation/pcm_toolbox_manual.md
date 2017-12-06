@@ -137,11 +137,11 @@ $$
 This is the likelihood that is maximized in PCM in respect to the model parameters $\theta$. For more details, see mathematical and algorithmic details. 
 
 ## Building models
-The main intelectual work when using PCM is to build the appropriate models. There are basically two complementary approaches or philosophies when it comes to designing representational models. Which way you will feel more comfortable with, will depend on whether you are already familiar with Encoding or RSA analysis. Ultimately, the same model can be formulated in both way, and the results will be identical. Nonetheless, it is useful to become familar with both styles of model building, as they can also be combined to find the modst  intuitive and computationally efficient way of writing a particular model.
+The main intelectual work when using PCM is to build the appropriate models. There are basically two complementary approaches or philosophies when it comes to designing representational models. Which way you will feel more comfortable with, will depend on whether you are already familiar with Encoding or RSA analysis. Ultimately, the same model can be formulated in both ways, and the results will be identical. Nonetheless, it is useful to become familar with both styles of model building, as they can also be combined to find the most intuitive and computationally efficient way of writing a particular model.
 #### Example
-An empirical example for how to construct the same model as either an Encoding- or RSA-style PCM model comes from [@RN3713]. In this experiment, participants learnt six motor sequences, each composed of six finger presses, which were different permutations of fingers 1, 3, and 5 (see [@fig:Fig2]A). We would like to model the activity pattern in terms of two model component. The first component states that the first finger in produced sequence has particularly strong weight on the activity pattern. The second component hypothesizes that each activity pattern is a function of the transitions between 2 subsequent fingers. 
+An empirical example for how to construct the same model as either an Encoding- or RSA-style PCM model comes from [@RN3713]. In this experiment, participants learnt six motor sequences, each composed of six finger presses, which were different permutations of fingers 1, 3, and 5 (see [@fig:Fig2]A). We would like to model the activity pattern in terms of two model components. The first component states that the first finger in produced sequence has particularly strong weight on the activity pattern. The second component hypothesizes that each activity pattern is a function of the transitions between 2 subsequent fingers. 
 #### Encoding-style models 
-When constructing an encoding-style model, the model components are formulated as sets of features, which are encoded into the design matrix. In our example, the first feature set (first finger)  has 3 columns with variables that indicate whether this first finger was digit 1, 3, or 5. The second feature set has 6 features, indicating which ones of the 6 possible transitions between fingers were present in the sequence. Therefore, the design matrix **Z** has 9 columns  ([@fig:Fig2]B). The encoding style model, however, is not complete without a prior on the underlying activity patterns **U**, i.e. the feature weights. As implicit in the use of ridge regression, we assume here that all features within a feature set are independent and equally strongly encoded. Therefore, the second moment matrix for the first model component is an identity matrix of 3x3 and for the second component an identity matrix of size 6x6. Each component then is weighted by the relative weight of the component, $exp(\theta_i)$. The overall second moment matrix **G** then is the sum of the two weighted model component matrices. This model would be equivalent to an encoding model where each of the features sets has its own ridge coefficient. PCM will automatically find the optimal value of the two ridge coefficients (the importance of each feature set). 
+When constructing an encoding-style model, the model components are formulated as sets of features, which are encoded into the design matrix. In our example, the first feature set (first finger) has 3 columns with variables that indicate whether this first finger was digit 1, 3, or 5. The second feature set has 6 features, indicating which ones of the 6 possible transitions between fingers were present in the sequence. Therefore, the design matrix **Z** has 9 columns  ([@fig:Fig2]B). The encoding style model, however, is not complete without a prior on the underlying activity patterns **U**, i.e. the feature weights. As implicit in the use of ridge regression, we assume here that all features within a feature set are independent and equally strongly encoded. Therefore, the second moment matrix for the first model component is an identity matrix of 3x3 and for the second component an identity matrix of size 6x6. Each component then is weighted by the relative weight of the component, $exp(\theta_i)$. The overall second moment matrix **G** then is the sum of the two weighted model component matrices. This model would be equivalent to an encoding model where each of the features sets has its own ridge coefficient. PCM will automatically find the optimal value of the two ridge coefficients (the importance of each feature set). 
 
 ![*(**A**) Set of six multi-finger sequences used in the task. (**B**) Encoding-style model construction.The condition matrix Z, here shown for 12 trials of 2 x 6 sequences, contains all features. Featureset **F** contains indicators for first fingers in each sequence, and featureset **T** contains the finger transitions for each sequence. The second moment matrices for the two feature sets are diagonal matrices, indicating which feature is taken into account. Each feature set is multiplied by an overall importance of the featureset (analogous to the ridge coefficient for the feature set) (**C**) RSA-style model construction. The design matrix simply simply indicates which of the 6 sequences was executed. The second momemnt matrix determines the hypothesized covariances between the 6 sequence patterns. In both cases, the overall second moment matrix **G** is the weighted sum of the two component matrices .*](Figures/Figure_modelbuilding.pdf){#fig:Fig2}
 
@@ -149,7 +149,7 @@ When constructing an encoding-style model, the model components are formulated a
 RSA specifies models in terms of the predicted similarity or dissimilarity of discrete experimental conditions. Therefore, when constructing the model in the RSA-style, the design matrix **Z** simply idicates which trial belonged to which condition. The main core of the model is in the component second moment matrices, which specify the covariances between conditions, and hence both Eucledian and correlation distances between different experimental conditions ([@fig:Fig2]C). For example, the first component predicts that sequence I and II, which both start with digit 1, share a high covariance. The predicted covariances can be calculated as the inner product of the feature sets $\mathbf{FF}^{T}$.
 
 #### Which one to use which approach?
-The Models depicted in [@fig:Fig2]B and C are identical. So when should we prefer one approach over the other? Some of this is up to personal taste. However, some experiments have no discrete conditions. For example, each trial may be also characterized by the subject movement, or a stimulus property was varied in a continuous fashion. For these experiments, the best way is to formulate the model in an encoding style. Even if there are discrete conditions, the conditions may differ across subjects. Again, encoding-style pcm models allow the models to be fitted to the group data. This is because the group fitting routines (see below) allow for subject-specific design matrices, but not for subject-specific second-moment matrices. In other situations, for example experiments with fewer discrete conditions and many feature sets, the RSA-style formulation can be more straightforward. 
+The Models depicted in [@fig:Fig2]B and C are identical. So when should we prefer one approach over the other? Some of this is up to personal taste. However, some experiments have no discrete conditions. For example, each trial may be also be characterized by the subject movement, or a stimulus property was varied in a continuous fashion. For these experiments, the best way is to formulate the model in an encoding style. Even if there are discrete conditions, the conditions may differ across subjects. Again, encoding-style pcm models allow the models to be fitted to the group data. This is because the group fitting routines (see below) allow for subject-specific design matrices, but not for subject-specific second-moment matrices. In other situations, for example experiments with fewer discrete conditions and many feature sets, the RSA-style formulation can be more straightforward. 
 
 Finally, the two approaches can be combined to achieve the most natural way of expressing models. For example in our example [@RN3713], we used the design matrix from the first finger model [@fig:Fig2]B, combined with a second moment derived from the natural statistics to capture the known covariance structure of activity patterns associated with single finger movements Ejaz et al. (2015). 
 ## Model types 
@@ -353,9 +353,12 @@ Optional inputs are:
 %
 %   'MaxIteration': Number of max minimization iterations. Default is 1000.
 %
-%   'S',S         : (Cell array of) NxN noise covariance matrices -
+%   'S'           : (Cell array of) NxN noise covariance matrices -
 %                   otherwise independence is assumed
-
+%
+%   'fitAlgorithm': Either 'NR' or 'minimize' - provides over-write for
+%                   model specific algorithms 
+%   'theta0':       Cell array of starting values (same format as theta{m})
 ```
 And the outputs are defined as: 
 
@@ -417,7 +420,7 @@ $$
 
 The output `theta` for each model contains not only the `M.numGparams` model parameters, but also the noise parameters for all the subjects, then (optional) the scale parameters for all the subjects, and (if the runEffect is set to random)  the run-effect parameter for all the subjects.  The resultant scaling parameter for each subject is additionally stored under `T.scale` in the output structure. The fitting of an additional scale parameter can be switched off by providing the optional input argument `pcm_fitModelGroup(...,'fitScale',0)`.  Often, it speeds up the computation to perform a group fit first, so it can serve as a starting value for the crossvalidated group fit (see below). Otherwise the input and output parameters are identical to `pcm_fitModelIndivid`. 
 
-Note that the introduction of the scale parameter introduces a certain amount of parameter redundancy. For example, if a model has only one single component and parameter, then the overall scaling is simply `s*theta`. One can remove the redundancy by forcing one model parameter to be 1 - in practice this, however, is not necessary.    
+Note that the introduction of the scale parameter introduces a certain amount of parameter redundancy. For example, if a model has only one single component and parameter, then the overall scaling is simply `s*theta`. To reduce the redundancy a Guassian prior with constant variance around0 is added on the scale parameter.
 
 ## Fitting to group data sets with cross-validation across participants 
 
@@ -545,6 +548,44 @@ For this case, you can obtain the best estimate of the voxel-feature weights and
 `[W,A]=pcm_estimateW(M,theta,Data,Z,X);`
 
 Feature weights can then be visualized using standard techniques either in the volume or on the surface. Routines to do this are not included in the PCM toolbox.  
+
+
+
+# Model inference
+
+## Inference based on individual parameter estimates
+
+
+
+## Inference using model evidence
+
+
+## Group inference
+
+
+## Noise ceilings
+
+## Component posterior probability
+
+Sometimes we would like to draw inference about how important individual components are instead of comparing different models. One way of quantifying this is to estimate the marginal likelihood of a component C by marginalizing (averaging) the likelihood of all models M that contain C with the likelihood of all models without C. 
+$$
+p(C=1)= \frac{p(data|C=1)*p(C=1)}{p(data|C=0)*p*(C=0)}
+$$
+To do this, we need to construct all possible models with components of interest in a principled way, i.e. by switching the individual components ON or OFF across models. Thus, if we have k components of interest, we will end up with 2^k models. The pcm toolbox can construct such a 'model family' given all the individual components (MComp) in a cell array per component containing indicators for whether the component is included (1) or not (0) for each of experimental conditions. This is done through the following command:
+
+`[M,CompI] = pcm_constructModelFamily(MComp);`
+
+M is the resultant model family containing 2^k models and CompI is an indicator matrix of size 2^k x k denoting for each of k components whether it is included or excluded in the model. After obtaining fits for all models in the model family (e.g. through `pcm_fitModelGroup` and `pcm_fitModelGroupCrossval`), the resulting model likelihoods together with model component indicator CompI can be used to calculate evidence for the presence of component C in `pcm_componentPosterior`. We obtain two metrics - posterior probability and log Bayes factor. 
+
+Log joint probability for each model is calculated as the sum of the likelihood for each model combined with the prior probability for each model (by default: 1/number of models). The posterior probability of each component is then calculated as the sum of the log joint probability of the models containing component C, divided by the sum of the log joint probability of all models. 
+$$
+posterior-probability = \frac{\sum_{M=1}^{k}{exp(logJoint(C==1))}}{\sum_{M=1}^{k}{exp(logJoint)}}
+$$
+The log Bayes factor for component is computed as the marginal difference between the models containing component C and models without it.
+$$
+log-Bayes =ln(\sum_{M=1}^{k}{exp(logJoint(C==1))})-ln(\sum_{M=1}^{k}{exp(logJoint)(C==0)))}
+$$
+
 
 # Mathematical and Algorithmic details
 
@@ -716,7 +757,7 @@ Because the update can become  unstable, we are regularising the Fisher informat
 
 ## Choosing an optimisation algorithm
 
-While the Newton-Raphson algorithm can be considerably faster for many problems, it is not always the case. Newton-Raphson usually arrives at the goal with many fewer steps than conjugate gradient descent, but on each step it has to calculate the matrix second derviatives, which grows in the square of the number of parameters . So for highly-parametrized models, the simple conjugate gradient algorithm is better. You can set for each model the desired algorithm by setting the field  `M.fitAlgorithm = 'NR';`  for Newton-Raphson and   `M.fitAlgorithm = 'minimize';` for conjugate gradient descent. If no such field is given, then fitting function will call `M=pcm_optimalAlgorithm(M)` to obtain a guess of what will be the best algorithm for the problem. While this function provides a good heuristic strategy, it is recommended to try both and compare both the returned likelihood and time. Small differences in the likelihood ($<0.1$) are due to different stopping criteria and should be of no concern. Larger differences can indicate failed convergence. 
+While the Newton-Raphson algorithm can be considerably faster for many problems, it is not always the case. Newton-Raphson usually arrives at the goal with many fewer steps than conjugate gradient descent, but on each step it has to calculate the matrix second derviatives, which grows in the square of the number of parameters . So for highly-parametrized models, the simple conjugate gradient algorithm is better. You can set for each model the desired algorithm by setting the field  `M.fitAlgorithm = 'NR';`  for Newton-Raphson and   `M.fitAlgorithm = 'minimize';` for conjugate gradient descent. If no such field is given, then fitting function will call `M=pcm_optimalAlgorithm(M)` to obtain a guess of what will be the best algorithm for the problem. While this function provides a good heuristic strategy, it is recommended to try both and compare both the returned likelihood and time. Small differences in the likelihood ($<0.1$) are due to different stopping criteria and should be of no concern. Larger differences can indicate failed convergence. It is suggested to try both algorithms on simulated or real data and check their resulting likelihoods before deciding for one. It is reassuring to see the likelihoods from the two optimisation algorithms to have reasonably similar values. Another option is to take the resulting theta_hat estimates from one algorithm (e.g. NR) as starting theta0 values for another algorithm (e.g. minimize) to see if the fit can be improved any further.
 
 
 ## Acceleration of matrix inversion 
