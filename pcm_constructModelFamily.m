@@ -39,10 +39,21 @@ numComp = numel(MComp);
 fixComp = ismember([1:numComp],alwaysInclude);
 numVarComp = numComp-sum(fixComp);
 
-Comb = dec2bin(0:(2^numVarComp-1))=='1';
-i=1;
-CompI= zeros(size(Comb,1),numComp);
+% Build all combination of 0,1,2... components 
+Comb = zeros(1,numVarComp); 
+for i=1:numVarComp 
+    A=nchoosek([1:numVarComp],i);
+    n = size(A,1); 
+    X=zeros(n,numVarComp); 
+    for j=1:n
+         X(j,A(j,:))=1;
+    end; 
+    Comb=[Comb;X]; 
+end; 
 
+% Now build the models with fixed components set in 
+CompI= zeros(size(Comb,1),numComp);
+i=1;
 for i=1:size(Comb,1);
     M{i}.type = MComp{1}.type;
     vc=1;
