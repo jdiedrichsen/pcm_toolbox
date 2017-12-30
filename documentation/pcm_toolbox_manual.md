@@ -25,7 +25,7 @@ author:
 \pagebreak
 
 # How to use this manual
-This manual provides an introduction to how to use the Pattern component modelling (PCM) toolbox. The theory behind this approach is laid out in an accompanying paper [@RN3702] - but the main ideas are described here in the introduction. We then provide an overview over the toolbox functions, and explain the different steps of model specification, model estimation, visualisation, and model comparison following the real examples presented in the paper. The toolbox comes with a few example "recipes" that provide examples of usage on empricial data. Finally, the last section contains some of the mathematical and algorithmic details necessary to understand the implementation.
+This manual provides an introduction to how to use the Pattern Component Modelling (PCM) toolbox. The theory behind this approach is laid out in an accompanying paper [@RN3702] - but the main ideas are described here in the introduction. We then provide an overview over the toolbox functions, and explain the different steps of model specification, model estimation, visualisation, and model comparison. For the examples presented in the paper, we also provide "recipes" that show the application of the toolbox to empricial data. The last section contains some of the mathematical and algorithmic details necessary to understand the implementation.
 
 # Introduction 
 The study of brain representations aims to illuminate the relationship between complex patterns of activity occurring in the brain and "things in the world" - be it objects, actions, or abstract concepts. By understanding internal syntax of brain representations, and especially how the structure of representations changes across different brain regions, we ultimately hope to gain insight into the way the brain processes information.
@@ -38,7 +38,7 @@ While decoding approaches are very popular in the study of multi-voxel activity 
 
 Encoding models, on the other hand, characterize how well we can explain the activities in a specific region using a sets of features. The activity profile of each voxel (here shown as columns in the activity data matrix), is modeled as the linear combination of a set of features ([@fig:Fig1]a). We will use the term voxels interchangeably with the more general term measurement channel, which could, depending on the measurement modality, refer to a single neuron, an electrode, or sensor. Each voxel has its own set of parameters ($\mathbf{W}$) that determine the weight of each feature. This can visualized by plotting the activity profile of each voxel into the space spanned by the experimental conditions ([@fig:Fig1]b). Each dot refers to the activity profile of a channel (here a voxel), indicating how strongly the voxel is activated by each condition. Estimating the weights is equivalent to a projection of each of the activity profiles onto the feature vectors. The quality of the model can then be evaluated by determining how well unseen activity data can be predicted. When estimating the weights, encoding models often use some form of regularization, which essentially imposes a prior on the feature weights. This prior is an important component of the model. It determines a predicted distribution of the activity profiles [@RN3672]. An encoding model that matches the real distribution of activity profiles best will show the best prediction performance.
 
-The interpretational problem for encoding models is that for each feature set that predicts the data well, there is an infinite number of other (rotated) features sets that describe the same distribution of activity profiles and, hence, predict the data equally well. The argument may be made that to understand brain representations, we should not think about specific features that are encoded, but rather about the distribution of activity profiles. This can be justified by considering a read-out neuron that receives input from a population of neurons. From the standpoint of this neuron, it does not matter which neuron has which activity profile (as long as it can adjust input weights), and which features were chosen to describe these activity profiles - all that matters is what information can read out from the code. Thus, from this perspective it may be argued that the formulation of specific feature sets and the fitting of feature weights for each voxel are unnecessary distractions. 
+The interpretational problem for encoding models is that for each feature set that predicts the data well, there is an infinite number of other (rotated) features sets that describe the same distribution of activity profiles (and hence predict the data) equally well. The argument may be made that to understand brain representations, we should not think about specific features that are encoded, but rather about the distribution of activity profiles. This can be justified by considering a read-out neuron that receives input from a population of neurons. From the standpoint of this neuron, it does not matter which neuron has which activity profile (as long as it can adjust input weights), and which features were chosen to describe these activity profiles - all that matters is what information can read out from the code. Thus, from this perspective it may be argued that the formulation of specific feature sets and the fitting of feature weights for each voxel are unnecessary distractions. 
 
 Therefore, our approach of pattern component modeling (PCM) abstracts from specific activity patterns. This is done by summarizing the data using a suitable summary statistic ([@fig:Fig1]a), that describes the shape of the activity profile distribution ([@fig:Fig1]c). This critical characteristic of the distribution is the covariance matrix of the activity profile distribution or - more generally -  the second moment. The second moment determines how well we can linearly decode any feature from the data. If, for example, activity measured for two experimental conditions is highly correlated in all voxels, then the difference between these two conditions will be very difficult to decode. If however, the activities are uncorrelated, then decoding will be very easy. Thus, the second moment is a central statistical quantity that determines the representational content of the brain activity patterns of an area [@RN3672].
 
@@ -50,7 +50,7 @@ In this manual we will show how to use the PCM toolbox to estimate and compare f
 \pagebreak
 
 # Overview
-The toolbox provides function for model fitting, model comparison, and some basic visualization. What the toolbox does *not* provide are functions to extract the required data from the first-level GLM or raw data, or to run search-light or ROI analyses. We have omitted these function as they strongly depend on the analysis package used for the basic imaging analysis. Some useful tools for the extraction of multivariate data from the standard first-level GLM, please see the [RSA-toolbox](https://github.com/rsagroup/rsatoolbox) and [Surfing toolbox](https://github.com/nno/surfing). 
+The toolbox provides function for model fitting, model comparison, and some basic visualization. The toolbox does *not* provide functions to extract the required data from the first-level GLM or raw data, or to run search-light or ROI analyses. We have omitted these function as they strongly depend on the analysis package used for the basic imaging analysis. Some useful tools for the extraction of multivariate data from  first-level GLMs can be found in the [RSA-toolbox](https://github.com/rsagroup/rsatoolbox) and [Surfing toolbox](https://github.com/nno/surfing). 
 
 The functions provided in the toolbox can be categorized into different categories:  
 
@@ -61,12 +61,9 @@ These are the functions that perform the core statistical functions of the toolb
 | 	Function 			    | Comment  
 |:-----------------------------------|:-----------------------------
 |  `pcm_likelihood` |  Likelihood of a single data set under a model
-|  `pcm_likelihoodIndivid` | pcm_likelihood with optional random block effect
+|  `pcm_likelihoodIndivid` | pcm_likelihood with optional random or fixed block effect
 |  `pcm_likelihoodGroup`   | Likelihood of a group data set under a model
 |  `pcm_NR`				| Newton Raphson optimisation 
-|  `pcm_NR_diag`			| Newton Raphson for diagonalized component models 
-|  `pcm_NR_free`			| Newton Raphson for a free model 
-|  `pcm_EM`				| Expectation-Maximization 
 |  `pcm_minimize`			| Conjugate gradient descent 
 
 ### Model Evaluation
@@ -78,26 +75,42 @@ These functions are higher level functions that perform fitting and crossvalidat
 | `pcm_fitModelIndividCrossval`| Within-subject crossvalidation of models 
 | `pcm_fitModelGroup`          | Fit common G to all subjects
 | `pcm_fitModelGroupCrossval`  | Between-subject crossvalidation of models  
-
-### Utility functions
-| 	Function 			       | Comment  
-|:-----------------------------|:-----------------------------
-| `pcm_checkderiv`                  | Checks derivate of a nonlinear model 
-| `pcm_estGcrossval`              | Cross-validated estimate of G 
-| `pcm_indicatorMatrix`       | Generates indicator matrices 
-| `pcm_vararginoptions`	    | Dealing with variable options to functions 
-| `pcm_optimalAlgorithm`    | Makes a recommendation for the best optimisation algorithm
-| `pcm_getStartingval`         | Estimates starting values for optimisation 
-| `pcm_estimateU`         | Calculates voxel-pattern estimates under the current model
-| `pcm_prepFreeModel`         |  Sets up free model (freechol)
-| `pcm_makePD`         | Forces covariance estimate to be semipositive 
-| `pcm_generateData`         | Generates data under a specific model for simulations 
+| `pcm_setUpFit`         |  Generally prepares models and data for fitting 
+| `pcm_componentPosterior`     | Inference on components of a Model family 
 
 ### Visualization functions
 | 	Function 			       | Comment  
 |:-----------------------------|:-----------------------------
 | `pcm_classicalMDS`           | Multidimensional scaling  
+| `pcm_estimateU`         | Estimates voxel-patterns under model M
+| `pcm_estimateW`         | Estimates  voxel-feature weights under  model M
 | `pcm_plotModelLikelihood`    | Displays marginal likelihood for different models
+
+### Model building 
+| 	Function 			       | Comment  
+|:-----------------------------|:-----------------------------
+| `pcm_constructModelFamily`     | Makes a family of models from different components
+| `pcm_buildModelFromFeatures`     | Makes a component model from featuresets
+
+
+### Utility functions
+| 	Function 			       | Comment  
+|:-----------------------------|:-----------------------------
+| `pcm_addModelComp`                  | Adds a model component to model M  
+| `pcm_blockdiag`                  | Makes a blockdiagonal matrix  
+| `pcm_calculateG`                  | Determines G for models   
+| `pcm_checkderiv`                  | Checks derivate of a nonlinear model 
+| `pcm_diagonalize`                  | Decomposes G into A * A'  
+| `pcm_estGcrossval`              | Cross-validated estimate of G 
+| `pcm_generateData`                  | Generates data simulations from model M  
+| `pcm_getStartingval`               | Provides a starting value estimate for model M  
+| `pcm_indicatorMatrix`       | Generates indicator matrices 
+| `pcm_vararginoptions`	    | Deals with variable input options 
+| `pcm_getUserOptions`	    | Deals with variable input options (struct-based, faster) 
+| `pcm_makePD`    | Moves a matrix to closest semi-postive definite Matrix 
+| `pcm_optimalAlgorithm`    | Recommendation for the best optimisation algorithm
+| `pcm_prepFreeModel`         |  Sets up free model (freechol)
+
 
 ### Recipes 
 | 	Function 			       | Comment  
@@ -105,6 +118,14 @@ These functions are higher level functions that perform fitting and crossvalidat
 | `pcm_recipe_finger`          | Example of a fixed and component models 
 | `pcm_recipe_correlation`     | Example of feature model   
 | `pcm_recipe_nonlinear`       | Example for non-linear model   
+
+### Currently not maintained 
+| 	Function 			       | Comment  
+|:-----------------------------|:-----------------------------
+|  `pcm_NR_diag`			| Newton Raphson for diagonalized component models
+|  `pcm_NR_free`			| Newton Raphson for a free model 
+|  `pcm_EM`				| Expectation-Maximization 
+
 
 # Model specification 
 
