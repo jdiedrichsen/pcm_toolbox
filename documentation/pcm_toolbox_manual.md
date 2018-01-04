@@ -672,7 +672,7 @@ $$
 {\bf{R}} = \bf{X}{\left( {{{\bf{X}}^T}{{\bf{V}}^{ - 1}}{\bf{X}}} \right)^{ - 1}}{{\bf{X}}^T}{{\bf{V}}^{ - 1}}\\ {\bf{r_i}} = \bf{Ry_i}
 $$
 
-For the optimization of the random effects we therefore also need to take into account the uncertainty in the random effects estimates. Together this leads to a modified likelihood - the restricted likelihood that we which to optimize.
+For the optimization of the random effects we therefore also need to take into account the uncertainty in the fixed effects estimates. Together this leads to a modified likelihood - the restricted likelihood that we which to optimize.
 $$
 L_{ReML} =-\frac{NP}{2}\mathrm{ln}\left(2\pi \right)-\frac{P}{2}\mathrm{ln}\left(|\bf{V}|\right)-\frac{1}{2}trace\left({\bf{Y}\bf{Y}}^{T}\bf{R}^{T}{\bf{V}}^{-1}\bf{R}\right)-\frac{P}{2}\mathrm{ln}|\bf{X}^{T}\bf{V}^{-1}\bf{X}|
 $$
