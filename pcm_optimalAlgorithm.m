@@ -23,7 +23,7 @@ for m=1:numModels
             case 'freedirect' % A free model (arbitrary G) directly estimated from crossvalidated G
                 M{m}.fitAlgorithm = 'NR'; 
         end; 
-        if (M{m}.numGparams>15)
+        if (M{m}.numGparams>20)
             M{m}.fitAlgorithm = 'minimize';                
         end; 
     end; 

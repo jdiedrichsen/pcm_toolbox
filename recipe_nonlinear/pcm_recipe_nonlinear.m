@@ -128,8 +128,9 @@ Mi = M; % create a copy of the model structure for use in the Individual fitting
 % First fit at the group level without crossvalidation, where likelihood of 
 % one subject's data is assessed under the group level data (which contains
 % their data)
-[Tgroup,theta_all,~] = pcm_fitModelGroup(Y,M,partitionVec,conditionVec,...
+[Tgroup,theta_all] = pcm_fitModelGroup(Y,M,partitionVec,conditionVec,...
     'runEffect',runEffect,'isCheckDeriv',0);
+
 % Second fit in a crossvalidated manner, where likelihood of one subject's
 % data is assessed under the group level data of all other subjects.
 [Tcross,~,G_pred] = pcm_fitModelGroupCrossval(Y,M,partitionVec,conditionVec,...

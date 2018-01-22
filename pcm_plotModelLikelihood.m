@@ -82,6 +82,7 @@ colors    = {[.7 0 0],...      % red
              [0 0.6 0.6],...   % cyan
              [0.5 0 0.5],...   % purple
              [0.2 0.6 0.2]};   % green
+colors    = {colors{:},colors{:},colors{:},colors{:}}; 
 pcm_vararginoptions(varargin,{'Nnull','Nceil','upperceil','colors',...
     'varfcn','mindx','subj','normalize','style','ceilcolor','plotceil'});
 
@@ -178,6 +179,32 @@ if (normalize)
 end; 
 
 % - - - - - - -
+% Plot scaled fits
+% - - - - - - -
+cla; % Clear current axis 
+i = 1;
+for m = mindx
+    % Model fit(s)
+    Y = mean(T.likelihood_norm(:,m));
+    % Error of fit(s)
+    U = vfcn(T.likelihood_norm(:,m));
+    % Set xtick label
+    if isfield(M{m},'name') && (~isempty(M{m}.name))
+        labels{i} = M{m}.name;
+    else
+        labels{i} = sprintf('Model %d',m);
+    end
+    % Plot model's fit
+    plot_fcn(i,Y);
+    hold on;
+    % Plot errorbars (if group fits)
+    if length(subj)>1; ebar_fcn(i,Y+U,Y-U); end
+    % update ticker
+    i = i + 1;
+end;
+hold off;
+
+% - - - - - - -
 % Plot noise ceilings
 % - - - - - - -
 i = length(mindx)+1;
@@ -201,37 +228,13 @@ elseif (~isempty(upperceil) && isempty(lowerceil) && plotceil)
     line([0;i],[mean(upperceil);mean(upperceil)],'LineWidth',1.5,'Color',[0.5 0.5 0.5],'LineStyle','-.'); 
 end; 
 
-% - - - - - - -
-% Plot scaled fits
-% - - - - - - -
-hold on;
-i = 1;
-for m = mindx
-    % Model fit(s)
-    Y = mean(T.likelihood_norm(:,m));
-    % Error of fit(s)
-    U = vfcn(T.likelihood_norm(:,m));
-    % Set xtick label
-    if isfield(M{m},'name') && (~isempty(M{m}.name))
-        labels{i} = M{m}.name;
-    else
-        labels{i} = sprintf('Model %d',m);
-    end
-    % Plot errorbars (if group fits)
-    if length(subj)>1; ebar_fcn(i,Y+U,Y-U); end
-    % Plot model's fit
-    plot_fcn(i,Y);
-    % update ticker
-    i = i + 1;
-end;
-hold off;
 
 % Adjust figure labels and limit scales
 ylims = get(gca,'YLim');
 set(gca,'XTick',[1:i-1]);
 set(gca,'XTickLabel',labels);
 set(gca,'XLim',[0.5 i-0.5]);
-set(gca,'YLim',[0 ylims(2)]);
+% set(gca,'YLim',[0 ylims(2)]);
 if normalize
     ylabel('Normalized log-likelihood');
 else
