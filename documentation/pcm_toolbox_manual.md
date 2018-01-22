@@ -25,7 +25,7 @@ author:
 \pagebreak
 
 # How to use this manual
-This manual provides an introduction to how to use the Pattern component modelling (PCM) toolbox. The theory behind this approach is laid out in an accompanying paper [@RN3702] - but the main ideas are described here in the introduction. We then provide an overview over the toolbox functions, and explain the different steps of model specification, model estimation, visualisation, and model comparison following the real examples presented in the paper. The toolbox comes with a few example "recipes" that provide examples of usage on empricial data. Finally, the last section contains some of the mathematical and algorithmic details necessary to understand the implementation.
+This manual provides an introduction to how to use the Pattern Component Modelling (PCM) toolbox. The theory behind this approach is laid out in an accompanying paper [@RN3702] - but the main ideas are described here in the introduction. We then provide an overview over the toolbox functions, and explain the different steps of model specification, model estimation, visualisation, and model comparison. For the examples presented in the paper, we also provide "recipes" that show the application of the toolbox to empricial data. The last section contains some of the mathematical and algorithmic details necessary to understand the implementation.
 
 # Introduction 
 The study of brain representations aims to illuminate the relationship between complex patterns of activity occurring in the brain and "things in the world" - be it objects, actions, or abstract concepts. By understanding internal syntax of brain representations, and especially how the structure of representations changes across different brain regions, we ultimately hope to gain insight into the way the brain processes information.
@@ -38,7 +38,7 @@ While decoding approaches are very popular in the study of multi-voxel activity 
 
 Encoding models, on the other hand, characterize how well we can explain the activities in a specific region using a sets of features. The activity profile of each voxel (here shown as columns in the activity data matrix), is modeled as the linear combination of a set of features ([@fig:Fig1]a). We will use the term voxels interchangeably with the more general term measurement channel, which could, depending on the measurement modality, refer to a single neuron, an electrode, or sensor. Each voxel has its own set of parameters ($\mathbf{W}$) that determine the weight of each feature. This can visualized by plotting the activity profile of each voxel into the space spanned by the experimental conditions ([@fig:Fig1]b). Each dot refers to the activity profile of a channel (here a voxel), indicating how strongly the voxel is activated by each condition. Estimating the weights is equivalent to a projection of each of the activity profiles onto the feature vectors. The quality of the model can then be evaluated by determining how well unseen activity data can be predicted. When estimating the weights, encoding models often use some form of regularization, which essentially imposes a prior on the feature weights. This prior is an important component of the model. It determines a predicted distribution of the activity profiles [@RN3672]. An encoding model that matches the real distribution of activity profiles best will show the best prediction performance.
 
-The interpretational problem for encoding models is that for each feature set that predicts the data well, there is an infinite number of other (rotated) features sets that describe the same distribution of activity profiles and, hence, predict the data equally well. The argument may be made that to understand brain representations, we should not think about specific features that are encoded, but rather about the distribution of activity profiles. This can be justified by considering a read-out neuron that receives input from a population of neurons. From the standpoint of this neuron, it does not matter which neuron has which activity profile (as long as it can adjust input weights), and which features were chosen to describe these activity profiles - all that matters is what information can read out from the code. Thus, from this perspective it may be argued that the formulation of specific feature sets and the fitting of feature weights for each voxel are unnecessary distractions. 
+The interpretational problem for encoding models is that for each feature set that predicts the data well, there is an infinite number of other (rotated) features sets that describe the same distribution of activity profiles (and hence predict the data) equally well. The argument may be made that to understand brain representations, we should not think about specific features that are encoded, but rather about the distribution of activity profiles. This can be justified by considering a read-out neuron that receives input from a population of neurons. From the standpoint of this neuron, it does not matter which neuron has which activity profile (as long as it can adjust input weights), and which features were chosen to describe these activity profiles - all that matters is what information can read out from the code. Thus, from this perspective it may be argued that the formulation of specific feature sets and the fitting of feature weights for each voxel are unnecessary distractions. 
 
 Therefore, our approach of pattern component modeling (PCM) abstracts from specific activity patterns. This is done by summarizing the data using a suitable summary statistic ([@fig:Fig1]a), that describes the shape of the activity profile distribution ([@fig:Fig1]c). This critical characteristic of the distribution is the covariance matrix of the activity profile distribution or - more generally -  the second moment. The second moment determines how well we can linearly decode any feature from the data. If, for example, activity measured for two experimental conditions is highly correlated in all voxels, then the difference between these two conditions will be very difficult to decode. If however, the activities are uncorrelated, then decoding will be very easy. Thus, the second moment is a central statistical quantity that determines the representational content of the brain activity patterns of an area [@RN3672].
 
@@ -50,7 +50,7 @@ In this manual we will show how to use the PCM toolbox to estimate and compare f
 \pagebreak
 
 # Overview
-The toolbox provides function for model fitting, model comparison, and some basic visualization. What the toolbox does *not* provide are functions to extract the required data from the first-level GLM or raw data, or to run search-light or ROI analyses. We have omitted these function as they strongly depend on the analysis package used for the basic imaging analysis. Some useful tools for the extraction of multivariate data from the standard first-level GLM, please see the [RSA-toolbox](https://github.com/rsagroup/rsatoolbox) and [Surfing toolbox](https://github.com/nno/surfing). 
+The toolbox provides function for model fitting, model comparison, and some basic visualization. The toolbox does *not* provide functions to extract the required data from the first-level GLM or raw data, or to run search-light or ROI analyses. We have omitted these function as they strongly depend on the analysis package used for the basic imaging analysis. Some useful tools for the extraction of multivariate data from  first-level GLMs can be found in the [RSA-toolbox](https://github.com/rsagroup/rsatoolbox) and [Surfing toolbox](https://github.com/nno/surfing). 
 
 The functions provided in the toolbox can be categorized into different categories:  
 
@@ -61,12 +61,9 @@ These are the functions that perform the core statistical functions of the toolb
 | 	Function 			    | Comment  
 |:-----------------------------------|:-----------------------------
 |  `pcm_likelihood` |  Likelihood of a single data set under a model
-|  `pcm_likelihoodIndivid` | pcm_likelihood with optional random block effect
+|  `pcm_likelihoodIndivid` | pcm_likelihood with optional random or fixed block effect
 |  `pcm_likelihoodGroup`   | Likelihood of a group data set under a model
 |  `pcm_NR`				| Newton Raphson optimisation 
-|  `pcm_NR_diag`			| Newton Raphson for diagonalized component models 
-|  `pcm_NR_free`			| Newton Raphson for a free model 
-|  `pcm_EM`				| Expectation-Maximization 
 |  `pcm_minimize`			| Conjugate gradient descent 
 
 ### Model Evaluation
@@ -78,26 +75,42 @@ These functions are higher level functions that perform fitting and crossvalidat
 | `pcm_fitModelIndividCrossval`| Within-subject crossvalidation of models 
 | `pcm_fitModelGroup`          | Fit common G to all subjects
 | `pcm_fitModelGroupCrossval`  | Between-subject crossvalidation of models  
-
-### Utility functions
-| 	Function 			       | Comment  
-|:-----------------------------|:-----------------------------
-| `pcm_checkderiv`                  | Checks derivate of a nonlinear model 
-| `pcm_estGcrossval`              | Cross-validated estimate of G 
-| `pcm_indicatorMatrix`       | Generates indicator matrices 
-| `pcm_vararginoptions`	    | Dealing with variable options to functions 
-| `pcm_optimalAlgorithm`    | Makes a recommendation for the best optimisation algorithm
-| `pcm_getStartingval`         | Estimates starting values for optimisation 
-| `pcm_estimateU`         | Calculates voxel-pattern estimates under the current model
-| `pcm_prepFreeModel`         |  Sets up free model (freechol)
-| `pcm_makePD`         | Forces covariance estimate to be semipositive 
-| `pcm_generateData`         | Generates data under a specific model for simulations 
+| `pcm_setUpFit`         |  Generally prepares models and data for fitting 
+| `pcm_componentPosterior`     | Inference on components of a Model family 
 
 ### Visualization functions
 | 	Function 			       | Comment  
 |:-----------------------------|:-----------------------------
 | `pcm_classicalMDS`           | Multidimensional scaling  
+| `pcm_estimateU`         | Estimates voxel-patterns under model M
+| `pcm_estimateW`         | Estimates  voxel-feature weights under  model M
 | `pcm_plotModelLikelihood`    | Displays marginal likelihood for different models
+
+### Model building 
+| 	Function 			       | Comment  
+|:-----------------------------|:-----------------------------
+| `pcm_constructModelFamily`     | Makes a family of models from different components
+| `pcm_buildModelFromFeatures`     | Makes a component model from featuresets
+
+
+### Utility functions
+| 	Function 			       | Comment  
+|:-----------------------------|:-----------------------------
+| `pcm_addModelComp`                  | Adds a model component to model M  
+| `pcm_blockdiag`                  | Makes a blockdiagonal matrix  
+| `pcm_calculateG`                  | Determines G for models   
+| `pcm_checkderiv`                  | Checks derivate of a nonlinear model 
+| `pcm_diagonalize`                  | Decomposes G into A * A'  
+| `pcm_estGcrossval`              | Cross-validated estimate of G 
+| `pcm_generateData`                  | Generates data simulations from model M  
+| `pcm_getStartingval`               | Provides a starting value estimate for model M  
+| `pcm_indicatorMatrix`       | Generates indicator matrices 
+| `pcm_vararginoptions`	    | Deals with variable input options 
+| `pcm_getUserOptions`	    | Deals with variable input options (struct-based, faster) 
+| `pcm_makePD`    | Moves a matrix to closest semi-postive definite Matrix 
+| `pcm_optimalAlgorithm`    | Recommendation for the best optimisation algorithm
+| `pcm_prepFreeModel`         |  Sets up free model (freechol)
+
 
 ### Recipes 
 | 	Function 			       | Comment  
@@ -105,6 +118,14 @@ These functions are higher level functions that perform fitting and crossvalidat
 | `pcm_recipe_finger`          | Example of a fixed and component models 
 | `pcm_recipe_correlation`     | Example of feature model   
 | `pcm_recipe_nonlinear`       | Example for non-linear model   
+
+### Currently not maintained 
+| 	Function 			       | Comment  
+|:-----------------------------|:-----------------------------
+|  `pcm_NR_diag`			| Newton Raphson for diagonalized component models
+|  `pcm_NR_free`			| Newton Raphson for a free model 
+|  `pcm_EM`				| Expectation-Maximization 
+
 
 # Model specification 
 
@@ -294,7 +315,7 @@ Usually, assuming equal correlations of the activation estimates within a run is
 
 The last option is to estimate the covariance structure of the noise from the data itself. This can be achieved by introducing random effects into the generative model equation in section \ref{generativemodel}, which account for the covariance structure across the data. One example used here is to assume that the data are independent within each imaging run, but share an unknown covariance within each run, which is then estimated as a part of the covariance matrix [@RN3033]. While this approach is similar to just removing the run mean from the data as a fixed effect, it is a good strategy if we actually want to model the difference of each activation pattern against the resting baseline. When treating the mean activation pattern in each run as a random effect, the algorithm finds a compromise between how much of the shared pattern in each run to ascribe to the random run-to-run fluctuations, and how much to ascribe to a stable mean activation. This can be done by setting the option `runEffect = 'random'` in the model fitting routines. This approach is taken for example in `pcm_recipe_nonlinear` as here the resting baseline is of interest and should not be artificially removed. 
 
-# Model fitting and crossvalidation 
+# Model fitting 
 Details of the different optimization routines that maximize the likelihood can be found in section on Mathematical and Algorithmic details. Currently, the toolbox either uses `minimize` (conjugate gradient descent) or `pcm_NR` (Newton-Raphson). Newton-Raphson can be substantially faster in cases in which there are relatively few free parameters.  The optimisation routine can be set for each model seperately by setting the field `M.fitAlgorithm`. 
 
 The following routines are wrapper functions around the actual optimisation routines that fit models to individual or group data. Noise and (possibly) scale paramaters are added to the fit for each subject. To compare models of different complexity, 2 types of crossvalidation are implemented. 
@@ -549,6 +570,7 @@ For this case, you can obtain the best estimate of the voxel-feature weights and
 
 Feature weights can then be visualized using standard techniques either in the volume or on the surface. Routines to do this are not included in the PCM toolbox.  
 
+<<<<<<< HEAD
 
 
 # Model inference
@@ -586,6 +608,56 @@ $$
 log-Bayes =ln(\sum_{M=1}^{k}{exp(logJoint(C==1))})-ln(\sum_{M=1}^{k}{exp(logJoint)(C==0)))}
 $$
 
+=======
+# Model Inference 
+## Inference on model parameters 
+First we may make inferences based on the parameters of a single fitted model. The parameter may be the weight of a specific component or another metric derived from the second moment matrix. For example, the estimated correlation coefficient between condition 1 and 2 would be $r_{1,2}=\mathbf{G}_{1,2}/\sqrt{\mathbf{G}_{1,1}\mathbf{G}_{2,2}}$. We may want to test whether the correlation between the patterns is larger than zero, or whether a parameter differs between two different subject groups, two different regions, or whether they change with experimental treatments.
+
+The simplest way of testing parameters would be to use the point estimates from the model fit from each subject and apply frequentist statistics to test different hypotheses, for example using a t- or F-test. Alternatively, one can obtain estimates of the posterior distribution of the parameters using MCMC sampling \citep{RN3567} or Laplace approximation \citep{RN3255}. This allows the application of Bayesian inference, such as the report of credibility intervals. 
+
+One important limitation to keep in mind is that parameter estimates from PCM are not unbiased in small samples. This is caused because estimates of $\mathbf{G}$ are constrained to be positive definite. This means that the variance of each feature must be larger or equal to zero. Thus, if we want to determine whether a single activity pattern is different from baseline activity, we cannot simply test our variance estimate (i.e. elements of $\mathbf{G}$) against zero - they trivially will always be larger, even if the true variance is zero. Similarly, another important statistic that measures the pattern separability or classifiability of two activity patterns, is the Euclidean distance, which can be calculated from the second moment matrix as $d=\mathbf{G}_{1,1}+\mathbf{G}_{2,2}-2\mathbf{G}_{1,2}$. Again, given that our estimate of $\mathbf{G}$ is positive definite, any distance estimate is constrained to be positive. To determine whether two activity patterns are reliably different, we cannot simply test these distances against zero, as the test will be trivially larger than zero. A better solution for inferences from individual parameter estimates is therefore to use a cross-validated estimate of the second moment matrix (Eq. \ref{GestCV}) and the associated distances \citep{RN3565,  RN3543}. In this case the expected value of the distances will be zero, if the true value is zero. As a consequence, variance and distance estimates can become negative. These techniques, however, take us out of the domain of PCM and into the domain of representational similarity analysis \citep{RN2697, RN3672}. 
+
+## Inference on model evidence 
+As an alternative to parameter-based inference, we can fit multiple models and compare them according to their model evidence; the likelihood of the data given the models (integrated over all parameters). In encoding models, the weights $\mathbf{W}$ are directly fitted to the data, and hence it is important to use cross-validation to compare models with different numbers of features. The marginal likelihood (Eq. \ref{margilikefinal}) already integrates all over all likely values of $\mathbf{U}$, and hence $\mathbf{W}$, thereby removing the bulk of free parameters. Thus, in practice the marginal likelihood will be already close to the true model evidence.
+
+Our marginal likelihood (Eq. \ref{margilikefinal}), however, still depends on the free parameters $\boldsymbol{\theta}$. So, when comparing models, we need to still account for the risk of overfitting the model to the data. For fixed models, there are only two free parameters: one relating to the strength of the noise ($\theta_{\epsilon}$) and one relating to the strength of the signal ($\theta_s$). This compares very favorably to the vast number of free parameters one would have in an encoding model, which is the size of $\mathbf{W}$, the number of features x number of voxels. However, even the fewer model parameters still need to be accounted for. We consider here four ways of doing so.
+
+The first option is to use empirical Bayes or Type-II maximal likelihood. This means that we simply replace the unknown parameters with the point estimates that maximize the marginal likelihood. This is in general a feasible strategy if the number of free parameters is low and all models have the same numbers of free parameters, which is for example the case when we are comparing different fixed models. The two free parameters here determine the signal-to-noise ratio. For models with different numbers of parameters we can penalize the likelihood by $\frac{1}{2}d_{\theta}\log(n)$ , yielding the Bayes information criterion (BIC) as the approximation to model evidence.
+
+As an alternative option, we can use cross-validation within the individual (\hyperref[fig2]{Fig. 2a}) to prevent overfitting for more complex flexible models, as is also currently common practice for encoding models \citep{RN3096}. Taking one imaging run of the data as test set, we can fit the parameters to data from the remaining runs. We then evaluate the likelihood of the left-out run under the distribution specified by the estimated parameters. By using each imaging run as a test set in turn, and adding the log-likelihoods (assuming independence across runs), we thus can obtain an approximation to the model evidence. Note, however, that for a single (fixed) encoding model, cross-validation is not necessary under PCM, as the activation parameters for each voxel ($\mathbf{W}$ or $\mathbf{U}$) are integrated out in the likelihood. Therefore, it can be handled with the first option we described above. 
+
+For the third option, if we want to test the hypothesis that the representational structure in the same region is similar across subjects, we can perform cross-validation across participants (\hyperref[fig2]{Fig. 2b}). We can estimate the parameters that determine the representational structure using the data from all but one participant and then evaluate the likelihood of data from the left-out subject under this distribution. When performing cross-validation within individuals, a flexible model can fit the representational structure of individual subjects in different ways, making the results hard to interpret. When using the group cross-validation strategy, the model can only fit a structure that is common across participants. Different from encoding models, representational models can be generalized across participants, as we do not fit the actual activity patterns, but rather the representational structure. In a sense, this method is performing  "hyper alignment'' \citep{RN3572} without explicitly calculating the exact mapping into voxel space (Eq. \ref{featureweights}). When using this approach, we still allow each participant to have its own signal and noise parameters, because the signal-to-noise ratio is idiosyncratic to each participant's data. When evaluating the likelihood of left-out data under the estimated model parameters, we therefore plug in the ML-estimates for these two parameters for each subject. 
+
+Finally, a last option is to implement a full Bayesian approach and to impose priors on all parameters, and then use a Laplace approximation to estimate the model evidence \citep{RN3654, RN3255}. While it certainly can be argued that this is the most elegant approach, we find that cross-validation at the level of model parameters provides us with a practical, straightforward, and transparent way of achieving a good approximation.
+
+Each of the inference strategies supplies us with an estimate of the model evidence. To compare models, we then calculate the log Bayes factor, which is the difference between the log model evidences.
+
+
+$$
+\begin{array}\log B_{12} = \log \frac{p(\mathbf{Y}|M_1)}{p(\mathbf{Y}|M_2)}\\
+=\log p(\mathbf{Y}|M_1)-\log p(\mathbf{Y}|M_2)\end{array}
+$$
+
+Log Bayes factors of over 1 are usually considered positive evidence and above 3 strong evidence for one model over the other \citep{RN3654}.
+
+## Group inference
+How to perform group inference in the context of Bayesian model comparison is a topic of ongoing debate in the context of neuroimaging. A simple approach is to assume that the data of each subject is independent (a very reasonable assumption) and that the true model is the same for each subject (a maybe less reasonable assumption). This motivates the use of log Group Bayes Factors (GBF), which is simple sum of all individual log Bayes factor across all subjects n
+
+$$
+\log GBF = \sum_{n} log B_{n}.
+$$
+
+Performing inference on the GBF is basically equivalent to a fixed-effects analysis in neuroimaging, in which we combine all time series across subjects into a single data set, assuming they all were generated by the same underlying model. A large GBF therefore could be potentially driven by one or few outliers. We believe that the GBF therefore does not provide a desirable way of inferring on representational models - even though it has been widely used in the comparison of DCM models \citep{RN2029}.
+
+At least the distribution of individual log Bayes factors should be reported for each model. When evaluating model evidences against a Bayesian criterion, it can be useful to use the average log Bayes factor, rather than the sum. This stricter criterion is independent of sample size, and therefore provides a useful estimate or effect size. It expresses how much the favored model is expected to perform better on a new, unseen subject. We can also use the individual log Bayes factors as independent observations that are then submitted to a frequentist test, using either a t-, F-, or nonparametric test. This provides a simple, practical approach that we will use in our examples here. Note, however, that in the context of group cross-validation, the log-Bayes factors across participants are not strictly independent. 
+
+Finally, it is also possible to build a full Bayesian model on the group level, assuming that the winning model is different for each subject and comes from a multinomial distribution with unknown parameters \citep{RN3653}.
+
+## Noise ceilings 
+Showing that a model provides a better explanation of the data as compared to a simpler Null-model is an important step. Equally important, however, is to determine how much of the data the model does not explain. Noise ceilings \citep{RN3300} provide us with an estimate of how much systematic structure (either within or across participants) is present in the data, and what proportion is truly random. In the context of PCM, this can be achieved by fitting a fully flexible model, i.e.\ a free model in which the second moment matrix can take any form. The non-cross-validated fit of this model provides an absolute upper bound - no simpler model will achieve a higher average likelihood. As this estimate is clearly inflated (as it does not account for the parameter fit) we can also evaluate the free model using cross-validation. Importantly, we need to employ the same cross-validation strategy (within \slash between subjects) as used with the models of interest. If the free model performs better than our model of interest even when cross-validated, then we know that there are definitely aspects of the representational structure that the model did not capture. If the free model performs worse, it is overfitting the data, and our currently best model provides a more concise description of the data. In this sense, the performance of the free model in the cross-validated setting provides a  lower bound to the noise ceiling. It still may be the case that there is a better model that will beat the currently best model, but at least the current model already provides an adequate description of the data. Because they are so useful, noise ceilings should become a standard reporting requirement when fitting representational models to fMRI data, as they are in other fields of neuroscientific inquiry already. The Null-model and the upper noise ceiling also allow us to normalize the log model evidence to be between 0 (Null-model) and 1 (noise ceiling), effectively obtaining a Pseudo-$R^{2}$. 
+
+## Component models
+>>>>>>> d10a50dac7ea1cd4d759d2d74ce06515d7f220a2
 
 # Mathematical and Algorithmic details
 
@@ -643,7 +715,7 @@ $$
 {\bf{R}} = \bf{X}{\left( {{{\bf{X}}^T}{{\bf{V}}^{ - 1}}{\bf{X}}} \right)^{ - 1}}{{\bf{X}}^T}{{\bf{V}}^{ - 1}}\\ {\bf{r_i}} = \bf{Ry_i}
 $$
 
-For the optimization of the random effects we therefore also need to take into account the uncertainty in the random effects estimates. Together this leads to a modified likelihood - the restricted likelihood that we which to optimize.
+For the optimization of the random effects we therefore also need to take into account the uncertainty in the fixed effects estimates. Together this leads to a modified likelihood - the restricted likelihood that we which to optimize.
 $$
 L_{ReML} =-\frac{NP}{2}\mathrm{ln}\left(2\pi \right)-\frac{P}{2}\mathrm{ln}\left(|\bf{V}|\right)-\frac{1}{2}trace\left({\bf{Y}\bf{Y}}^{T}\bf{R}^{T}{\bf{V}}^{-1}\bf{R}\right)-\frac{P}{2}\mathrm{ln}|\bf{X}^{T}\bf{V}^{-1}\bf{X}|
 $$

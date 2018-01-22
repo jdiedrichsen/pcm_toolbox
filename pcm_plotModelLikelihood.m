@@ -234,7 +234,7 @@ ylims = get(gca,'YLim');
 set(gca,'XTick',[1:i-1]);
 set(gca,'XTickLabel',labels);
 set(gca,'XLim',[0.5 i-0.5]);
-set(gca,'YLim',[0 ylims(2)]);
+% set(gca,'YLim',[0 ylims(2)]);
 if normalize
     ylabel('Normalized log-likelihood');
 else

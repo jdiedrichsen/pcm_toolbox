@@ -68,12 +68,10 @@ for k = 1:OPT.numIter
             dtheta   =  dFdhh\dFdh;
             theta = theta - dtheta;
         catch % Likely matrix close to singluar
-            
             OPT.HessReg = OPT.HessReg*10;
             dFdhh = dFdhh_old + diag(diag(dFdhh_old))*OPT.HessReg;
             dtheta   =  dFdhh\dFdh;
             theta = theta - dtheta;
-            keyboard;
         end;
     end;
     
