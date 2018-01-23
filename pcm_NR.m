@@ -41,7 +41,7 @@ OPT=pcm_getUserOptions(varargin,OPT,{'HessReg','thres','numIter','verbose','regu
 % Set warning to error, so it can be caught
 warning('error','MATLAB:nearlySingularMatrix');
 warning('error','MATLAB:singularMatrix'); 
-
+warning('error','MATLAB:illConditionedMatrix'); 
 
 % Initialize Interations
 %--------------------------------------------------------------------------
@@ -63,19 +63,26 @@ for k = 1:OPT.numIter
         end;
         
         % Fisher scoring: update dh = inv(ddF/dhh)*dF/dh
+        % if it fails increase regularisation until dFdhh is invertible 
         %----------------------------------------------------------------------
-        try
-            dtheta   =  dFdhh\dFdh;
-            theta = theta - dtheta;
-        catch % Likely matrix close to singluar
-            OPT.HessReg = OPT.HessReg*10;
-            dFdhh = dFdhh_old + diag(diag(dFdhh_old))*OPT.HessReg;
-            dtheta   =  dFdhh\dFdh;
-            theta = theta - dtheta;
+        while true 
+            try
+                dtheta   =  dFdhh\dFdh;
+                theta = theta - dtheta;
+                break; 
+            catch % Likely matrix close to singluar
+                OPT.HessReg = OPT.HessReg*10;
+                if (OPT.HessReg>100000) 
+                    if (OPT.verbose)
+                        fprintf('Cant regularise second derivative.. Giving up\n');
+                    end;
+                    break;  % Give up  
+                end; 
+                dFdhh = dFdhh_old + diag(diag(dFdhh_old))*OPT.HessReg;
+            end; 
         end;
     end;
-    
-    
+        
     thetaH(:,k)=theta;
     regH(k)=OPT.HessReg;
     ME=[];
