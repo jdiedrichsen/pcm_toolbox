@@ -73,17 +73,10 @@ function [T,theta_hat,G_pred]=pcm_fitModelGroupCrossval(Y,M,partitionVec,conditi
 %
 %   'verbose':      Optional flag to show display message in the command
 %                   line (e.g., elapsed time). Default is 1.
-<<<<<<< HEAD
-% 
-%   'groupFit',theta:Parameters theta from the group fit: This provides better starting
-%                    values and can speed up the computation. 
-% 
-=======
 %
 %   'groupFit',T:   Parameters theta from the group fit: This provides better starting
 %                   values and can speed up the computation
 %
->>>>>>> develop
 %   'S':            Specific assumed noise structure - usually inv(XX'*XX),
 %                   where XX is the first-level design matrix used to
 %                   estimate the activation estimates
@@ -147,14 +140,6 @@ M = pcm_optimalAlgorithm(M);
 % --------------------------------------------------------------
 % Determine starting values for fit:
 for m = 1:numModels
-<<<<<<< HEAD
-     if (~isempty(groupFit))
-        if (size(groupFit{m},2)>1)
-            error('Group Fit needs to be a cell array with numParam x 1 vectors for each model'); 
-        end; 
-        theta0{m}      = groupFit{m}(1:M{m}.numGparams,1);
-        indx           = M{m}.numGparams; 
-=======
     if (isempty(groupFit))    % No group fit: determine starting values
         if (~isfield(M{m},'theta0'))
             M{m}.theta0 = pcm_getStartingval(M{m},mean(G_hat,3));
@@ -185,7 +170,6 @@ for m = 1:numModels
     else % If group fit is given, start with those values
         M{m}.theta0      = groupFit{m}(1:M{m}.numGparams);
         indx           = M{m}.numGparams;
->>>>>>> develop
         noise0(:,m)     = groupFit{m}(indx+1:indx+numSubj);
         indx           = indx+numSubj;
         if (fitScale)
