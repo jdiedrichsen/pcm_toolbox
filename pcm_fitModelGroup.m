@@ -86,9 +86,9 @@ function [T,theta_hat,G_pred,theta0]=pcm_fitModelGroup(Y,M,partitionVec,conditio
 %       run:            Run variance (if runEffect = 'random'); 
 %
 %    theta_hat:  Estimated parameters at the overall fitting (including
-%                noise, scale and run parameters).  
+%                noise, scale, and run parameters). A mx1 cell array   
 %    Gpred:      Predicted second moment matrix for the model from group
-%                fit for each model 
+%                fit for each model. A mx1 cell array 
 
 runEffect       = 'fixed';
 isCheckDeriv    = 0;

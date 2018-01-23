@@ -40,7 +40,7 @@ These functions are higher level functions that perform fitting and crossvalidat
 | 	Function 			       | Comment  
 |:-----------------------------|:-----------------------------
 | `pcm_checkderiv`             | Checks derivate of a nonlinear model 
-| `pcm_estGcrossval`           | Crosscvalidated estimate of G 
+| `pcm_estGcrossval`           | Cross-validated estimate of G 
 | `pcm_indicatorMatrix`        | Generates indicator matrices 
 | `pcm_vararginoptions`		   | Handles optional input arguments
 
