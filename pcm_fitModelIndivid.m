@@ -58,7 +58,7 @@ function [T,theta_hat,G_pred,theta0]=pcm_fitModelIndivid(Y,M,partitionVec,condit
 %   'verbose':      Optional flag to show display message in the command
 %                   line (e.g., elapsed time). Default is 1.
 % 
-%   'S':             Optional specific covariance structureof the noise 
+%   'S':             Optional specific covariance structure of the noise 
 % 
 %   'fitAlgorithm': Either 'NR' or 'minimize' - provides over-write for
 %                   model specific algorithms 
