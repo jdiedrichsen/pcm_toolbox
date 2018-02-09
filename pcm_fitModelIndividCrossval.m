@@ -89,7 +89,7 @@ verbose         = 1;
 S               = [];
 fitAlgorithm    = [];
 crossvalScheme  = 'leaveTwoOut'; 
-evaluation      = {'likelihood','R2','R'}; 
+evaluation      = {'likelihood_cond','R2','R'}; 
 theta0          = {}; 
 pcm_vararginoptions(varargin,{'crossvalScheme','fitAlgorithm','runEffect',...
             'MaxIteration','verbose','S','evaluation','crossvalScheme','theta0'});
@@ -99,6 +99,12 @@ if (~iscell(Y))
     Y={Y};
 end; 
 numSubj     = numel(Y);
+
+% Number of evaluation criteria 
+if (~iscell(evaluation)) 
+    evaluation={evaluation}; 
+end; 
+numEval = numel(evaluation); 
 
 % Preallocate output structure
 T.SN = [1:numSubj]';
@@ -200,12 +206,17 @@ for s = 1:numSubj
             trainIdx = ~ismember(pV,partI{i}); 
             testIdx = ismember(pV,partI{i}); 
             
-            % Now set up the function that returns likelihood and derivative
+            % Get the data and design matrices for training set 
             Ytrain=Y{s}(trainIdx,p); 
             Xtrain=reduce(X{s},trainIdx);
             Ztrain=Z{s}(trainIdx,:);
             OPT.runEffect = reduce(B{s},trainIdx); 
 
+            % Get test data and design matrices for the test set 
+            Ytest=Y{s}(testIdx,p);
+            Xtest=reduce(X{s},testIdx);
+            Ztest=Z{s}(testIdx,:);
+            Btest=reduce(B{s},testIdx);
             
             % Perform the initial fit to the training data 
             switch (M{m}.fitAlgorithm)
@@ -221,27 +232,36 @@ for s = 1:numSubj
             % Record the stats from fitting
             T.SN(p,1)         = s;
             T.fold(p,1)       = p;
-            T.noise(p,m)      =  exp(th(M{m}.numGparams+1),p);
+            T.noise(p,m)      =  exp(th(M{m}.numGparams+1,p));
             if strcmp(runEffect,'random')
-                T.run(p,m)      =  exp(th(M{m}.numGparams+2),p);
+                T.run(p,m)      =  exp(th(M{m}.numGparams+2,p));
             end;
             T.iterations(p,m) = i;
             T.time(p,m)       = toc;
-            theta{m}(n,p)     = th(1:M{m}.numGparams,p)';
+            theta{m}(:,p)     = th(1:M{m}.numGparams,p)';
             
-            % Get test data from that voxel
-            Ytest=Y{s}(testIdx,p);
-            Xtest=reduce(X{s},testIdx);
-            Ztest=Z{s}(testIdx,:);
-            OPT.runEffect=reduce(B{s},testIdx);
             
-            % Evaluate log-likelihood on left-out voxel
-            switch (evalType)
-                case 'uncond' % evaluates p(Y1 | theta)
-                    lik(i) = -pcm_likelihoodIndivid(th(:,i),y*y',M{m},Zt,Xt,1,OPT);
-                case {'simple','full'} % evaluate the prediction
-                    lik(i) = pcm_crossvalLikelihood(M{m},th(:,i),Y(:,p),Z,X,...
-                        trainI,testI,'type',evalType);
+            % calculate prediction on 
+            estU = pcm_estimateU(M{m},th(:,p),Z,X,'runEffect',OPT.runEffect); 
+            Ypred  = Ztest*estU;
+            Ytestx = Ytest-Xtest*(Xtest'*Xtest)\Xtest*Ytest;
+            for c = 1:numEval 
+                switch (evaluation{c})
+                    case 'likelihood_uncond' % evaluates p(Y1 | theta)
+                        lik(i) = -pcm_likelihoodIndivid(th(:,i),y*y',M{m},Zt,Xt,1,OPT);
+                    case 'likelihood_cond' % evaluate the prediction
+                        lik(i) = pcm_crossvalLikelihood(M{m},th(:,i),Y(:,p),Z,X,...
+                            trainI,testI,'type',evalType);
+                    case 'R2'              % Predictive R2 
+                        TSS = sum(sum(Ytestx.*Ytestx)); 
+                        RSS = sum(sum((Ytest-Ypred).^2)); 
+                        T.R2(p,m)=1-RSS/TSS; 
+                    case 'R'               % Predictive correlation 
+                        SS1 = sum(sum(Ytestx.*Ytestx));
+                        SS2 = sum(sum(Ypred.*Ypred));
+                        SSC = sum(sum(Ypred.*Ytestx));
+                        T.R(p,m)=SSC/sqrt(SS1*SS2); 
+                end; 
             end;
             
             % Use last iterations as a parameter starting value
