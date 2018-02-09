@@ -56,7 +56,10 @@ function [D,T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,v
 %
 %   'S',S         : (Cell array of) NxN noise covariance matrices -
 %                   otherwise independence is assumed
-%   'Evaluation'  : Evaluation criteria of model: Either string or cell
+%   'fitAlgorithm': Either 'NR' or 'minimize' - provides over-write for
+%                   model specific algorithms
+%   'theta0':       Cell array of starting values (same format as theta{m})
+%   'evaluation'  : Evaluation criteria of model: Either string or cell
 %                   array (for multiple criteria)
 %                   'crossvalR2': crossvalidated coefficient of determination (1-PSS/TSS)
 %                   'crossvalR': correlation between predicted and observed
@@ -66,10 +69,10 @@ function [D,T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,v
 %--------------------------------------------------------------------------
 % OUTPUT:
 %   D:      Summary crossvalidation results (1 per subject)
+%       fold:               Crossvalidation fold 
 %   T:      Detailed crossvalidation results (1 per condition)
 %       SN:                 Subject number
 %       likelihood:         crossvalidated likelihood
-%       partition:          Partition serving as test set
 %       noise:              Noise parameter
 %       run:                Run parameter (if run = 'random')
 %       iterations:         Number of interations for model fit
@@ -84,15 +87,25 @@ MaxIteration    = 1100;
 Iter            = [];
 verbose         = 1;
 S               = [];
-pcm_vararginoptions(varargin,{'runEffect','MaxIteration','verbose','S'});
+fitAlgorithm    = [];
+crossvalScheme  = 'leaveTwoOut'; 
+evaluation      = {'likelihood','R2','R'}; 
+theta0          = {}; 
+pcm_vararginoptions(varargin,{'crossvalScheme','fitAlgorithm','runEffect',...
+            'MaxIteration','verbose','S','evaluation','crossvalScheme','theta0'});
+
+% Number of subejcts 
+if (~iscell(Y))
+    Y={Y};
+end; 
+numSubj     = numel(Y);
 
 % Preallocate output structure
 T.SN = [1:numSubj]';
 
-
 % Get the number of models
 if (~iscell(M))
-    M{M};
+    M={M};
 end;
 numModels   = numel(M);
 
@@ -110,9 +123,14 @@ M = pcm_optimalAlgorithm(M);
 
 % Loop over subject and provide inidivdual fits
 for s = 1:numSubj
-    
+
     % Set up crossvalidation scheme
-    part = unique(partitionVec)';
+    if iscell(partitionVec) 
+        pV=partitionVec{s}; 
+    else 
+        pV=partitionVec; 
+    end; 
+    part = unique(pV)';
     numPart = numel(part);
     if ischar(crossvalScheme)
         partI={};
@@ -163,7 +181,7 @@ for s = 1:numSubj
             if (isfield(M{m},'theta0'))
                 th0m = M{m}.theta0(1:M{m}.numGparams);
             else
-                th0m = pcm_getStartingval(M{m},G_hat);
+                th0m = pcm_getStartingval(M{m},G_hat(:,:,s));
             end;
             
             if (strcmp(runEffect,'random'))
@@ -178,54 +196,44 @@ for s = 1:numSubj
         x0 = theta0{m};
         
         % Now perform the cross-validation across different partitions
-        numPart = max(pV);
-        for p=1:numPart
-            
-            testIdx = pV==p;
-            traiIdx = pV~=p;
+        for p=1:numFolds
+            trainIdx = ~ismember(pV,partI{i}); 
+            testIdx = ismember(pV,partI{i}); 
             
             % Now set up the function that returns likelihood and derivative
-            Xtest = X(testIdx,:);
-            Xtest = Xtest(:,sum(abs(Xtest))>0);  % remove unecessary columns
-            Xtrai = X(traiIdx,:);
-            Xtrai = Xtrai(:,sum(abs(Xtrai))>0);  % remove unecessary columns
-            Btest = B(testIdx,:);
-            Btest = Btest(:,sum(abs(Btest))>0);  % remove unecessary columns
-            Btrai = B(traiIdx,:);
-            Btrai = Xtest(:,sum(abs(Btrai))>0);  % remove unecessary columns
+            Ytrain=Y{s}(trainIdx,p); 
+            Xtrain=reduce(X{s},trainIdx);
+            Ztrain=Z{s}(trainIdx,:);
+            OPT.runEffect = reduce(B{s},trainIdx); 
+
             
-            
-            % Now loop over models
-            
+            % Perform the initial fit to the training data 
             switch (M{m}.fitAlgorithm)
                 case 'minimize'  % Use minimize to find maximum liklhood estimate runEffect',B{s});
-                    fcn = @(x) pcm_likelihoodIndivid(x,y*y',M{m},Zt,Xt,1,OPT);
-                    [th(:,i),~,iter(i)] =  minimize(x0, fcn, MaxIteration);
+                    fcn = @(x) pcm_likelihoodIndivid(x,Ytrain*Ytrain',M{m},Ztrain,Xtrain,P(s),OPT);
+                    [th(:,p),~,iter(p)] =  minimize(x0, fcn, MaxIteration);
                 case 'NR'
-                    fcn = @(x) pcm_likelihoodIndivid(x,y*y',M{m},Zt,Xt,1,OPT);
+                    fcn = @(x) pcm_likelihoodIndivid(x,Ytrain*Ytrain',M{m},Ztrain,Xtrain,P(s),OPT);
                     lik(i) = fcn(x0);
-                    [th(:,i),~,iter(i)]= pcm_NR(x0,fcn,'verbose',verbose==2);
+                    [th(:,p),~,iter(p)]= pcm_NR(x0,fcn,'verbose',verbose==2);
             end;
-            
-            
-            
             
             % Record the stats from fitting
-            T.SN(n,1)         = s;
-            T.partition(n,1)  = p;
-            T.noise(n,m)      =  exp(th(M{m}.numGparams+1));
+            T.SN(p,1)         = s;
+            T.fold(p,1)       = p;
+            T.noise(p,m)      =  exp(th(M{m}.numGparams+1),p);
             if strcmp(runEffect,'random')
-                T.run(n,m)      =  exp(th(M{m}.numGparams+2));
+                T.run(p,m)      =  exp(th(M{m}.numGparams+2),p);
             end;
-            T.iterations(n,m) = i;
-            T.time(n,m)       = toc;
-            theta{m}(n,:)     = th(1:M{m}.numGparams)';
+            T.iterations(p,m) = i;
+            T.time(p,m)       = toc;
+            theta{m}(n,p)     = th(1:M{m}.numGparams,p)';
             
             % Get test data from that voxel
-            y=Y(testI,p);
-            OPT.runEffect=B(testI,:);
-            Xt=reduce(X,testI);
-            Zt=Z(testI,:);
+            Ytest=Y{s}(testIdx,p);
+            Xtest=reduce(X{s},testIdx);
+            Ztest=Z{s}(testIdx,:);
+            OPT.runEffect=reduce(B{s},testIdx);
             
             % Evaluate log-likelihood on left-out voxel
             switch (evalType)
@@ -247,3 +255,8 @@ for s = 1:numSubj
     D.noise(s,:) = mean(T.noise(indx,:));
     D.likelihood(s,:) = sum(T.likelihood(indx,:)); % Partitions are independent
 end; % for each subject
+
+
+function Xt=reduce(X,index); 
+    Xt=X(index,:);
+    Xt=Xt(:,sum(abs(Xt))>0); 
