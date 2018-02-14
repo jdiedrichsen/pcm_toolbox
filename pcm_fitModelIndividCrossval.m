@@ -1,5 +1,5 @@
-function [D,T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,varargin);
-% function [D,T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,varargin);
+function [T,DD,theta_hat,theta0]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,varargin);
+% function [T,D,theta_hat]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,varargin);
 % Fits pattern component model(s) specified in M to data from one (or more)
 % subjects individually, using leave-one out crossvalidation within each
 % subject.
@@ -58,6 +58,9 @@ function [D,T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,v
 %                   otherwise independence is assumed
 %   'fitAlgorithm': Either 'NR' or 'minimize' - provides over-write for
 %                   model specific algorithms
+%   'verbose':      Optional flag to show display message in the command
+%                   line. Default is 1. Setting to 2 gives more detailed
+%                   feedback on pcm_NR
 %   'theta0':       Cell array of starting values (same format as theta{m})
 %   'evaluation'  : Evaluation criteria of model: Either string or cell
 %                   array (for multiple criteria)
@@ -68,32 +71,33 @@ function [D,T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,v
 %                                   predicted, with maximized signal and noise parameter
 %--------------------------------------------------------------------------
 % OUTPUT:
-%   D:      Summary crossvalidation results (1 per subject)
-%       fold:               Crossvalidation fold 
-%   T:      Detailed crossvalidation results (1 per condition)
+%   T:      Summary crossvalidation results (1 per subject)
 %       SN:                 Subject number
 %       likelihood:         crossvalidated likelihood
 %       noise:              Noise parameter
 %       run:                Run parameter (if run = 'random')
 %       iterations:         Number of interations for model fit
 %       time:               Elapsed time in sec
+%   D:  Detailed crossvalidation results (1 per condition)    
+%       fold:               Crossvalidation fold 
 %
-%  theta{model}:      Estimated parameters (model + scaling/noise parameters)
-%                       for individual subjects and partitions
+%  theta_hat{model}:  Estimated parameters (model + scaling/noise parameters)
+%                       for individual subjects 
 
 runEffect       = 'random';
 isCheckDeriv    = 0;
-MaxIteration    = 1100;
+MaxIteration    = 1000;
 Iter            = [];
 verbose         = 1;
 S               = [];
-fitAlgorithm    = 'NR';
+fitAlgorithm    = [];
 crossvalScheme  = 'leaveTwoOut'; 
 evaluation      = {'R2','R'}; 
 theta0          = {}; 
 pcm_vararginoptions(varargin,{'crossvalScheme','fitAlgorithm','runEffect',...
             'MaxIteration','verbose','S','evaluation','crossvalScheme','theta0'});
 
+DD=[]; 
 % Number of subejcts 
 if (~iscell(Y))
     Y={Y};
@@ -128,8 +132,8 @@ M = pcm_optimalAlgorithm(M);
     pcm_setUpFit(Y,partitionVec,conditionVec,'runEffect',runEffect,'S',S);
 
 % Loop over subject and provide inidivdual fits
-for s = 1:1
-
+for s = 1:numSubj 
+    
     % Set up crossvalidation scheme
     if iscell(partitionVec) 
         pV=partitionVec{s}; 
@@ -176,23 +180,22 @@ for s = 1:1
         end;
         
         % Get starting guess for theta if not provided
-        if (numel(theta0)<m)
+        if (numel(theta0)<m || size(theta0{m},2)<s) 
             if (isfield(M{m},'theta0'))
                 th0m = M{m}.theta0(1:M{m}.numGparams);
             else
-                th0m = pcm_getStartingval(M{m},G_hat(:,:,s));
+                th0m = pcm_getStartingval(M{m},G_hat(:,:,s));   
             end;
-            
-            if (strcmp(runEffect,'random'))
-                x0 = [th0m;noise0;run0];
-            else
-                x0 = [th0m;noise0];
-            end;
-            theta0{m}=x0;
-        end;
         
+            if (strcmp(runEffect,'random'))
+                theta0{m}(:,s) = [th0m;noise0(s);run0(s)];
+            else
+                theta0{m}(:,s) = [th0m;noise0(s)]; 
+            end;
+        end; 
+
         % Set starting values
-        x0 = theta0{m};
+        x0 = theta0{m}(:,s);
         th = nan(size(x0,1),numFolds); 
         
         % Now perform the cross-validation across different partitions
@@ -220,8 +223,8 @@ for s = 1:1
                     [th(:,p),fX,D.iterations(p,m)] =  minimize(x0, fcn, MaxIteration);
                     D.likelihood_fit(p,m)=-fX(end); 
                 case 'NR'
-                    fcn = @(x) pcm_likelihoodIndivid(x,Ytrain*Ytrain',M{m},Ztrain,Xtrain,P(s),OPT);
-                    [th(:,p),D.likelihood_fit(p,m),D.iterations(p,m)]= pcm_NR(x0,fcn,'verbose',verbose==2);
+                    fcn = @(x) pcm_likelihoodIndivid(x,Ytrain*Ytrain',M{m},Ztrain,Xtrain,P(s));
+                    [th(:,p),D.likelihood_fit(p,m),D.iterations(p,m)]= pcm_NR(x0,fcn,'verbose',verbose);
             end;
             
             % Record the stats from fitting
@@ -257,14 +260,27 @@ for s = 1:1
             end;
             
             % Use last iterations as a parameter starting value
-            % x0 = th;
+            x0 = th(:,p);
         end;                % For each partition 
+        theta_hat{m}(:,s)=mean(th,2);
     end;                    % For each model 
+    DD=addstruct(DD,D); 
+    
     % Summarize results across partitions for each subject
-    indx = (T.SN==s);
-    D.SN(s,1) = s;
-    D.noise(s,:) = mean(T.noise(indx,:));
-    D.likelihood(s,:) = sum(T.likelihood(indx,:)); % Partitions are independent
+    T.noise(s,:)=mean(D.noise); 
+    if strcmp(runEffect,'random')
+        T.run(s,:) =  mean(D.run);
+    end;
+    T.time(s,:)    =  sum(D.time);
+    T.iterations(s,:)    =  sum(D.iterations);
+    for c = 1:numEval 
+        switch (evaluation{c})
+            case {'likelihood_uncond','likelihood_cond'}
+                T.(evaluation{c})(s,:)    =  sum(D.(evaluation{c}));
+            case {'R2','R'}
+                T.(evaluation{c})(s,:)    =  mean(D.(evaluation{c}));
+        end;
+    end; 
 end; % for each subject
 
 
