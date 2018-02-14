@@ -87,9 +87,9 @@ MaxIteration    = 1100;
 Iter            = [];
 verbose         = 1;
 S               = [];
-fitAlgorithm    = [];
+fitAlgorithm    = 'NR';
 crossvalScheme  = 'leaveTwoOut'; 
-evaluation      = {'likelihood_cond','R2','R'}; 
+evaluation      = {'R2','R'}; 
 theta0          = {}; 
 pcm_vararginoptions(varargin,{'crossvalScheme','fitAlgorithm','runEffect',...
             'MaxIteration','verbose','S','evaluation','crossvalScheme','theta0'});
@@ -128,7 +128,7 @@ M = pcm_optimalAlgorithm(M);
     pcm_setUpFit(Y,partitionVec,conditionVec,'runEffect',runEffect,'S',S);
 
 % Loop over subject and provide inidivdual fits
-for s = 1:numSubj
+for s = 1:1
 
     % Set up crossvalidation scheme
     if iscell(partitionVec) 
@@ -168,13 +168,6 @@ for s = 1:numSubj
                 fprintf('Fitting Subj: %d model:%d\n',s,m);
             end;
         end;
-        if (verbose)
-            if isfield(M,'name');
-                fprintf('Fitting Subj: %d model:%s\n',s,M{m}.name);
-            else
-                fprintf('Fitting Subj: %d model:%d\n',s,m);
-            end;
-        end;
         tic;
         
         % Set options
@@ -200,20 +193,21 @@ for s = 1:numSubj
         
         % Set starting values
         x0 = theta0{m};
+        th = nan(size(x0,1),numFolds); 
         
         % Now perform the cross-validation across different partitions
         for p=1:numFolds
-            trainIdx = ~ismember(pV,partI{i}); 
-            testIdx = ismember(pV,partI{i}); 
+            trainIdx = ~ismember(pV,partI{p}); 
+            testIdx = ismember(pV,partI{p}); 
             
             % Get the data and design matrices for training set 
-            Ytrain=Y{s}(trainIdx,p); 
+            Ytrain=Y{s}(trainIdx,:); 
             Xtrain=reduce(X{s},trainIdx);
             Ztrain=Z{s}(trainIdx,:);
             OPT.runEffect = reduce(B{s},trainIdx); 
 
             % Get test data and design matrices for the test set 
-            Ytest=Y{s}(testIdx,p);
+            Ytest=Y{s}(testIdx,:);
             Xtest=reduce(X{s},testIdx);
             Ztest=Z{s}(testIdx,:);
             Btest=reduce(B{s},testIdx);
@@ -222,53 +216,50 @@ for s = 1:numSubj
             switch (M{m}.fitAlgorithm)
                 case 'minimize'  % Use minimize to find maximum liklhood estimate runEffect',B{s});
                     fcn = @(x) pcm_likelihoodIndivid(x,Ytrain*Ytrain',M{m},Ztrain,Xtrain,P(s),OPT);
-                    [th(:,p),~,iter(p)] =  minimize(x0, fcn, MaxIteration);
+                    l=fcn(x0); 
+                    [th(:,p),fX,D.iterations(p,m)] =  minimize(x0, fcn, MaxIteration);
+                    D.likelihood_fit(p,m)=-fX(end); 
                 case 'NR'
                     fcn = @(x) pcm_likelihoodIndivid(x,Ytrain*Ytrain',M{m},Ztrain,Xtrain,P(s),OPT);
-                    lik(i) = fcn(x0);
-                    [th(:,p),~,iter(p)]= pcm_NR(x0,fcn,'verbose',verbose==2);
+                    [th(:,p),D.likelihood_fit(p,m),D.iterations(p,m)]= pcm_NR(x0,fcn,'verbose',verbose==2);
             end;
             
             % Record the stats from fitting
-            T.SN(p,1)         = s;
-            T.fold(p,1)       = p;
-            T.noise(p,m)      =  exp(th(M{m}.numGparams+1,p));
+            D.SN(p,1)         = s;
+            D.fold(p,1)       = p;
+            D.noise(p,m)      =  exp(th(M{m}.numGparams+1,p));
             if strcmp(runEffect,'random')
-                T.run(p,m)      =  exp(th(M{m}.numGparams+2,p));
+                D.run(p,m)      =  exp(th(M{m}.numGparams+2,p));
             end;
-            T.iterations(p,m) = i;
-            T.time(p,m)       = toc;
-            theta{m}(:,p)     = th(1:M{m}.numGparams,p)';
-            
+            D.time(p,m)       = toc;
             
             % calculate prediction on 
-            estU = pcm_estimateU(M{m},th(:,p),Z,X,'runEffect',OPT.runEffect); 
+            estU = pcm_estimateU(M{m},th,Ytrain,Ztrain,Xtrain,'runEffect',OPT.runEffect); 
             Ypred  = Ztest*estU;
-            Ytestx = Ytest-Xtest*(Xtest'*Xtest)\Xtest*Ytest;
+            Ytestx = Ytest-Xtest*pinv(Xtest)*Ytest;
             for c = 1:numEval 
                 switch (evaluation{c})
                     case 'likelihood_uncond' % evaluates p(Y1 | theta)
-                        lik(i) = -pcm_likelihoodIndivid(th(:,i),y*y',M{m},Zt,Xt,1,OPT);
+                        lik(i) = -pcm_likelihoodIndivid(th(:,p),y*y',M{m},Zt,Xt,1,OPT);
                     case 'likelihood_cond' % evaluate the prediction
-                        lik(i) = pcm_crossvalLikelihood(M{m},th(:,i),Y(:,p),Z,X,...
+                        D.likelihood_cond = pcm_crossvalLikelihood(M{m},th(:,p),Y(:,p),Z,X,...
                             trainI,testI,'type',evalType);
                     case 'R2'              % Predictive R2 
-                        TSS = sum(sum(Ytestx.*Ytestx)); 
-                        RSS = sum(sum((Ytest-Ypred).^2)); 
-                        T.R2(p,m)=1-RSS/TSS; 
+                        TSS = sum(sum(Ytestx.*Ytestx));
+                        RSS = sum(sum((Ytestx-Ypred).^2)); 
+                        D.R2(p,m)=1-RSS/TSS; 
                     case 'R'               % Predictive correlation 
                         SS1 = sum(sum(Ytestx.*Ytestx));
                         SS2 = sum(sum(Ypred.*Ypred));
                         SSC = sum(sum(Ypred.*Ytestx));
-                        T.R(p,m)=SSC/sqrt(SS1*SS2); 
+                        D.R(p,m)=SSC/sqrt(SS1*SS2); 
                 end; 
             end;
             
             % Use last iterations as a parameter starting value
-            x0 = th(:,i);
-        end;
-        n=n+1;
-    end; % For each partition
+            % x0 = th;
+        end;                % For each partition 
+    end;                    % For each model 
     % Summarize results across partitions for each subject
     indx = (T.SN==s);
     D.SN(s,1) = s;
