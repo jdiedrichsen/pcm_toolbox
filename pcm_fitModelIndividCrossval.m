@@ -248,14 +248,12 @@ for s = 1:numSubj
                         D.likelihood_cond = pcm_crossvalLikelihood(M{m},th(:,p),Y(:,p),Z,X,...
                             trainI,testI,'type',evalType);
                     case 'R2'              % Predictive R2 
-                        TSS = sum(sum(Ytestx.*Ytestx));
-                        RSS = sum(sum((Ytestx-Ypred).^2)); 
-                        D.R2(p,m)=1-RSS/TSS; 
+                        D.TSS(p,m)= sum(sum(Ytestx.*Ytestx));
+                        D.RSS(p,m)= sum(sum((Ytestx-Ypred).^2)); 
                     case 'R'               % Predictive correlation 
-                        SS1 = sum(sum(Ytestx.*Ytestx));
-                        SS2 = sum(sum(Ypred.*Ypred));
-                        SSC = sum(sum(Ypred.*Ytestx));
-                        D.R(p,m)=SSC/sqrt(SS1*SS2); 
+                        D.SS1(p,m) = sum(sum(Ytestx.*Ytestx));
+                        D.SS2(p,m) = sum(sum(Ypred.*Ypred));
+                        D.SSC(p,m) = sum(sum(Ypred.*Ytestx));
                 end; 
             end;
             
@@ -277,8 +275,15 @@ for s = 1:numSubj
         switch (evaluation{c})
             case {'likelihood_uncond','likelihood_cond'}
                 T.(evaluation{c})(s,:)    =  sum(D.(evaluation{c}));
-            case {'R2','R'}
-                T.(evaluation{c})(s,:)    =  mean(D.(evaluation{c}));
+            case 'R2'
+                TSS = sum(D.TSS); 
+                RSS = sum(D.RSS); 
+                T.R2(s,:)    = 1-RSS./TSS;  
+            case 'R'
+                SSC = sum(D.SSC); 
+                SS1 = sum(D.SS1); 
+                SS2 = sum(D.SS2); 
+                T.R(s,:)    = SSC./sqrt(SS1.*SS2); 
         end;
     end; 
 end; % for each subject
