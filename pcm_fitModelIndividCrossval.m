@@ -237,8 +237,9 @@ for s = 1:numSubj
             D.time(p,m)       = toc;
             
             % calculate prediction on 
-            estU = pcm_estimateU(M{m},th,Ytrain,Ztrain,Xtrain,'runEffect',OPT.runEffect); 
+            estU = pcm_estimateU(M{m},th(:,p),Ytrain,Ztrain,Xtrain,'runEffect',OPT.runEffect); 
             Ypred  = Ztest*estU;
+            Ypredx = Ypred-Xtest*pinv(Xtest)*Ypred; 
             Ytestx = Ytest-Xtest*pinv(Xtest)*Ytest;
             for c = 1:numEval 
                 switch (evaluation{c})
@@ -249,16 +250,16 @@ for s = 1:numSubj
                             trainI,testI,'type',evalType);
                     case 'R2'              % Predictive R2 
                         D.TSS(p,m)= sum(sum(Ytestx.*Ytestx));
-                        D.RSS(p,m)= sum(sum((Ytestx-Ypred).^2)); 
-                    case 'R'               % Predictive correlation 
+                        D.RSS(p,m)= sum(sum((Ytestx-Ypredx).^2)); 
+                    case {'R','Rpool'}               % Predictive correlation 
                         D.SS1(p,m) = sum(sum(Ytestx.*Ytestx));
-                        D.SS2(p,m) = sum(sum(Ypred.*Ypred));
-                        D.SSC(p,m) = sum(sum(Ypred.*Ytestx));
+                        D.SS2(p,m) = sum(sum(Ypredx.*Ypredx));
+                        D.SSC(p,m) = sum(sum(Ypredx.*Ytestx));
                 end; 
             end;
             
             % Use last iterations as a parameter starting value
-            x0 = th(:,p);
+            % x0 = th(:,p);
         end;                % For each partition 
         theta_hat{m}(:,s)=mean(th,2);
     end;                    % For each model 
@@ -279,11 +280,19 @@ for s = 1:numSubj
                 TSS = sum(D.TSS); 
                 RSS = sum(D.RSS); 
                 T.R2(s,:)    = 1-RSS./TSS;  
-            case 'R'
+            case 'Rpool' % Pool sums-of-squares first, then calculate correlations: 
+                % Warning: This measure is slightly negatively biased for
+                % noise data, but can perform more stable in model
+                % comparision 
                 SSC = sum(D.SSC); 
                 SS1 = sum(D.SS1); 
                 SS2 = sum(D.SS2); 
-                T.R(s,:)    = SSC./sqrt(SS1.*SS2); 
+                T.SS1(s,:)=SS1; 
+                T.SS2(s,:)=SS2; 
+                T.SSC(s,:)=SSC; 
+                T.Rpool(s,:)    = SSC./sqrt(SS1.*SS2); 
+            case 'R'  % Predictive correlation for each fold - then pool correlation 
+                T.R(s,:)    = mean(D.SSC./sqrt(D.SS1.*D.SS2)); 
         end;
     end; 
 end; % for each subject
