@@ -45,13 +45,20 @@ function [T,DD,theta_hat,theta0]=pcm_fitModelIndividCrossval(Y,M,partitionVec,co
 %                   specification individualized models.
 %--------------------------------------------------------------------------
 % OPTION:
+%   'crossvalScheme': Crossvalidation scheme on the different partitions 
+%                  'leaveOneOut': Leave one partition at a time out 
+%                  'leaveTwoOut': Leave two consecutive partitions out
+%                  'oddeven': Split half by odd and even runs 
+%   'evaluation':  So far implemented are only the standard encoding-model 
+%                   style evalutation criteria
+%                   'R2': Crossvalidated R^2 
+%                   'R' : Correlation between observed and predicted  
 %   'runEffect': How to deal with effects that may be specific to different
 %                imaging runs:
 %                  'random': Models variance of the run effect for each subject
 %                            as a seperate random effects parameter.
 %                  'fixed': Consider run effect a fixed effect, will be removed
 %                            implicitly using ReML.
-%
 %   'MaxIteration': Number of max minimization iterations. Default is 1000.
 %
 %   'S',S         : (Cell array of) NxN noise covariance matrices -
@@ -62,13 +69,6 @@ function [T,DD,theta_hat,theta0]=pcm_fitModelIndividCrossval(Y,M,partitionVec,co
 %                   line. Default is 1. Setting to 2 gives more detailed
 %                   feedback on pcm_NR
 %   'theta0':       Cell array of starting values (same format as theta{m})
-%   'evaluation'  : Evaluation criteria of model: Either string or cell
-%                   array (for multiple criteria)
-%                   'crossvalR2': crossvalidated coefficient of determination (1-PSS/TSS)
-%                   'crossvalR': correlation between predicted and observed
-%                   'likelihood':  log-likelihood of observed under predicted
-%                   'likelihood_rf': log-likelihood of observed under
-%                                   predicted, with maximized signal and noise parameter
 %--------------------------------------------------------------------------
 % OUTPUT:
 %   T:      Summary crossvalidation results (1 per subject)
@@ -243,15 +243,14 @@ for s = 1:numSubj
             Ytestx = Ytest-Xtest*pinv(Xtest)*Ytest;
             for c = 1:numEval 
                 switch (evaluation{c})
-                    case 'likelihood_uncond' % evaluates p(Y1 | theta)
-                        lik(i) = -pcm_likelihoodIndivid(th(:,p),y*y',M{m},Zt,Xt,1,OPT);
-                    case 'likelihood_cond' % evaluate the prediction
-                        D.likelihood_cond = pcm_crossvalLikelihood(M{m},th(:,p),Y(:,p),Z,X,...
-                            trainI,testI,'type',evalType);
+                    %  Under developement 
+                    %  case 'likelihood_cond' % evaluate the prediction
+                    %     D.likelihood_cond = pcm_crossvalLikelihood(M{m},th(:,p),Y(:,p),Z,X,...
+                    %         trainI,testI,'type',evalType);
                     case 'R2'              % Predictive R2 
                         D.TSS(p,m)= sum(sum(Ytestx.*Ytestx));
                         D.RSS(p,m)= sum(sum((Ytestx-Ypredx).^2)); 
-                    case {'R','Rpool'}               % Predictive correlation 
+                    case {'R','Rpool'}     % Predictive correlation 
                         D.SS1(p,m) = sum(sum(Ytestx.*Ytestx));
                         D.SS2(p,m) = sum(sum(Ypredx.*Ypredx));
                         D.SSC(p,m) = sum(sum(Ypredx.*Ytestx));

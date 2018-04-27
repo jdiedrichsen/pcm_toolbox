@@ -72,10 +72,12 @@ These functions are higher level functions that perform fitting and crossvalidat
 | 	Function 			       | Comment  
 |:-----------------------------|:-----------------------------
 | `pcm_fitModelIndivid`        | Fits G and noise parameter to individual data
+| `pcm_fitModelIndividCrossval`| Within-subject crossvalidation of models
 | `pcm_fitModelGroup`          | Fit common G to all subjects
 | `pcm_fitModelGroupCrossval`  | Between-subject crossvalidation of models  
 | `pcm_setUpFit`         |  Generally prepares models and data for fitting 
-| `pcm_componentPosterior`     | Inference on components of a Model family 
+| `pcm_knockModels`     | Inference on components using simple knock-in knock-out likelihoods
+| `pcm_componentPosterior`     | Inference on components by model averaging 
 
 ### Visualization functions
 | 	Function 			       | Comment  
@@ -124,7 +126,6 @@ These functions are higher level functions that perform fitting and crossvalidat
 |  `pcm_NR_diag`			| Newton Raphson for diagonalized component models
 |  `pcm_NR_free`			| Newton Raphson for a free model 
 |  `pcm_EM`				| Expectation-Maximization 
-| `pcm_fitModelIndividCrossval`| Within-subject crossvalidation of models 
 
 
 
@@ -413,7 +414,23 @@ r_model1    = (cov12./sqrt(var1.*var2))';
 
 ## Fitting to individual data sets with cross-validation across partitions 
 
-Crossvalidation within subject ([@fig:Fig3]a) is the standard for encoding models and can also be applied to PCM-models.  Note that this part of the toolbox is currently under development. 
+Crossvalidation within subject ([@fig:Fig3]a) is the standard for encoding models and can also be applied to PCM-models.  Note that this part of the toolbox is still under development.
+
+```
+function [T,D,theta_hat]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,varargin);
+```
+
+The use is very similar `pcm_fitModelIndivid`, except for two optional input parameters: 
+```
+'crossvalScheme': Crossvalidation scheme on the different partitions 
+                  'leaveOneOut': Leave one partition at a time out 
+                  'leaveTwoOut': Leave two consecutive partitions out
+                  'oddeven': Split half by odd and even runs 
+'evaluation':  So far implemented are only the standard encoding-model 
+               style evalutation criteria.
+                  'R2': Crossvalidated R^2 
+                  'R' : Correlation between observed and predicted  
+```
 
 ##  Fitting to group data sets
 
