@@ -14,6 +14,7 @@ function [theta,l,k,reg]=pcm_NR(theta0,likefcn,varargin)
 %   'HessReg':      Starting regulariser on the Hessian matrix (default starts at 1 
 %                   then being adjusted in decibels)
 %   'regularization': 'L': Levenberg 'LM': Levenberg-Marquardt 
+%   'verbose':     0: No feedback, 1:Important warnings, 2:regularisation 
 % 
 % OUTPUT:
 %   theta : Variance coefficients 
@@ -39,9 +40,12 @@ OPT.regularization = 'L';         % Type of regularisation 'L':Levenberg, 'LM': 
 OPT=pcm_getUserOptions(varargin,OPT,{'HessReg','thres','numIter','verbose','regularization'});
 
 % Set warning to error, so it can be caught
-warning('error','MATLAB:nearlySingularMatrix');
-warning('error','MATLAB:singularMatrix'); 
-warning('error','MATLAB:illConditionedMatrix'); 
+CATCHEXP = {'MATLAB:nearlySingularMatrix','MATLAB:singularMatrix',...
+    'MATLAB:illConditionedMatrix','MATLAB:posdef',...
+    'MATLAB:nearlySingularMatrix','MATLAB:eig:matrixWithNaNInf'}; 
+for i=1:numel(CATCHEXP)
+    warning('error',CATCHEXP{i});
+end; 
 
 % Initialize Interations
 %--------------------------------------------------------------------------
@@ -70,15 +74,19 @@ for k = 1:OPT.numIter
                 dtheta   =  dFdhh\dFdh;
                 theta = theta - dtheta;
                 break; 
-            catch % Likely matrix close to singluar
+            catch ME% Likely matrix close to singluar
+                if any(strcmp(ME.identifier,CATCHEXP))
                 OPT.HessReg = OPT.HessReg*10;
                 if (OPT.HessReg>100000) 
                     if (OPT.verbose)
-                        fprintf('Cant regularise second derivative.. Giving up\n');
+                        warning('Cant regularise second derivative.. Giving up\n');
                     end;
                     break;  % Give up  
                 end; 
                 dFdhh = dFdhh_old + diag(diag(dFdhh_old))*OPT.HessReg;
+                else 
+                    ME.rethrow; 
+                end; 
             end; 
         end;
     end;
@@ -89,7 +97,7 @@ for k = 1:OPT.numIter
     try
         [nl(k),dFdh,dFdhh]=likefcn(theta);
     catch ME  % Catch errors based on invalid parameter settings
-        if any(strcmp(ME.identifier,{'MATLAB:posdef','MATLAB:nearlySingularMatrix','MATLAB:eig:matrixWithNaNInf','MATLAB:singularMatrix'}))
+        if any(strcmp(ME.identifier,CATCHEXP))
             if (k==1) 
                 error('bad initial values for theta'); 
             else 
@@ -103,7 +111,7 @@ for k = 1:OPT.numIter
     %----------------------------------------------------------------------
     if (k>1 & (nl(k)-nl(k-1))>eps)      % If not....
         OPT.HessReg = OPT.HessReg*10;   % Increase regularisation
-        if (OPT.verbose)
+        if (OPT.verbose==2)
             fprintf('Step back. Regularisation %2.3f\n',OPT.HessReg(1));
         end;
         theta = thetaH(:,k-1);

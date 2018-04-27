@@ -56,9 +56,10 @@ function [T,theta_hat,G_pred,theta0]=pcm_fitModelIndivid(Y,M,partitionVec,condit
 %   'MaxIteration': Number of max minimization iterations. Default is 1000.
 % 
 %   'verbose':      Optional flag to show display message in the command
-%                   line (e.g., elapsed time). Default is 1.
+%                   line. Default is 1. Setting to 2 gives more detailed
+%                   feedback on pcm_NR
 % 
-%   'S':             Optional specific covariance structureof the noise 
+%   'S':             Optional specific covariance structure of the noise 
 % 
 %   'fitAlgorithm': Either 'NR' or 'minimize' - provides over-write for
 %                   model specific algorithms 
@@ -160,7 +161,7 @@ for s = 1:numSubj
                 T.likelihood(s,m) =  -fX(end);  %invert the sign 
             case 'NR' 
                 fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),OPT);
-                [theta_hat{m}(:,s),T.likelihood(s,m),T.iterations(s,m),T.reg(s,m)]=pcm_NR(theta0{m}(:,s),fcn,'verbose',verbose==2); 
+                [theta_hat{m}(:,s),T.likelihood(s,m),T.iterations(s,m),T.reg(s,m)]=pcm_NR(theta0{m}(:,s),fcn,'verbose',verbose); 
         end; 
             
         G_pred{m}(:,:,s)  =  pcm_calculateG(M{m},theta_hat{m}(1:M{m}.numGparams,s));

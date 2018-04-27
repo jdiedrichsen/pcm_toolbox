@@ -11,49 +11,75 @@ What the toolbox does *not* provide are functions to extract the required data f
 
 The functions provided in the toolbox can be categorized into different categories:  
 
-## Basic likelihood and optimization
+### Basic likelihood and optimization
 
 These are the functions that perform the core statistical functions of the toolbox.  
 
 | 	Function 			    | Comment  
-|:--------------------------|:-----------------------------
-|	`pcm_likelihoodIndivid` | Likelihood of a single data set under a model
-|   `pcm_likelihoodGroup`   | Likelihood of a group data set under a model
-|   `pcm_NR`				| Newton Raphson optimisation 
-|   `pcm_NR_diag`			| Newton Raphson for diagonalized models (faster)
-|   `pcm_NR_free`			| Newton Raphson for a free model 
-|   `pcm_EM`				| Expectation-Maximization 
-|   `pcm_minimize`			| Conjugate gradient descent 
+|:-----------------------------------|:-----------------------------
+|  `pcm_likelihood` |  Likelihood of a single data set under a model
+|  `pcm_likelihoodIndivid` | pcm_likelihood with optional random or fixed block effect
+|  `pcm_likelihoodGroup`   | Likelihood of a group data set under a model
+|  `pcm_NR`				| Newton Raphson optimisation 
+|  `pcm_minimize`			| Conjugate gradient descent 
 
-## Model Evaluation
+### Model Evaluation
 These functions are higher level functions that perform fitting and crossvalidation of either individual data set or group data sets.  
 
 | 	Function 			       | Comment  
 |:-----------------------------|:-----------------------------
 | `pcm_fitModelIndivid`        | Fits G and noise parameter to individual data
-| `pcm_fitModelIndividCrossval`| Within-subject crossvalidation of models 
-| `pcm_fitModelGroup`          | Fit common G to all subjects, using individual noise and scale parameter
+| `pcm_fitModelIndividCrossval`| Within-subject crossvalidation of models
+| `pcm_fitModelGroup`          | Fit common G to all subjects
 | `pcm_fitModelGroupCrossval`  | Between-subject crossvalidation of models  
+| `pcm_setUpFit`         |  Generally prepares models and data for fitting 
+| `pcm_knockModels`     | Inference on components using simple knock-in knock-out likelihoods
+| `pcm_componentPosterior`     | Inference on components by model averaging 
 
-
-## Utility functions
-| 	Function 			       | Comment  
-|:-----------------------------|:-----------------------------
-| `pcm_checkderiv`             | Checks derivate of a nonlinear model 
-| `pcm_estGcrossval`           | Cross-validated estimate of G 
-| `pcm_indicatorMatrix`        | Generates indicator matrices 
-| `pcm_vararginoptions`		   | Handles optional input arguments
-
-## Visualization functions
+### Visualization functions
 | 	Function 			       | Comment  
 |:-----------------------------|:-----------------------------
 | `pcm_classicalMDS`           | Multidimensional scaling  
-| `pcm_plotModelLikelihood`    | Displays marginal likelihood (results from `pcm_fitModel` functions)
-| `pcm_plotFittedG`            | Displays second-moment matrices with fitted parameters
+| `pcm_estimateU`         | Estimates voxel-patterns under model M
+| `pcm_estimateW`         | Estimates  voxel-feature weights under  model M
+| `pcm_plotModelLikelihood`    | Displays marginal likelihood for different models
 
-## Recipes 
+### Model building 
 | 	Function 			       | Comment  
 |:-----------------------------|:-----------------------------
-| `pcm_recipe_finger`          | Example of fixed ad component models 
-| `pcm_recipe_correlation`     | Example of feature model  
+| `pcm_constructModelFamily`     | Makes a family of models from different components
+| `pcm_buildModelFromFeatures`     | Makes a component model from featuresets
+
+
+### Utility functions
+| 	Function 			       | Comment  
+|:-----------------------------|:-----------------------------
+| `pcm_addModelComp`                  | Adds a model component to model M  
+| `pcm_blockdiag`                  | Makes a blockdiagonal matrix  
+| `pcm_calculateG`                  | Determines G for models   
+| `pcm_checkderiv`                  | Checks derivate of a nonlinear model 
+| `pcm_diagonalize`                  | Decomposes G into A * A'  
+| `pcm_estGcrossval`              | Cross-validated estimate of G 
+| `pcm_generateData`                  | Generates data simulations from model M  
+| `pcm_getStartingval`               | Provides a starting value estimate for model M  
+| `pcm_indicatorMatrix`       | Generates indicator matrices 
+| `pcm_vararginoptions`	    | Deals with variable input options 
+| `pcm_getUserOptions`	    | Deals with variable input options (struct-based, faster) 
+| `pcm_makePD`    | Moves a matrix to closest semi-postive definite Matrix 
+| `pcm_optimalAlgorithm`    | Recommendation for the best optimisation algorithm
+| `pcm_prepFreeModel`         |  Sets up free model (freechol)
+
+
+### Recipes 
+| 	Function 			       | Comment  
+|:-----------------------------|:-----------------------------
+| `pcm_recipe_finger`          | Example of a fixed and component models 
+| `pcm_recipe_correlation`     | Example of feature model   
 | `pcm_recipe_nonlinear`       | Example for non-linear model   
+
+### Currently not maintained / under developement
+| 	Function 			       | Comment  
+|:-----------------------------|:-----------------------------
+|  `pcm_NR_diag`			| Newton Raphson for diagonalized component models
+|  `pcm_NR_free`			| Newton Raphson for a free model 
+|  `pcm_EM`				| Expectation-Maximization 

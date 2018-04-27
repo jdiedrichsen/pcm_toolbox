@@ -83,13 +83,13 @@ for s = 1:numSubj
     switch (runEffect)
         case 'random'
             B{s}   = pcm_indicatorMatrix('identity_p',pV);
-            X{s}   = [];
+            X{s}   = zeros(N(s),0);
             numPart=size(B{s},2);
             run0(s,1)=log(sum(sum((pinv(B{s})*Y{s}).^2))./(numPart*P(s))); 
             RX = eye(N(s))-B{s}*pinv(B{s}); 
             G_hat(:,:,s) = pcm_estGCrossval(Y{s},pV,cV);
         case 'fixed'
-            B{s}  =  [];
+            B{s}  =  zeros(N(s),0);;
             run0  =  []; 
             X{s}  =  pcm_indicatorMatrix('identity_p',pV);
             numPart=size(X{s},2);

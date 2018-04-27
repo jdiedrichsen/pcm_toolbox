@@ -4,6 +4,7 @@ function [Y,partVec,condVec] = pcm_generateData(Model,theta,D,numSim,signal,nois
 % Noise and Signal strength can be specified for each simulation and voxel
 % separately. 
 % INPUT: 
+%   Model:   Model to generate data from 
 %   theta:   numParams x 1 vector of parameters for Model 
 %   D:       Experimental structure with fields 
 %       D.numPart = number of partititions 

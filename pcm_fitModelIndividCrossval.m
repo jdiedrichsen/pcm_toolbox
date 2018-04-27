@@ -1,5 +1,5 @@
-function [D,T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,varargin);
-% function [D,T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,varargin);
+function [T,DD,theta_hat,theta0]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,varargin);
+% function [T,D,theta_hat]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,varargin);
 % Fits pattern component model(s) specified in M to data from one (or more)
 % subjects individually, using leave-one out crossvalidation within each
 % subject.
@@ -11,23 +11,19 @@ function [D,T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,v
 %            If it's a cell array, it is assuming multiple subjects, each
 %            cell containing the data from one subject
 %
-%        M: {#Models} Cell array with structure that defines model(s). Each may contain the following
-%                       Subfield
+%        M: {#Models} Cell array with structure that defines model(s). Each
+%        may contain the fields
 %              .type:        Type of the model to be fitted
 %                             'fixed':     Fixed structure without parameter (except scale for each subject)
 %                             'component': G is a sum of linear components
 %                             'feature':   G=A*A', with A a linear sum of weighted feature components
 %                             'nonlinear': Nonlinear model with own function to return derivatives
+%                             'freechol':  Free model in Cholesky form
 %              .numGparams:  Scalar that defines the number of parameters
 %                             included in model.
 %              .theta0:      Vector of starting theta parameters to calculate predicted
-%                             model G. Can estimate
-%                             these parameters using 'pcm_modelpred_free_startingval'
-%              .modelpred':  Modelling func. Must take theta values as vector
-%                             and return predicated second moment matrix and
-%                             derivatives in respect to parameters (for nonlinear models).
-%              .Gc:          Linear component matrices (for type 'component')
-%              .Ac           Linear component matrices (for type 'squareroot')
+%                             model G.
+%         for more fields see the manual for model specification.
 %
 %   partitionVec: Partition assignment vector
 %                   Could be a cell array of multiple vector if its for multiple
@@ -46,38 +42,47 @@ function [D,T,theta]=pcm_fitModelIndividCrossval(Y,M,partitionVec,conditionVec,v
 %                   same for all subjects
 %                   If the (elements of) conditionVec are matrices, it is
 %                   assumed to be the design matrix Z, allowing the
-%                   specification individualized models. 
+%                   specification individualized models.
 %--------------------------------------------------------------------------
 % OPTION:
+%   'crossvalScheme': Crossvalidation scheme on the different partitions 
+%                  'leaveOneOut': Leave one partition at a time out 
+%                  'leaveTwoOut': Leave two consecutive partitions out
+%                  'oddeven': Split half by odd and even runs 
+%   'evaluation':  So far implemented are only the standard encoding-model 
+%                   style evalutation criteria
+%                   'R2': Crossvalidated R^2 
+%                   'R' : Correlation between observed and predicted  
 %   'runEffect': How to deal with effects that may be specific to different
 %                imaging runs:
 %                  'random': Models variance of the run effect for each subject
 %                            as a seperate random effects parameter.
 %                  'fixed': Consider run effect a fixed effect, will be removed
 %                            implicitly using ReML.
-%                  'remove': Forced removal of the run effect before
-%                            random effects modelling - Simply adjusts the
-%                            error covariance matrix to reflect he removal
-%
 %   'MaxIteration': Number of max minimization iterations. Default is 1000.
-% 
+%
 %   'S',S         : (Cell array of) NxN noise covariance matrices -
 %                   otherwise independence is assumed
-%
+%   'fitAlgorithm': Either 'NR' or 'minimize' - provides over-write for
+%                   model specific algorithms
+%   'verbose':      Optional flag to show display message in the command
+%                   line. Default is 1. Setting to 2 gives more detailed
+%                   feedback on pcm_NR
+%   'theta0':       Cell array of starting values (same format as theta{m})
 %--------------------------------------------------------------------------
 % OUTPUT:
-%   D:      Summary crossvalidation results (1 per subject) 
-%   T:      Detailed crossvalidation results (1 per condition) 
+%   T:      Summary crossvalidation results (1 per subject)
 %       SN:                 Subject number
 %       likelihood:         crossvalidated likelihood
-%       partition:          Partition serving as test set
 %       noise:              Noise parameter
 %       run:                Run parameter (if run = 'random')
 %       iterations:         Number of interations for model fit
 %       time:               Elapsed time in sec
+%   D:  Detailed crossvalidation results (1 per condition)    
+%       fold:               Crossvalidation fold 
 %
-%  theta{model}:      Estimated parameters (model + scaling/noise parameters)
-%                       for individual subjects and partitions
+%  theta_hat{model}:  Estimated parameters (model + scaling/noise parameters)
+%                       for individual subjects 
 
 runEffect       = 'random';
 isCheckDeriv    = 0;
@@ -85,150 +90,213 @@ MaxIteration    = 1000;
 Iter            = [];
 verbose         = 1;
 S               = [];
-pcm_vararginoptions(varargin,{'runEffect','MaxIteration','verbose','S'});
+fitAlgorithm    = [];
+crossvalScheme  = 'leaveTwoOut'; 
+evaluation      = {'R2','R'}; 
+theta0          = {}; 
+pcm_vararginoptions(varargin,{'crossvalScheme','fitAlgorithm','runEffect',...
+            'MaxIteration','verbose','S','evaluation','crossvalScheme','theta0'});
 
+DD=[]; 
+% Number of subejcts 
 if (~iscell(Y))
     Y={Y};
-end;
+end; 
 numSubj     = numel(Y);
+
+% Number of evaluation criteria 
+if (~iscell(evaluation)) 
+    evaluation={evaluation}; 
+end; 
+numEval = numel(evaluation); 
+
+% Preallocate output structure
+T.SN = [1:numSubj]';
+
+% Get the number of models
 if (~iscell(M))
-    M{M};
+    M={M};
 end;
 numModels   = numel(M);
 
-n=1; % Result index
-% Now loop over subject and provide inidivdual fits
-for s = 1:numSubj
-    
-    % If condition and partition Vectors are not cells, assume they are the
-    % same
-    if (iscell(conditionVec))
-        cV = conditionVec{s};
-        pV = partitionVec{s};
-    else
-        cV = conditionVec;
-        pV = partitionVec;
+% Determine optimal algorithm for each of the models
+if (~isempty(fitAlgorithm))
+    for m=1:numModels
+        M{m}.fitAlgorithm = fitAlgorithm;
     end;
+end;
+M = pcm_optimalAlgorithm(M);
+
+% Set up all parameters for the upcoming fit
+[Z,B,X,YY,S,N,P,G_hat,noise0,run0]=...
+    pcm_setUpFit(Y,partitionVec,conditionVec,'runEffect',runEffect,'S',S);
+
+% Loop over subject and provide inidivdual fits
+for s = 1:numSubj 
     
-    if (isempty(S))
-        SS=[];
-    else
-        SS=S{s};
-    end;
-    
-    % Check if conditionVec is condition or design matrix
-    if size(cV,2)==1;
-        Z{s}   = pcm_indicatorMatrix('identity_p',cV);
-    else
-        Z{s} = cV;
-    end;
-    
-    % Prepare matrices and data depnding on how to deal with run effect
-    [N,P] = size(Y{s});
-    numCond= size(Z,2);
-    YY  = (Y{s} * Y{s}');
-    switch (runEffect)
-        case 'random'
-            B   = pcm_indicatorMatrix('identity_p',pV);
-            X   = zeros(N,0);  % Make an indexable, empty matrix
-        case 'fixed'
-            B  =  zeros(N,0);  % Make an indexable, empty matrix
-            X  =  pcm_indicatorMatrix('identity_p',pV);
-    end;
-    
-    % Estimate starting value run and the noise from a crossvalidated estimate of the second moment matrix
-    [G_hat,Sig_hat] = pcm_estGCrossval(Y{s},pV,cV);
-    sh = Sig_hat;
-    run0     = real(log((sum(sum(sh))-trace(sh))/(numCond*(numCond-1))));
-    noise0   = real(log(trace(sh)/numCond-exp(run0)));
-    
-    % Get starting values over models
-    for m = 1:length(M)
-        % Get starting guess for theta if not provided
-        if (isfield(M{m},'theta0'))
-            theta0{m} = M{m}.theta0;
-        else
-            theta0{m} = pcm_getStartingval(M{m},G_hat);
-        end;
-    end;
-    
-    % Now perform the cross-validation across different partitions
-    numPart = max(pV);
-    for p=1:numPart
-        
-        testIdx = pV==p;
-        traiIdx = pV~=p;
-        
-        % Now set up the function that returns likelihood and derivative
-        Xtest = X(testIdx,:);
-        Xtest = Xtest(:,sum(abs(Xtest))>0);  % remove unecessary columns
-        Xtrai = X(traiIdx,:);
-        Xtrai = Xtrai(:,sum(abs(Xtrai))>0);  % remove unecessary columns
-        Btest = B(testIdx,:);
-        Btest = Btest(:,sum(abs(Btest))>0);  % remove unecessary columns
-        Btrai = B(traiIdx,:);
-        Btrai = Xtest(:,sum(abs(Btrai))>0);  % remove unecessary columns
-        
-        % Now loop over models
-        for m = 1:length(M)
-            if (verbose)
-                if isfield(M,'name');
-                    fprintf('Fitting Subj: %d model:%s\n',s,M{m}.name);
-                else
-                    fprintf('Fitting Subj: %d model:%d\n',s,m);
+    % Set up crossvalidation scheme
+    if iscell(partitionVec) 
+        pV=partitionVec{s}; 
+    else 
+        pV=partitionVec; 
+    end; 
+    part = unique(pV)';
+    numPart = numel(part);
+    if ischar(crossvalScheme)
+        partI={};
+        switch (crossvalScheme)
+            case 'leaveOneOut'
+                for i=1:numPart
+                    partI{i}=part(i);
                 end;
-            end;
-            tic;
-            
-            
-            if (isempty(SS))
-                fcn = @(x) pcm_likelihoodIndivid(x,YY(traiIdx,traiIdx),M{m},Z(traiIdx,:),Xtrai,P,'runEffect',Btrai);
+            case 'leaveTwoOut'
+                for i=1:floor(numPart/2)
+                    partI{i}=part((i-1)*2+[1:2]);
+                end;
+            case 'oddEven'
+                for i=1:2
+                    partI{i}=part(mod(part+i,2)==0);
+                end;
+        end;
+    else
+        partI = crossvalScheme; % Direct specificiation
+    end;
+    numFolds = numel(partI);
+    
+    % Now loop over models
+    for m = 1:length(M)
+        if (verbose)
+            if isfield(M{m},'name');
+                fprintf('Fitting Subj: %d model:%s\n',s,M{m}.name);
             else
-                fcn = @(x) pcm_likelihoodIndivid(x,YY(traiIdx,traiIdx),M{m},Z(traiIdx,:),Xtrai,P,'runEffect',Btrai,'S',SS(traiIdx,traiIdx));
+                fprintf('Fitting Subj: %d model:%d\n',s,m);
             end;
-            
-            % Set up overall starting values
-            switch (runEffect)
-                case {'fixed','remove'}
-                    x0  = [theta0{m};noise0];
-                case {'random'}
-                    x0  = [theta0{m};noise0;run0T];
+        end;
+        tic;
+        
+        % Set options
+        if (~isempty(S))
+            OPT.S = S;
+        end;
+        
+        % Get starting guess for theta if not provided
+        if (numel(theta0)<m || size(theta0{m},2)<s) 
+            if (isfield(M{m},'theta0'))
+                th0m = M{m}.theta0(1:M{m}.numGparams);
+            else
+                th0m = pcm_getStartingval(M{m},G_hat(:,:,s));   
             end;
+        
+            if (strcmp(runEffect,'random'))
+                theta0{m}(:,s) = [th0m;noise0(s);run0(s)];
+            else
+                theta0{m}(:,s) = [th0m;noise0(s)]; 
+            end;
+        end; 
+
+        % Set starting values
+        x0 = theta0{m}(:,s);
+        th = nan(size(x0,1),numFolds); 
+        
+        % Now perform the cross-validation across different partitions
+        for p=1:numFolds
+            trainIdx = ~ismember(pV,partI{p}); 
+            testIdx = ismember(pV,partI{p}); 
             
-            % Use minimize to fine maximum liklhood estimate
-            [th,fX,i]      =  minimize(x0, fcn, MaxIteration);
+            % Get the data and design matrices for training set 
+            Ytrain=Y{s}(trainIdx,:); 
+            Xtrain=reduce(X{s},trainIdx);
+            Ztrain=Z{s}(trainIdx,:);
+            OPT.runEffect = reduce(B{s},trainIdx); 
+
+            % Get test data and design matrices for the test set 
+            Ytest=Y{s}(testIdx,:);
+            Xtest=reduce(X{s},testIdx);
+            Ztest=Z{s}(testIdx,:);
+            Btest=reduce(B{s},testIdx);
+            
+            % Perform the initial fit to the training data 
+            switch (M{m}.fitAlgorithm)
+                case 'minimize'  % Use minimize to find maximum liklhood estimate runEffect',B{s});
+                    fcn = @(x) pcm_likelihoodIndivid(x,Ytrain*Ytrain',M{m},Ztrain,Xtrain,P(s),OPT);
+                    l=fcn(x0); 
+                    [th(:,p),fX,D.iterations(p,m)] =  minimize(x0, fcn, MaxIteration);
+                    D.likelihood_fit(p,m)=-fX(end); 
+                case 'NR'
+                    fcn = @(x) pcm_likelihoodIndivid(x,Ytrain*Ytrain',M{m},Ztrain,Xtrain,P(s));
+                    [th(:,p),D.likelihood_fit(p,m),D.iterations(p,m)]= pcm_NR(x0,fcn,'verbose',verbose);
+            end;
             
             % Record the stats from fitting
-            T.SN(n,1)         = s;
-            T.partition(n,1)  = p;
-            T.noise(n,m)      =  exp(th(M{m}.numGparams+1));
+            D.SN(p,1)         = s;
+            D.fold(p,1)       = p;
+            D.noise(p,m)      =  exp(th(M{m}.numGparams+1,p));
             if strcmp(runEffect,'random')
-                T.run(n,m)      =  exp(th(M{m}.numGparams+2));
+                D.run(p,m)      =  exp(th(M{m}.numGparams+2,p));
             end;
-            T.iterations(n,m) = i;
-            T.time(n,m)       = toc;
-            theta{m}(n,:)     = th(1:M{m}.numGparams)';
+            D.time(p,m)       = toc;
             
-            % Evaluation criterion: Simple log-likelihood
-            if (isempty(SS))
-                T.likelihood(n,m) =  -pcm_likelihoodIndivid(th,YY(testIdx,testIdx),M{m},...
-                    Z(testIdx,:),Xtest,P,'runEffect',Btest);
-                % T.likelihood2(n,m) = -pcm_likelihoodIndivid(th,YY(traiIdx,traiIdx),M{m},...
-                %     Z(traiIdx,:),Xtrai,P,'runEffect',Btrai);
-                % T.likelihood3(n,m) = -pcm_likelihoodIndivid(th,YY,M{m},Z,X,P,'runEffect',B);
-            else
-                T.likelihood(n,m) =  -pcm_likelihoodIndivid(th,YY(testIdx,testIdx),M{m},...
-                    Z(testIdx,:),Xtest,P,'runEffect',Btest,'S',SS(testIdx,testIdx));
+            % calculate prediction on 
+            estU = pcm_estimateU(M{m},th(:,p),Ytrain,Ztrain,Xtrain,'runEffect',OPT.runEffect); 
+            Ypred  = Ztest*estU;
+            Ypredx = Ypred-Xtest*pinv(Xtest)*Ypred; 
+            Ytestx = Ytest-Xtest*pinv(Xtest)*Ytest;
+            for c = 1:numEval 
+                switch (evaluation{c})
+                    %  Under developement 
+                    %  case 'likelihood_cond' % evaluate the prediction
+                    %     D.likelihood_cond = pcm_crossvalLikelihood(M{m},th(:,p),Y(:,p),Z,X,...
+                    %         trainI,testI,'type',evalType);
+                    case 'R2'              % Predictive R2 
+                        D.TSS(p,m)= sum(sum(Ytestx.*Ytestx));
+                        D.RSS(p,m)= sum(sum((Ytestx-Ypredx).^2)); 
+                    case {'R','Rpool'}     % Predictive correlation 
+                        D.SS1(p,m) = sum(sum(Ytestx.*Ytestx));
+                        D.SS2(p,m) = sum(sum(Ypredx.*Ypredx));
+                        D.SSC(p,m) = sum(sum(Ypredx.*Ytestx));
+                end; 
             end;
-            %             [U,G,iV]=pcm_estimateU(th,Y{s}(traiIdx,:),M{m},...
-            %                 Z(traiIdx,:),Xtrai,'runEffect',Btrai);
-            %             keyboard;
-        end; % for each model
-        n=n+1;
-    end; % For each partition
-    % Summarize results across partitions for each subject 
-    indx = (T.SN==s); 
-    D.SN(s,1) = s; 
-    D.noise(s,:) = mean(T.noise(indx,:)); 
-    D.likelihood(s,:) = sum(T.likelihood(indx,:)); % Partitions are independent 
+            
+            % Use last iterations as a parameter starting value
+            % x0 = th(:,p);
+        end;                % For each partition 
+        theta_hat{m}(:,s)=mean(th,2);
+    end;                    % For each model 
+    DD=addstruct(DD,D); 
+    
+    % Summarize results across partitions for each subject
+    T.noise(s,:)=mean(D.noise); 
+    if strcmp(runEffect,'random')
+        T.run(s,:) =  mean(D.run);
+    end;
+    T.time(s,:)    =  sum(D.time);
+    T.iterations(s,:)    =  sum(D.iterations);
+    for c = 1:numEval 
+        switch (evaluation{c})
+            case {'likelihood_uncond','likelihood_cond'}
+                T.(evaluation{c})(s,:)    =  sum(D.(evaluation{c}));
+            case 'R2'
+                TSS = sum(D.TSS); 
+                RSS = sum(D.RSS); 
+                T.R2(s,:)    = 1-RSS./TSS;  
+            case 'Rpool' % Pool sums-of-squares first, then calculate correlations: 
+                % Warning: This measure is slightly negatively biased for
+                % noise data, but can perform more stable in model
+                % comparision 
+                SSC = sum(D.SSC); 
+                SS1 = sum(D.SS1); 
+                SS2 = sum(D.SS2); 
+                T.SS1(s,:)=SS1; 
+                T.SS2(s,:)=SS2; 
+                T.SSC(s,:)=SSC; 
+                T.Rpool(s,:)    = SSC./sqrt(SS1.*SS2); 
+            case 'R'  % Predictive correlation for each fold - then pool correlation 
+                T.R(s,:)    = mean(D.SSC./sqrt(D.SS1.*D.SS2)); 
+        end;
+    end; 
 end; % for each subject
+
+
+function Xt=reduce(X,index); 
+    Xt=X(index,:);
+    Xt=Xt(:,sum(abs(Xt))>0); 
