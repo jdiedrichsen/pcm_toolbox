@@ -39,7 +39,11 @@ switch (M.type)
         Gpd     = V*diag(dS)*V'; 
         A      = chol(Gpd)'; 
         theta0 = A(M.indx); 
+    case 'freedirect' 
+        theta0=[];
     case 'nonlinear' 
-        error('cannot provide starting values for nonlinear models'); 
-end; 
+        error('cannot provide starting values for nonlinear models: specify M.theta0'); 
+    otherwise 
+        error(sprintf('Unknown model type: %s',M.type));
+end;
         
