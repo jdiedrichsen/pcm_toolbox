@@ -23,6 +23,7 @@ function [negLogLike,dnl,d2nl] = pcm_likelihoodIndivid(theta,YY,M,Z,X,P,varargin
 %              this is a cell array that contains
 %              S.S:     Structure of noise
 %              S.invS:  inverse of the noise covariance matrix
+%       'fitScale': Scale parameter for each subject?  
 %       'scalePrior': Variance of Gaussian prior on scale parameter (if
 %              used)
 %
@@ -42,7 +43,8 @@ N = size(YY,1);
 K = size(Z,2);
 OPT.S = [];
 OPT.runEffect =[];
-OPT=pcm_getUserOptions(varargin,OPT,{'S','runEffect'});
+OPT.fitScale =0; 
+OPT=pcm_getUserOptions(varargin,OPT,{'S','runEffect','fitScale'});
 
 % Get G-matrix and derivative of G-matrix in respect to parameters
 if (isstruct(M))
@@ -57,9 +59,16 @@ end;
 % design matrix
 noiseParam = theta(M.numGparams+1);
 
+if (OPT.fitScale) 
+    scaleParam = theta(M.numGparams+2); 
+else 
+    scaleParam = 0; 
+end; 
+Gs = G*exp(scaleParam);         % Scale the subject G matrix up by individual scale parameter
+
 if (~isempty(OPT.runEffect))
     numRuns = size(OPT.runEffect,2);
-    runParam = theta(M.numGparams+2);    % Subject run effect parameter
+    runParam = theta(M.numGparams+2+OPT.fitScale);    % Subject run effect parameter
     G = pcm_blockdiag(G,eye(numRuns)*exp(runParam));  % Include run effect in G
     Z = [Z OPT.runEffect];                 % Include run effect in design matrix
 else
@@ -105,7 +114,7 @@ if (nargout>1)
     B     = YY*iVr;
     % Get the derivatives for all the parameters
     for i = 1:M.numGparams
-        iVdV{i} = A*pcm_blockdiag(dGdtheta(:,:,i),zeros(numRuns))*Z';
+        iVdV{i} = A*pcm_blockdiag(dGdtheta(:,:,i),zeros(numRuns))*Z'*exp(scaleParam);
         dLdtheta(i,1) = -P/2*trace(iVdV{i})+1/2*traceABtrans(iVdV{i},B);
     end
     
@@ -119,9 +128,18 @@ if (nargout>1)
     iVdV{i}     = iVr*dVdtheta{i};
     dLdtheta(i,1) = -P/2*trace(iVdV{i})+1/2*traceABtrans(iVdV{i},B);
     
+     % Get the derivatives for the scaling parameters
+     if (OPT.fitScale)
+        i = M.numGparams+2;    % Which number parameter is it?
+        iVdV{i}          = A*pcm_blockdiag(G,zeros(numRuns))*Z{s}'*exp(scaleParam);
+        dLdtheta(i,1)    = -P(s)/2*trace(iVdV{i})+1/2*traceABtrans(iVdV{i},B);
+        % dLdtheta(i,1)    = dLdtheta(i,s) - scaleParam/OPT.scalePrior; % add prior to scale parameter 
+     end;
+        
+        
     % Get the derivatives for the block parameter
     if (~isempty(OPT.runEffect) && ~isempty(OPT.runEffect))
-        i = M.numGparams+2;  % Which number parameter is it?
+        i = M.numGparams+2+OPT.fitScale;  % Which number parameter is it?
         %C          = A*pcm_blockdiag(zeros(size(G,1)),eye(numRuns));
         iVdV{i}     = A*pcm_blockdiag(zeros(K),eye(numRuns))*Z'*exp(runParam);
         dLdtheta(i,1) = -P/2*trace(iVdV{i})+1/2*traceABtrans(iVdV{i},B);

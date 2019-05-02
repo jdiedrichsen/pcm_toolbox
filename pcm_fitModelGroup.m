@@ -56,8 +56,8 @@ function [T,theta_hat,G_pred,theta0]=pcm_fitModelGroup(Y,M,partitionVec,conditio
 %                  'fixed': Consider run effect a fixed effect, will be removed
 %                            implicitly using ReML (default) 
 %   'fitScale':    Fit additional scaling parameter for each of the
-%                  subjects? Defaults to 1. This makes a lot of sense, if the scaling of the 
-%                  data is not of the same intensity across subjects. 
+%                  subjects? Defaults to true. This makes sense, as signal/ noise is not 
+%                  the same across subjects. 
 %                  However, when you want to test strongly against a null model that
 %                  does not predict any difference between different conditions, 
 %                  then the scaling parameter makes the alternative model

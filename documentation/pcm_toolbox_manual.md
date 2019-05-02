@@ -662,7 +662,7 @@ $$
 \end{array}
 $$
 
-To calculate the likelihood, let us consider at the level of the single voxel, namely, $\mathbf{Y}=[\mathbf{y_1},\mathbf{y_2},...,\mathbf{y_p}]$. Then the likelihood over all voxels, assuming that the voxels are independent (e.g. effectively pre-whitened) is
+To calculate the likelihood, let us consider at the level of the single voxel, namely, $\mathbf{Y}=[\mathbf{y_1},\mathbf{y_2},...,\mathbf{y_p}]​$. Then the likelihood over all voxels, assuming that the voxels are independent (e.g. effectively pre-whitened) is
 $$
 p \left( {\bf{Y}}|{\bf{V}} \right)= \prod^{P}_{i=1} (2\pi)^{-\frac{N}{2}} |{\bf{V}}|^{-\frac{1}{2}} exp \left( -\frac{1}{2}{\bf{y}}_i^T {\bf{V}}^{-1} {\bf{y}}_i \right)
 $$
@@ -704,10 +704,14 @@ $$
 
 To compute the likelihood we need to remove these fixed effects from the data, using the residual forming matrix
 $$
-{\bf{R}} = \bf{X}{\left( {{{\bf{X}}^T}{{\bf{V}}^{ - 1}}{\bf{X}}} \right)^{ - 1}}{{\bf{X}}^T}{{\bf{V}}^{ - 1}}\\ {\bf{r_i}} = \bf{Ry_i}
+{\bf{R}} = \bf{X}{\left( {{{\bf{X}}^T}{{\bf{V}}^{ - 1}}{\bf{X}}} \right)^{ - 1}}{{\bf{X}}^T}{{\bf{V}}^{ - 1}}
 $$
 
-For the optimization of the random effects we therefore also need to take into account the uncertainty in the fixed effects estimates. Together this leads to a modified likelihood - the restricted likelihood that we which to optimize.
+$$
+{\bf{r_i}} = \bf{Ry_i}
+$$
+
+For the optimization of the random effects we therefore also need to take into account the uncertainty in the fixed effects estimates. Together this leads to a modified likelihood - the restricted likelihood. 
 $$
 L_{ReML} =-\frac{NP}{2}\mathrm{ln}\left(2\pi \right)-\frac{P}{2}\mathrm{ln}\left(|\bf{V}|\right)-\frac{1}{2}trace\left({\bf{Y}\bf{Y}}^{T}\bf{R}^{T}{\bf{V}}^{-1}\bf{R}\right)-\frac{P}{2}\mathrm{ln}|\bf{X}^{T}\bf{V}^{-1}\bf{X}|
 $$
@@ -720,7 +724,7 @@ $$
 ## First derivatives of the log-likelihood 
 Next, we find the derivatives of *L* with respect to each hyper parameter $\theta_{i}$, which influence G. Also we need to estimate the hyper-parameters that describe the noise, at least the noise parameter $\sigma_{\epsilon}^{2}$. To take these derivatives we need to use two general rules of taking derivatives of matrices (or determinants) of matrices:
 $$
-\frac{{\partial \ln \left( {\bf{V}} \right)}}{{\partial {\theta _i}}} = trace\left( {{{\bf{V}}^{ - 1}}\frac{{\partial {\bf{V}}}}{{\partial {\theta _i}}}} \right)
+\frac{{\partial \ln \left|{\bf{V}} \right|}}{{\partial {\theta _i}}} = trace\left( {{{\bf{V}}^{ - 1}}\frac{{\partial {\bf{V}}}}{{\partial {\theta _i}}}} \right)
 $$
 
 $$
