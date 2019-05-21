@@ -84,6 +84,7 @@ function [T,theta_hat,G_pred,theta0]=pcm_fitModelIndivid(Y,M,partitionVec,condit
 runEffect       = 'fixed';
 isCheckDeriv    = 0;
 MaxIteration    = 1000;
+fitScale        = 0; 
 Iter            = [];
 verbose         = 1;   % 1: Indicating the subject 2: detailed feedback
 S               = [];
