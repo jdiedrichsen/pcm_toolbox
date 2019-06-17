@@ -17,11 +17,9 @@ function [G,theta,u,l,k]=pcm_minimize(Y,Z,M,varargin)
 %   'M'            : Model structure to fit  
 %
 % VARARGIN:
-%   'num_iter'     : Maximal number of iterations
-%   'h0'           : Starting values for the parameters (Hx1 vector)
-%                    (otherwise uses starting guess based on Laird & Lange)
-%   'TolL'         : Tolerance of the likelihood (l-l'), where l' is
-%                    projected likelihood
+%   'MaxIteration' : Maximal number of iterations
+%   'theta0'           : Starting values for the parameters (Hx1 vector)
+%                    (otherwise uses starting guess of zero)
 %   'meanS'        : Remove the mean for each pattern component (a)
 %                    (Logical flag, true by default)
 %   'X'            : Fixed effects matrix that will be removed from y
@@ -47,14 +45,13 @@ function [G,theta,u,l,k]=pcm_minimize(Y,Z,M,varargin)
 % Defaults
 %--------------------------------------------------------------------------
 X            = [];                 % By default fixed effects are empty 
-MaxIteration = 1000; 
-remove       = 0; 
-h0           = []; 
+maxIteration = 1000; 
+theta0           = []; 
 gradcheck    = 0;  
 % Variable argument otions
 %--------------------------------------------------------------------------
 vararginoptions(varargin, ...
-    {'Gc','X','runEffect','MaxIteration','remove','h0','gradcheck'});
+    {'Gc','X','runEffect','maxIteration','theta0','gradcheck'});
 
 % check input size
 %--------------------------------------------------------------------------
@@ -69,7 +66,7 @@ end
 %--------------------------------------------------------------------------
 fcn = @(x) pcm_likelihood(x,Y*Y',M,Z,X,P);
 if (isempty(h0))
-    h0                  = zeros(M.numGparams+1,1);
+    theta0                  = zeros(M.numGparams+1,1);
 end; 
 [theta,fx]          = minimize(h0, fcn, MaxIteration);
 

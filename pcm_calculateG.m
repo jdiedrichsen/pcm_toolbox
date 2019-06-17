@@ -50,6 +50,6 @@ else
                 dGdtheta(:,:,i) = dGdtheta(:,:,i) + dGdtheta(:,:,i)';     
             end;             
         case 'nonlinear'
-            [G,dGdtheta]=M.modelpred(theta(1:M.numGparams));
+            [G,dGdtheta]=M.modelpred(theta(1:M.numGparams),M);
     end;
 end;

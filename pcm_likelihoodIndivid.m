@@ -79,7 +79,7 @@ end;
 % Find the inverse of V - while dropping the zero dimensions in G
 [u,s] = eig(G);
 dS    = diag(s);
-idx   = dS>(2*eps);
+idx   = dS>(10*eps); % Increased to 10*eps from 2*eps  
 Zu     = Z*u(:,idx);
 % Apply the matrix inversion lemma. The following statement is the same as
 % V   = (Z*G*Z' + S.S*exp(theta(H)));

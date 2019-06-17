@@ -1,4 +1,4 @@
-function [T,theta_hat,G_pred,theta0]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
+function [T,theta_hat,G_pred,INFO]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
 % function [T,theta_hat,G_pred]=pcm_fitModelIndivid(Y,M,partitionVec,conditionVec,varargin);
 % Fits pattern component model(s) specified by M to data from a number of
 % subjects.
@@ -53,16 +53,18 @@ function [T,theta_hat,G_pred,theta0]=pcm_fitModelIndivid(Y,M,partitionVec,condit
 %                  'checkderiv'. This function compares input to finite
 %                  differences approximations. See function documentation.
 %
-%   'MaxIteration': Number of max minimization iterations. Default is 1000.
+%   'fitAlgorithm': Either 'NR' or 'minimize' - provides over-write for
+%                   model specific algorithms
+%   'maxIteration': Number of max minimization iterations. Default is 1000.
 %
+%   'likeThres':    Threshold for minimal change in the log-likelihood to
+%                   stop iterations 
 %   'verbose':      Optional flag to show display message in the command
 %                   line. Default is 1. Setting to 2 gives more detailed
 %                   feedback on pcm_NR
 %
 %   'S':             Optional specific covariance structure of the noise
 %
-%   'fitAlgorithm': Either 'NR' or 'minimize' - provides over-write for
-%                   model specific algorithms
 %   'theta0':       Cell array of starting values (same format as theta{m})
 %   'fitScale':     Fit a additional scale parameter for each subject?
 %                   (0/1). Default is set to 0.
@@ -70,7 +72,7 @@ function [T,theta_hat,G_pred,theta0]=pcm_fitModelIndivid(Y,M,partitionVec,condit
 % OUTPUT:
 %   T:      Structure with following subfields:
 %       SN:                 Subject number
-%       likelihood:         likelihood
+%       likelihood:         log-likelihood
 %       scale:              Scale parameter (if fitscale = 1)
 %       noise:              Noise parameter
 %       run:                Run parameter (if run = 'random')
@@ -83,16 +85,26 @@ function [T,theta_hat,G_pred,theta0]=pcm_fitModelIndivid(Y,M,partitionVec,condit
 
 runEffect       = 'fixed';
 isCheckDeriv    = 0;
-MaxIteration    = 1000;
-Iter            = [];
+maxIteration    = [];      % MaxIteration - otherwise algorithm-specific defaults 
+likeThres       = [];    % if log-likelihood decreases less that this value, it stops (for pcm_NR)
 verbose         = 1;   % 1: Indicating the subject 2: detailed feedback
 S               = [];
 fitAlgorithm    = [];
 theta0          = [];
-pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration',...
-    'verbose','S','fitAlgorithm','theta0','fitScale'});
+fitScale        = 0; 
+pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','maxIteration',...
+    'verbose','S','fitAlgorithm','theta0','fitScale','likeThres'});
 
 numSubj     = numel(Y);
+
+% Set options for fitting algorithm 
+fitOPT.verbose = verbose; 
+if (~isempty(maxIteration))
+    fitOPT.maxIteration = maxIteration;
+end 
+if (~isempty(likeThres))
+    fitOPT.likeThres = likeThres; 
+end 
 
 % Determine number of models
 if (~iscell(M))
@@ -142,40 +154,44 @@ for s = 1:numSubj
             scale0(s,m)   = log(scaling);
         end
                 
-        % Get starting guess for theta if not provided
+        % Get starting guess for theta0 is not provided
         if (numel(theta0)<m || size(theta0{m},2)<s)
             if (isfield(M{m},'theta0'))
                 th0m = M{m}.theta0(1:M{m}.numGparams);
             else
                 th0m = pcm_getStartingval(M{m},G_hat(:,:,s));
             end
-        end
-        th0m = [th0m;noise0(s)];
-        if(fitScale)
-            th0m = [th0m;scale0(:,m)];
-        end
-        if (strcmp(runEffect,'random'))
-            th0m = [th0m;run0(s)];
-        end
-        theta0{m}(:,s)=th0m;
+            th0m = [th0m;noise0(s)];
+            if(fitScale)
+                th0m = [th0m;scale0(:,m)];
+            end
+            if (strcmp(runEffect,'random'))
+                th0m = [th0m;run0(s)];
+            end
+            theta0{m}(:,s)=th0m;
+        end; 
         
-        % Set options
+        % Set options for likelihood function 
         OPT.fitScale = fitScale;
         OPT.runEffect=B{s};
         if (~isempty(S))
             OPT.S = S(s);
-        end
-        
+        end;
+                
         % Now do the fitting, using the preferred optimization routine
         switch (M{m}.fitAlgorithm)
             case 'minimize'  % Use minimize to find maximum liklhood estimate runEffect',B{s});
                 fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),OPT);
+                if (isempty(maxIteration)) 
+                    maxIteration=1000;
+                end 
                 [theta_hat{m}(:,s),fX,T.iterations(s,m)]      =  ...
-                    minimize(theta0{m}(:,s), fcn, MaxIteration);
+                    minimize(theta0{m}(:,s), fcn, maxIteration);
                 T.likelihood(s,m) =  -fX(end);  %invert the sign
             case 'NR'
                 fcn = @(x) pcm_likelihoodIndivid(x,YY{s},M{m},Z{s},X{s},P(s),OPT);
-                [theta_hat{m}(:,s),T.likelihood(s,m),T.iterations(s,m),T.reg(s,m)]=pcm_NR(theta0{m}(:,s),fcn,'verbose',verbose);
+                [theta_hat{m}(:,s),T.likelihood(s,m),T.iterations(s,m),T.reg(s,m),INFO.regH{s,m},INFO.thetaH{s,m}]= ... 
+                    pcm_NR(theta0{m}(:,s),fcn,fitOPT); 
         end
         
         G_pred{m}(:,:,s)  =  pcm_calculateG(M{m},theta_hat{m}(1:M{m}.numGparams,s));
@@ -191,8 +207,10 @@ for s = 1:numSubj
         
         % This is an optional check if the dervivate calculation is correct
         if (isCheckDeriv)
-            d = pcm_checkderiv(fcn,theta_hat{m}(:,s)-0.01,0.00001);
+            d = pcm_checkderiv(fcn,theta_hat{m}(:,s)-0.001,0.00001);
             fprintf('discrepency :%d\n',d);
+            keyboard; 
         end
     end % for each model
 end % for each subject
+INFO.theta0=theta0;
