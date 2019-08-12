@@ -45,7 +45,7 @@ design = [];
 pcm_vararginoptions(varargin,{,'numPart','numVox','numSim','signal','noise','signalDist','noiseDist','design'}); 
 
 % Make the overall generative model 
-if (numel(theta)~=Model.numGparams)
+if (size(theta,1)~=Model.numGparams)
     error('theta needs to be a numParams x 1 vector'); 
 end; 
 G = pcm_calculateG(Model,theta); 
