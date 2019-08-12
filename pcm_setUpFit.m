@@ -79,7 +79,7 @@ for s = 1:numSubj
     numReg= size(Z{s},2);
     
     % Depending on the way of dealing with the run effect, set up data
-    % and determine run and noise effects 
+    % and determine initial values for run and noise effects 
     switch (runEffect)
         case 'random'
             B{s}   = pcm_indicatorMatrix('identity_p',pV);
@@ -95,12 +95,22 @@ for s = 1:numSubj
             numPart=size(X{s},2);
             RX = eye(N(s))-X{s}*pinv(X{s}); 
             G_hat(:,:,s) = pcm_estGCrossval(RX*Y{s},pV,cV);
+        case 'none' 
+            B{s}    =  zeros(N(s),0);;
+            run0    =  []; 
+            X{s}    =  []; 
+            numPart = 0;  % no mean accounted for  
+            RX      = eye(N(s)); 
+            G_hat(:,:,s) = pcm_estGCrossval(RX*Y{s},pV,cV);
     end;
     
     % Estimate noise covariance 
     numReg   = size(Z{s},2); 
     RZ           = eye(N(s))-Z{s}*pinv(Z{s}); 
     noise0(s,1)  = sum(sum((RZ*RX*Y{s}).^2))/(P(s)*(N(s)-numReg-numPart));
+    if (noise0(s)<=0) 
+        error('Too many model factors to estimate noise variance. Consider removing terms or setting runEffect to ''none'''); 
+    end; 
     if (~isempty(S))
         if (~isstruct(S)) 
             Ss(s).S=S{s}; 
