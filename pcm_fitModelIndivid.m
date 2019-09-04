@@ -141,11 +141,22 @@ for s = 1:numSubj
         end
         tic;
         
+        % Get starting guess for theta0 is not provided
+        if (~isfield(M{m},'theta0'))
+            M{m}.theta0=pcm_getStartingval(M{m},G_hat(:,:,s));
+        end
+
         % If naive noise ceiling model, use G_hat
         if strcmp(M{m}.type,'freedirect')
-            M{m}.Gc = pcm_makePD(G_hat(:,:,s));
+            G0 = pcm_makePD(mean(G_hat,3)); 
+            M{m}.numGparams=0; 
+            M{m}.Gc = G0;
+        else 
+            G0 = pcm_calculateG(M{m},M{m}.theta0);
         end
+        g0 = G0(:);
         
+        % If fitting scale parameterm get initial estimate using OLS 
         if (fitScale)
             g_hat         = G_hat(:,:,s);
             g_hat         = g_hat(:);
@@ -154,16 +165,10 @@ for s = 1:numSubj
             scale0(s,m)   = log(scaling);
         end
                 
-        % Get starting guess for theta0 is not provided
         if (numel(theta0)<m || size(theta0{m},2)<s)
-            if (isfield(M{m},'theta0'))
-                th0m = M{m}.theta0(1:M{m}.numGparams);
-            else
-                th0m = pcm_getStartingval(M{m},G_hat(:,:,s));
-            end
-            th0m = [th0m;noise0(s)];
+            th0m = [M{m}.theta0;noise0(s)];
             if(fitScale)
-                th0m = [th0m;scale0(:,m)];
+                th0m = [th0m;scale0(s,m)];
             end
             if (strcmp(runEffect,'random'))
                 th0m = [th0m;run0(s)];
@@ -178,6 +183,7 @@ for s = 1:numSubj
             OPT.S = S(s);
         end;
                 
+        
         % Now do the fitting, using the preferred optimization routine
         switch (M{m}.fitAlgorithm)
             case 'minimize'  % Use minimize to find maximum liklhood estimate runEffect',B{s});

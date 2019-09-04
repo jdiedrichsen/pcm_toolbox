@@ -65,7 +65,7 @@ else
     G=M;
     M=[];
     M.numGparams=0;
-end;
+end
 
 % Preallocate arrays
 numSubj = length(YY);
