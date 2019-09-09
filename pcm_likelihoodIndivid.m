@@ -84,7 +84,7 @@ idx   = dS>(10*eps); % Increased to 10*eps from 2*eps
 Zu     = Z*u(:,idx);
 
 % Apply the matrix inversion lemma. The following statement is the same as
-% V   = (Z*G*Z' + S.S*exp(theta(H)));
+% V   = (Z*Gs*Z' + S.S*exp(theta(H)));
 % iV  = pinv(V);
 if (isempty(OPT.S))
     iV    = (eye(N)-Zu/(diag(1./dS(idx))*exp(noiseParam)+Zu'*Zu)*Zu')./exp(noiseParam); % Matrix inversion lemma
