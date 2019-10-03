@@ -48,6 +48,7 @@ function [T,theta_hat,G_pred,INFO]=pcm_fitModelIndivid(Y,M,partitionVec,conditio
 %                            as a seperate random effects parameter.
 %                  'fixed': Consider run effect a fixed effect, will be removed
 %                            implicitly using ReML.
+%                  'none': No modeling of the run Effect (not recommended for fMRI data) 
 %
 %   'isCheckDeriv: Check the derivative accuracy of theta params. Done using
 %                  'checkderiv'. This function compares input to finite

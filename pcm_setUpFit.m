@@ -30,6 +30,8 @@ function [Z,B,X,YY,Ss,N,P,G_hat,noise0,run0]=pcm_setUpFit(Y,partitionVec,conditi
 %                            as a seperate random effects parameter.
 %                  'fixed': Consider run effect a fixed effect, will be removed
 %                            implicitly using ReML (default). 
+%                  'none': No modeling of the run effect (not recommended
+%                           for real fMRI data)
 %  OUTPUT: 
 %       Z:          Design matrix for random effect of interest 
 %       B:          Design matrix for run-effects (random) 

@@ -1,5 +1,5 @@
 function [Y,partVec,condVec] = pcm_generateData(Model,theta,varargin);
-% function  [Y,part,conditions] =pcm_generateData(Model,theta,D,numSim,signal,noise,varargin);
+% function  [Y,part,conditions] =pcm_generateData(Model,theta,varargin);
 % pcm_generateData: Simulate multivariate data using the generative model specified in Model
 % Noise and Signal strength can be specified for each simulation and voxel
 % separately. 
@@ -30,10 +30,8 @@ function [Y,partVec,condVec] = pcm_generateData(Model,theta,varargin);
 %  the true (noiseless) pattern consistent across partitions has exactly
 %  the representational structure specified by the model 
 % 2017 joern.diedrichsen@googlemail.com 
-% ToDo: 
-% - Options for adding temporal co-variance structure of the noise 
-% - Options for adding spatial co-variance structuer of the noise 
-
+% Todo: Implement partition and condition vector as input arguments as
+% default 
 % Defaults:
 numPart = 8; 
 numVox = 50; 
