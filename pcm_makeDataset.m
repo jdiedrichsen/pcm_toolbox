@@ -1,5 +1,5 @@
-function [Y,partVec,condVec] = pcm_generateData(Model,theta,varargin);
-% function  [Y,part,conditions] =pcm_generateData(Model,theta,varargin);
+function Y = pcm_makeDataset(Model,theta,varargin);
+% function  Y =pcm_makeDataset(Model,theta,varargin);
 % pcm_generateData: Simulate multivariate data using the generative model specified in Model
 % Noise and Signal strength can be specified for each simulation and voxel
 % separately. 
@@ -7,25 +7,19 @@ function [Y,partVec,condVec] = pcm_generateData(Model,theta,varargin);
 %   Model:   Model to generate data from 
 %   theta:   numParams x 1 vector of parameters for Model 
 % VARARGIN: 
-%   'numPart',number of partitions  (default 8)
 %   'numVox', number of independent voxels (default 50)
 %   'numSim', number of simulations,all returned in cell array Y (default 1)
-%   'signal', Signal variance: scalar, <numSim x 1>, <1xnumVox>, or <numSim x numVox> (default 0.1)
+%   'signal', Signal variance: scalar, <numSim x 1>, <1xnumVox>, <numVox x numVox>, or <numSim x numVox> (default 0.1)
 %   'noise', Noise  variance: scalar, <numSim x 1>, <1xnumVox>,<numVox x numVox>, or <numSim x numVox> (default 1)
 %            option of numVox x numVox generates correlated noise 
 %   'signalDist',fcnhnd:    Functionhandle to distribution function for signal (default normal)
 %   'noiseDist',fcnhnd:     Functionhandle to distribution function for noise
 %   'design',X:             - Design matrix (for encoding-style models) 
 %                           - Condition vector (for RSA-style models) 
-%                           Design matrix and Condition vector are assumed
-%                           to be for 1 partition only. 
-%                           If not specified - the function assumes a
-%                           RSA-style model with G being numCond x numCond
+%   'samesignal',false: Using exactly the same pattern for the signal 
+%   'exact',true: Make the signal with exact second moment matrix G 
 % OUTPUT: 
 %    Y:          Cell array{numSim} of data 
-%    partVec:    Vector indicating the independent partitions 
-%    condVec:    Vector of conditions for RSA-style model 
-%                Design matrix for Encoding-style models
 %  Note that the function uses an "exact" generation of the signal. Thus,
 %  the true (noiseless) pattern consistent across partitions has exactly
 %  the representational structure specified by the model 
@@ -33,10 +27,6 @@ function [Y,partVec,condVec] = pcm_generateData(Model,theta,varargin);
 % Todo: Implement partition and condition vector as input arguments as
 % default 
 % Defaults:
-
-warning('pcm_generateData is being phased out. Use pcm_makeDesign and pcm_makeDataset instead'); 
-
-numPart = 8; 
 numVox = 50; 
 numSim = 1; 
 signal = 0.1; 
@@ -44,7 +34,10 @@ noise  = 1;
 noiseDist = @(x) norminv(x,0,1);   % Standard normal inverse for Noise generation 
 signalDist = @(x) norminv(x,0,1);  % Standard normal inverse for Signal generation 
 design = [];
-pcm_vararginoptions(varargin,{'numPart','numVox','numSim','signal','noise','signalDist','noiseDist','design'}); 
+samesignal = false; 
+exact = true;                       % Make signal to have exactly G covariance (for the given spatial structure)
+pcm_vararginoptions(varargin,{'numVox','numSim','signal','noise','signalDist',...
+                                'noiseDist','design','samesignal','exact'}); 
 
 % Make the overall generative model 
 if (size(theta,1)~=Model.numGparams)
@@ -52,37 +45,25 @@ if (size(theta,1)~=Model.numGparams)
 end; 
 G = pcm_calculateG(Model,theta); 
 
+
 if (isempty(design)) 
-    numCond = size(G,1); 
-    N          = numPart*numCond;          % Number of trials
-    partVec    = kron([1:numPart]',ones(numCond,1));            % Partitions
-    condVec    = kron(ones(numPart,1),[1:numCond]');            % Conditions
-    Za         = kron(ones(numPart,1),eye(numCond));
+    error('Need to specify design'); 
 else 
+    N  = size(design,1); 
     if (size(design,2)==1) % RSA-style condition vector 
-        ZZ        = pcm_indicatorMatrix('identity',design); 
-        if (size(G,1)~=size(ZZ,2))
+        Za        = pcm_indicatorMatrix('identity',design); 
+        if (size(G,1)~=size(Za,2))
             error('For RSA-style models, the design needs to contain as many conditions as G'); 
         end; 
-        condVec      = kron(ones(numPart,1),[1:ones(size(ZZ,2))]');            % Conditions
-        numCond = size(ZZ,2);
-        N       = numPart * size(ZZ,1); 
-        partVec   =  kron([1:numPart]',ones(size(ZZ,1),1));
-        Za        =  kron(ones(numPart,1),ZZ);
     else                    % Encoding-style design matrix  
-        ZZ = design; 
-        numCond = size(ZZ,2);
-        if (size(G,1)~=size(ZZ,2))
+        Za = design; 
+        if (size(G,1)~=size(Za,2))
             error('For Encoding-style models, the size(G) needs to be equal to the number of columns in design (feature)'); 
         end; 
-        N       = numPart * size(ZZ,1); 
-        partVec   =  kron([1:numPart]',ones(size(ZZ,1),1));
-        Za        =  kron(ones(numPart,1),ZZ);
-        condVec   =  Za; 
     end; 
 end; 
 
-% determine signal and noise covariance 
+% determine spatial signal and noise covariance 
 [signalRow,signalCol]=size(signal);
 [noiseRow,noiseCol]=size(noise);
 if (signalRow==numVox && signalCol==numVox) 
@@ -90,7 +71,6 @@ if (signalRow==numVox && signalCol==numVox)
 else 
     signalChol = eye(numVox); 
 end; 
-
 if (noiseRow==numVox && noiseCol==numVox) 
     noiseChol = cholcov(noise); 
 else 
@@ -117,17 +97,26 @@ for n = 1:numSim
     end; 
     
     % Generate true pattern from specified second moment 
-    K = size(G,1); 
-    pSignal = unifrnd(0,1,numCond,numVox); 
-    U       = signalDist(pSignal); 
-    E       = (U*U'); 
-    Z       = E^(-0.5)*U;   % Make random orthonormal vectors 
-    A       = pcm_diagonalize(G); 
-    if (size(A,2)>numVox)
-        error('not enough voxels to represent G'); 
+    % samesignal = true: generate it on the first simulation and keep the same 
+    % samesignal = false: generate new every time 
+    if (n==1 || ~samesignal) 
+        K = size(G,1); 
+        pSignal = unifrnd(0,1,K,numVox); 
+        U       = signalDist(pSignal)*signalChol; 
+        
+        % If exact = true - make a matrix of random numbers with exactly
+        % the correct covariance matrix 
+        A       = pcm_diagonalize(G); % A*A' = G 
+        if (exact) 
+            E       = (U*U')/numVox; 
+            U       = E^(-0.5)*U;   % Make random orthonormal vectors 
+            if (size(A,2)>numVox)
+                error('not enough voxels to represent G'); 
+            end; 
+        end; 
+        trueU = A*U(1:size(A,2),:); 
+        trueU = bsxfun(@times,trueU,sqrt(thisSig));   % Multiply by (voxel-specific) signal scaling factor 
     end; 
-    trueU = A*Z(1:size(A,2),:)*signalChol*sqrt(numVox); 
-    trueU = bsxfun(@times,trueU,sqrt(thisSig));   % Multiply by (voxel-specific) signal scaling factor 
     
     % Now add the random noise 
     pNoise = unifrnd(0,1,N,numVox); 
