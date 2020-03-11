@@ -74,8 +74,8 @@ function [T,theta_hat,G_pred,INFO]=pcm_fitModelIndivid(Y,M,partitionVec,conditio
 %   T:      Structure with following subfields:
 %       SN:                 Subject number
 %       likelihood:         log-likelihood
-%       scale:              Scale parameter (if fitscale = 1)
-%       noise:              Noise parameter
+%       scale:              Scale parameter (if fitscale = 1)-exp(theta_s)
+%       noise:              Noise parameter- exp(theta_eps)
 %       run:                Run parameter (if run = 'random')
 %       iterations:         Number of interations for model fit
 %       time:               Elapsed time in sec

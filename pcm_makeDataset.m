@@ -16,8 +16,11 @@ function Y = pcm_makeDataset(Model,theta,varargin);
 %   'noiseDist',fcnhnd:     Functionhandle to distribution function for noise
 %   'design',X:             - Design matrix (for encoding-style models) 
 %                           - Condition vector (for RSA-style models) 
-%   'samesignal',false: Using exactly the same pattern for the signal 
-%   'exact',true: Make the signal with exact second moment matrix G 
+%   'samesignal',false: Should we use exactly the same pattern for the
+%                       signal for each simulation? 
+%   'exact',true: Make the signal with exact second moment matrix G. If set
+%                 to false, the signal will be simply drawn from a
+%                 multivariate normal with variance G
 % OUTPUT: 
 %    Y:          Cell array{numSim} of data 
 %  Note that the function uses an "exact" generation of the signal. Thus,
