@@ -14,6 +14,7 @@ function Y = pcm_makeDataset(Model,theta,varargin);
 %            option of numVox x numVox generates correlated noise 
 %   'signalDist',fcnhnd:    Functionhandle to distribution function for signal (default normal)
 %   'noiseDist',fcnhnd:     Functionhandle to distribution function for noise
+%   'noiseTrial':           - Trial x trial matrix of noise structure
 %   'design',X:             - Design matrix (for encoding-style models) 
 %                           - Condition vector (for RSA-style models) 
 %   'samesignal',false: Should we use exactly the same pattern for the
@@ -36,11 +37,12 @@ signal = 0.1;
 noise  = 1; 
 noiseDist = @(x) norminv(x,0,1);   % Standard normal inverse for Noise generation 
 signalDist = @(x) norminv(x,0,1);  % Standard normal inverse for Signal generation 
+noiseTrial = 1; % shortcut for identity if no trial noise structure given
 design = [];
 samesignal = false; 
 exact = true;                       % Make signal to have exactly G covariance (for the given spatial structure)
 pcm_vararginoptions(varargin,{'numVox','numSim','signal','noise','signalDist',...
-                                'noiseDist','design','samesignal','exact'}); 
+                                'noiseDist','noiseTrial','design','samesignal','exact'}); 
 
 % Make the overall generative model 
 if (size(theta,1)~=Model.numGparams)
@@ -75,9 +77,9 @@ else
     signalChol = eye(numVox); 
 end; 
 if (noiseRow==numVox && noiseCol==numVox) 
-    noiseChol = cholcov(noise); 
+    noiseSpatialChol = cholcov(noise); 
 else 
-    noiseChol = eye(numVox); 
+    noiseSpatialChol = 1; 
 end; 
 
 for n = 1:numSim
@@ -89,6 +91,12 @@ for n = 1:numSim
     else 
         thisSig = signal; 
     end; 
+    
+    if numel(noiseTrial)>1
+        noiseTrialChol = cholcov(noiseTrial{n});
+    else
+        noiseTrialChol = 1;
+    end
     
     % Determine noise for this simulation     
     if (noiseRow==numSim) 
@@ -123,8 +131,7 @@ for n = 1:numSim
     
     % Now add the random noise 
     pNoise = unifrnd(0,1,N,numVox); 
-    Noise  = noiseDist(pNoise)*noiseChol; 
+    Noise  = noiseTrialChol*noiseDist(pNoise)*noiseSpatialChol; 
     Noise  = bsxfun(@times,Noise,sqrt(thisNoi)); 
     Y{n}  = Za*trueU + Noise;
-end; 
-    
+end;
