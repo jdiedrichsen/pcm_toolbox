@@ -64,7 +64,11 @@ function [T,theta_hat,G_pred,INFO]=pcm_fitModelIndivid(Y,M,partitionVec,conditio
 %                   line. Default is 1. Setting to 2 gives more detailed
 %                   feedback on pcm_NR
 %
-%   'S':             Optional specific covariance structure of the noise
+%   'S':            Optional specific covariance structure of the noise
+%                   {#Subjects} = cell array of N_s x N_s matrices 
+%                   or 
+%                   S(#Subjects).S and .invS: Structure of the N_s x N_s 
+%                   normal and inverse covariances matrices
 %
 %   'theta0':       Cell array of starting values (same format as theta{m})
 %   'fitScale':     Fit a additional scale parameter for each subject?
