@@ -22,7 +22,8 @@ function [Z,B,X,YY,Ss,N,P,G_hat,noise0,run0]=pcm_setUpFit(Y,partitionVec,conditi
 %  OPTIONS: 
 %       'S':        Specific assumed noise structure - usually inv(XX'*XX),
 %                   where XX is the first-level design matrix used to
-%                   estimate the activation estimates 
+%                   estimate the activation estimates. Either structure,
+%                   matrix, or cell array 
 %
 %      'runEffect':   How to deal with effects that may be specific to different
 %                   imaging runs:
@@ -106,21 +107,27 @@ for s = 1:numSubj
             G_hat(:,:,s) = pcm_estGCrossval(RX*Y{s},pV,cV);
     end;
     
-    % Estimate noise covariance 
+    % Estimate noise variance 
     numReg   = size(Z{s},2); 
     RZ           = eye(N(s))-Z{s}*pinv(Z{s}); 
     noise0(s,1)  = sum(sum((RZ*RX*Y{s}).^2))/(P(s)*(N(s)-numReg-numPart));
     if (noise0(s)<=0) 
         error('Too many model factors to estimate noise variance. Consider removing terms or setting runEffect to ''none'''); 
     end; 
+    noise0(s)=log(noise0(s)); 
+    
+    % Set up noise covariance structure 
     if (~isempty(S))
         if (~isstruct(S)) 
-            Ss(s).S=S{s}; 
+            if (iscell(S))
+                Ss(s).S=S{s}; % Per Subject 
+            else 
+                Ss(s).S=S;   % Same for all subjects 
+            end;
             Ss(s).invS = inv(Ss(s).S); 
         end; 
         noise0(s)=noise0(s)./mean(trace(Ss(s).S)); 
     else 
         Ss=[]; 
     end; 
-    noise0(s)=log(noise0(s)); 
 end;

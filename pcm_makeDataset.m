@@ -9,12 +9,13 @@ function Y = pcm_makeDataset(Model,theta,varargin);
 % VARARGIN: 
 %   'numVox', number of independent voxels (default 50)
 %   'numSim', number of simulations,all returned in cell array Y (default 1)
-%   'signal', Signal variance: scalar, <numSim x 1>, <1xnumVox>, <numVox x numVox>, or <numSim x numVox> (default 0.1)
-%   'noise', Noise  variance: scalar, <numSim x 1>, <1xnumVox>,<numVox x numVox>, or <numSim x numVox> (default 1)
-%            option of numVox x numVox generates correlated noise 
-%   'signalDist',fcnhnd:    Functionhandle to distribution function for signal (default normal)
-%   'noiseDist',fcnhnd:     Functionhandle to distribution function for noise
-%   'noiseTrial':           - Trial x trial matrix of noise structure
+%   'signal':               - Signal variance: scalar, <numSim x 1>      (default 0.1)
+%   'signalSpatialCov':     - voxel x voxel covariance matrix of signal (default identity)
+%   'noise':                - Noise  variance: scalar, <numSim x 1>     (default 1)
+%   'noiseTrialCov':        - Trial x trial covariance matrix of noise  (default identity)
+%   'noiseSpatialCov':      - voxel x voxel covariance matrix of noise  (default identity)
+%   'signalDist',fcnhnd:    - Functionhandle to distribution function for signal (default normal)
+%   'noiseDist',fcnhnd:     - Functionhandle to distribution function for noise (default normal)
 %   'design',X:             - Design matrix (for encoding-style models) 
 %                           - Condition vector (for RSA-style models) 
 %   'samesignal',false: Should we use exactly the same pattern for the
@@ -28,21 +29,22 @@ function Y = pcm_makeDataset(Model,theta,varargin);
 %  the true (noiseless) pattern consistent across partitions has exactly
 %  the representational structure specified by the model 
 % 2017 joern.diedrichsen@googlemail.com 
-% Todo: Implement partition and condition vector as input arguments as
-% default 
 % Defaults:
 numVox = 50; 
 numSim = 1; 
 signal = 0.1; 
+signalSpatialCov =1; % Instead of Identity, we can use a scalar 1 
 noise  = 1; 
+noiseTrialCov = 1;   % Instead of Identity, we can use a scalar 1 
+noiseSpatialCov = 1; % Instead of Identity, we can use a scalar 1 
 noiseDist = @(x) norminv(x,0,1);   % Standard normal inverse for Noise generation 
 signalDist = @(x) norminv(x,0,1);  % Standard normal inverse for Signal generation 
 noiseTrial = 1; % shortcut for identity if no trial noise structure given
 design = [];
 samesignal = false; 
 exact = true;                       % Make signal to have exactly G covariance (for the given spatial structure)
-pcm_vararginoptions(varargin,{'numVox','numSim','signal','noise','signalDist',...
-                                'noiseDist','noiseTrial','design','samesignal','exact'}); 
+pcm_vararginoptions(varargin,{'numVox','numSim','signal','signalSpatialCov','noise','noiseTrialCov','noiseSpatialCov',...
+                        'signalDist','noiseDist','noiseTrial','design','samesignal','exact'}); 
 
 % Make the overall generative model 
 if (size(theta,1)~=Model.numGparams)
@@ -68,43 +70,28 @@ else
     end; 
 end; 
 
-% determine spatial signal and noise covariance 
-[signalRow,signalCol]=size(signal);
-[noiseRow,noiseCol]=size(noise);
-if (signalRow==numVox && signalCol==numVox) 
-    signalChol = cholcov(signal);     
-else 
-    signalChol = eye(numVox); 
-end; 
-if (noiseRow==numVox && noiseCol==numVox) 
-    noiseSpatialChol = cholcov(noise); 
-else 
-    noiseSpatialChol = 1; 
-end; 
+% precompute spatial and temporal covariance matrix decompositions 
+signalSpatialChol = cholcov(signalSpatialCov);     
+noiseSpatialChol = cholcov(noiseSpatialCov);     
+noiseTrialChol = cholcov(noiseTrialCov);     
 
 for n = 1:numSim
     % Determine signal for this simulation 
-    if (signalRow == numSim)
-        thisSig = signal(n,:); 
-    elseif (signalRow == numVox && signalCol==numVox)
-        thisSig = 1; 
-    else 
+    if (numel(signal) == numSim)
+        thisSig = signal(n); 
+    elseif (numel(signal)==1) 
         thisSig = signal; 
-    end; 
-    
-    if numel(noiseTrial)>1
-        noiseTrialChol = cholcov(noiseTrial{n});
-    else
-        noiseTrialChol = 1;
-    end
-    
-    % Determine noise for this simulation     
-    if (noiseRow==numSim) 
-        thisNoi = noise(n,:); 
-    elseif (noiseRow == numVox && noiseCol==numVox)
-        thisNoi = 1; 
     else 
+        error('Signal needs to be either a scalar or vector of them numSim'); 
+    end; 
+        
+    % Determine noise for this simulation     
+    if (numel(noise)==numSim) 
+        thisNoi = noise(n); 
+    elseif (numel(noise) == 1) 
         thisNoi = noise; 
+    else 
+        error('Signal needs to be either a scalar or vector of them numSim'); 
     end; 
     
     % Generate true pattern from specified second moment 
@@ -113,7 +100,7 @@ for n = 1:numSim
     if (n==1 || ~samesignal) 
         K = size(G,1); 
         pSignal = unifrnd(0,1,K,numVox); 
-        U       = signalDist(pSignal)*signalChol; 
+        U       = signalDist(pSignal)*signalSpatialChol; 
         
         % If exact = true - make a matrix of random numbers with exactly
         % the correct covariance matrix 
@@ -125,13 +112,11 @@ for n = 1:numSim
                 error('not enough voxels to represent G'); 
             end; 
         end; 
-        trueU = A*U(1:size(A,2),:); 
-        trueU = bsxfun(@times,trueU,sqrt(thisSig));   % Multiply by (voxel-specific) signal scaling factor 
+        trueU = A*U(1:size(A,2),:)*sqrt(thisSig); 
     end; 
     
     % Now add the random noise 
     pNoise = unifrnd(0,1,N,numVox); 
-    Noise  = noiseTrialChol*noiseDist(pNoise)*noiseSpatialChol; 
-    Noise  = bsxfun(@times,Noise,sqrt(thisNoi)); 
+    Noise  = noiseTrialChol*noiseDist(pNoise)*noiseSpatialChol*sqrt(thisNoi); 
     Y{n}  = Za*trueU + Noise;
 end;
