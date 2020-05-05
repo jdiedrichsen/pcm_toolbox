@@ -92,16 +92,16 @@ for s = 1:numSubj
             RX = eye(N(s))-B{s}*pinv(B{s}); 
             G_hat(:,:,s) = pcm_estGCrossval(Y{s},pV,cV);
         case 'fixed'
-            B{s}  =  zeros(N(s),0);;
+            B{s}  =  zeros(N(s),0);
             run0  =  []; 
             X{s}  =  pcm_indicatorMatrix('identity_p',pV);
             numPart=size(X{s},2);
             RX = eye(N(s))-X{s}*pinv(X{s}); 
             G_hat(:,:,s) = pcm_estGCrossval(RX*Y{s},pV,cV);
         case 'none' 
-            B{s}    =  zeros(N(s),0);;
+            B{s}    =  zeros(N(s),0);
             run0    =  []; 
-            X{s}    =  []; 
+            X{s}    =  zeros(N(s),0); 
             numPart = 0;  % no mean accounted for  
             RX      = eye(N(s)); 
             G_hat(:,:,s) = pcm_estGCrossval(RX*Y{s},pV,cV);
