@@ -97,9 +97,10 @@ verbose         = 1;
 fitScale        = 1;   % Fit an additional scaling parameter for each subject? 
 S               = [];  % Structure of noise matrix 
 fitAlgorithm    = [];  % Over-write on model specific fit Algorithm 
-theta0          = []; 
+theta0          = [];
+scalePrior      = 10; 
 pcm_vararginoptions(varargin,{'runEffect','isCheckDeriv','MaxIteration',...
-                      'verbose','fitScale','S','fitAlgorithm','theta0'});
+                      'verbose','fitScale','S','fitAlgorithm','theta0','scalePrior'});
 numSubj     = numel(Y);
 
 % Determine number of models 
@@ -180,6 +181,7 @@ for m = 1:numModels
     OPT.runEffect=B; 
     OPT.S = S; 
     OPT.fitScale = fitScale; 
+    OPT.scalePrior = scalePrior; 
     
     % Now do the fitting
     switch (M{m}.fitAlgorithm)
