@@ -156,7 +156,7 @@ end;
 if (nargout>2)
     for i=1:numTheta
         for j=i:numTheta;
-            d2nl(i,j)=-P/2*traceABtrans(iVdV{i},iVdV{j});
+            d2nl(i,j)=-P/2*traceAB(iVdV{i},iVdV{j}); % Fixed 11/2020
             d2nl(j,i)=d2nl(i,j);
         end;
     end;
