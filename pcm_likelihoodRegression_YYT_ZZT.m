@@ -32,13 +32,12 @@ function [negLogLike,dnl,d2nl] = pcm_likelihoodRegression_YYT_ZZT(theta,Z,YY,P,c
 %   Joern Diedrichsen & Atsushi Yokoi, 6/2016, joern.diedrichsen@googlemail.com
 %
 
-[N,P] = size(Y);
+N = size(YY,1);
 K = size(Z,2);
 S = [];
 nComp = max(comp); 
 nParam = length(theta); 
 pcm_vararginoptions(varargin,{'S'});
-
 
 % Split the paraemters in noise and ridge parameter 
 modelParam = theta(1:nComp); 
@@ -48,11 +47,17 @@ noiseParam = theta(nComp+1:end);
 % Apply the matrix inversion lemma. The following statement is the same as
 % V   = (Z*G*Z' + S.S*exp(theta(H))); % As S is not identity, matrix inversion lemma does not have big advantage here (ay)?
 % iV  = pinv(V);
-iG = 1./exp(modelParam(comp)); 
+G  = exp(modelParam(comp)); 
+iG = 1./ G; 
 if (isempty(S))
     iV    = (eye(N)-Z/(diag(iG)*exp(noiseParam)+Z'*Z)*Z')./exp(noiseParam); % Matrix inversion lemma
+    Zw = bsxfun(@times,Z,sqrt(G)')
+    lam = eig(Zw.T * Zw); 
+    ldet  = log((lam+1)*exp(noiseParam)) + (N - K)*noiseParam;
+    ldet2  = -2* sum(log(diag(chol(iV))));        % Safe computation of the log determinant (V) Thanks to code from D. lu
 else
     iV    = (S.invS-S.invS*Z/(diag(diag(iG)*exp(noiseParam)+Z'*S.invS*Z)*Z'*S.invS))./exp(noiseParam); % Matrix inversion lemma
+    ldet  = -2* sum(log(diag(chol(iV))));        % Safe computation of the log determinant (V) Thanks to code from D. lu
 end;
 iV  = real(iV); % sometimes iV gets complex
 
@@ -65,8 +70,7 @@ else
 end;
 
 % Computation of (restricted) likelihood
-B     = Y * Y' * iVr;
-ldet  = -2* sum(log(diag(chol(iV))));        % Safe computation of the log determinant (V) Thanks to code from D. lu
+B     = YY * iVr;
 l     = -P/2*(ldet)-0.5*trace(B);
 if (~isempty(X)) % Correct for ReML estimates
     l = l - P*sum(log(diag(chol(X'*iV*X))));  % - P/2 log(det(X'V^-1*X));
@@ -99,7 +103,7 @@ end;
 if (nargout>2)
     for i=1:nParam
         for j=i:nParam
-            d2nl(i,j)=-P/2*traceABtrans(iVdV{i},iVdV{j});
+            d2nl(i,j)=-P/2*traceAB(iVdV{i},iVdV{j});
             d2nl(j,i)=d2nl(i,j);
         end;
     end;
