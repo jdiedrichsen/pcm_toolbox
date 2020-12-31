@@ -29,7 +29,7 @@ function [negLogLike,dnl,d2nl] = pcm_likelihoodRegression_YTY_ZTZ(theta,Z,Y,comp
 %      d2nl     :   Expected second derivative of the negative
 %                   log-likelihood
 %
-%   Joern Diedrichsen & Atsushi Yokoi, 6/2016, joern.diedrichsen@googlemail.com
+%   Joern Diedrichsen 11/2020, joern.diedrichsen@googlemail.com
 %
 
 [N,P] = size(Y);
@@ -57,7 +57,7 @@ if (isempty(S))
 else
     iV    = (S.invS-S.invS*Z/(diag(diag(iG)*exp(noiseParam)+Z'*S.invS*Z)*Z'*S.invS))./exp(noiseParam); % Matrix inversion lemma
     ldet  = -2* sum(log(diag(chol(iV))));        % Safe computation of the log determinant (V) Thanks to code from D. lu
-end;
+end
 iV  = real(iV); % sometimes iV gets complex
 
 % For ReML, compute the modified inverse iVr
@@ -66,7 +66,7 @@ if (~isempty(X))
     iVr   = iV - iVX*((X'*iVX)\iVX');
 else
     iVr   = iV;
-end;
+end
 
 % Computation of (restricted) likelihood
 YiVr     = Y' * iVr;
@@ -113,4 +113,4 @@ if (nargout>2)
         end
     end
     d2nl=-d2nl;
-end;
+end
