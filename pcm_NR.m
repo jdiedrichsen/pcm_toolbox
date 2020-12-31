@@ -113,14 +113,14 @@ for k = 1:OPT.maxIteration
         else
             ME.rethrow;
         end;
-    end;
+    end
     % Safety check if negative likelihood decreased
     %----------------------------------------------------------------------
     if (k>1 & (nl(k)-nl(k-1))>eps)      % If not....
         OPT.HessReg = OPT.HessReg*10;   % Increase regularisation
         if (OPT.verbose==2)
             fprintf('Step back. Regularisation %2.3f\n',OPT.HessReg);
-        end;
+        end
         theta = thetaH(:,k-1);
         thetaH(:,k)=theta;
         nl(k)=nl(k-1);
@@ -130,12 +130,12 @@ for k = 1:OPT.maxIteration
     else
         if (OPT.HessReg>1e-8)
             OPT.HessReg = OPT.HessReg/10;
-        end;
+        end
         dL = inf;
         if (k>1)
             dL = nl(k-1)-nl(k);
-        end;
-    end;
+        end
+    end
     dFdh_old=dFdh;
     dFdhh_old = dFdhh;
     
@@ -143,7 +143,7 @@ for k = 1:OPT.maxIteration
     %----------------------------------------------------------------------
     if dL < OPT.likeThres
         break;
-    end;
+    end
 end
 % Return likelihood
 if(nargout>1)

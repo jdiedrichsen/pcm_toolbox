@@ -25,6 +25,13 @@ end
 nParam = max(comp)+1;
 theta0 = zeros(nParam,1); 
 
+% Ensure that X is full rank
+[U,SX,V] = svd(X,0); 
+X = U(:,find(diag(SX)>eps)); 
+
+% Optimize the hyperparameters
+tic; 
 fcn = @(x) pcm_likelihoodRegression_YTY_ZTZ(x,Z,Y,comp,X,'S',S);
 [theta_hat,INFO.like,INFO.iter,INFO.regFinal,INFO.regH,INFO.thetaH]= pcm_NR(theta0,fcn,fitOPT); 
+INFO.time=toc; 
 keyboard; 
