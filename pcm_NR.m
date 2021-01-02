@@ -1,4 +1,4 @@
-function [theta,l,k,reg,regH,thetaH]=pcm_NR(theta0,likefcn,varargin)
+function [theta,l,k,reg,regH,thetaH,likeH]=pcm_NR(theta0,likefcn,varargin)
 % function [theta,l,k]=pcm_NR(theta0,likefcn,varargin)
 % Newton-Raphson algorithm.
 % INPUT:
@@ -22,6 +22,10 @@ function [theta,l,k,reg,regH,thetaH]=pcm_NR(theta0,likefcn,varargin)
 %           This is a Type II maximal likelihood - maximal likelhood of theta, integrated over u
 %   k     : Number of iterations
 %   reg   : Final regularisation value
+%   regH  : history of regularization 
+%   thetaH: history of parameter estimates 
+%   likeH : history of likelihood 
+
 % See also: pcm_NR_diag, pcm_NR_comp
 % v.1:
 %
@@ -150,3 +154,4 @@ if(nargout>1)
     l = -likefcn(theta);
 end;
 reg=OPT.HessReg;
+likeH = -nl; 

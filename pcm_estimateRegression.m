@@ -13,12 +13,14 @@ modelParam = theta(1:nComp);
 noiseParam = theta(nComp+1:end);
 [N,P] = size(Y); 
 
-% Find the inverse of V
+% Generate the G-matrix
+G  = exp(modelParam(comp));
+iG = 1./ G;
+
+% WAY 1: Find the inverse of V
 % Apply the matrix inversion lemma. The following statement is the same as
 % V   = (Z*G*Z' + S.S*exp(theta(H))); % As S is not identity, matrix inversion lemma does not have big advantage here (ay)?
 % iV  = pinv(V);
-G  = exp(modelParam(comp));
-iG = 1./ G;
 if (isempty(S))
     iV    = (eye(N)-Z/(diag(iG)*exp(noiseParam)+Z'*Z)*Z')./exp(noiseParam); % Matrix inversion lemma
 else
@@ -37,7 +39,17 @@ else
 end
 
 % Compute the random effects 
-U=G*Z'*iVr*Y;
+GZt = bsxfun(@times,Z',G); % G*Z' 
+U=GZt*iVr*Y;
 if (nargout>1)
-    varU = G*Z'*iVr*Z*G; 
+    varU = GZt*iVr*GZt'; 
 end
+
+% WAY 2: Do it over the ridge regression way 
+% (By matrix inversion lemma) 
+% if (~isempty(X))
+%     R = eye(N)-X*pinv(X); 
+%     Z = R * Z; 
+%     Y = R * Y; 
+% end
+% U = (Z' * Z + exp(noiseParam).*diag(iG))\(Z'*Y);
