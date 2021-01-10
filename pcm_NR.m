@@ -113,10 +113,10 @@ for k = 1:OPT.maxIteration
                 error('bad initial values for theta');
             else
                 nl(k)=inf;         % Set new likelihood to -inf: take a step back
-            end;
-        else
-            ME.rethrow;
-        end;
+            end
+       else
+             ME.rethrow;
+        end
     end
     % Safety check if negative likelihood decreased
     %----------------------------------------------------------------------

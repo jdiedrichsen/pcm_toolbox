@@ -40,8 +40,6 @@ end
 
 
 % Optimize the hyperparameters
-tic; 
 fcn = @(x) pcm_likelihoodRegression_YTY_ZTZ(x,Z,Y,comp,X,'S',S);
 [theta_hat,INFO.like,INFO.iter,INFO.regFinal,INFO.regH,INFO.thetaH, INFO.likeH] = ...
       pcm_NR(theta0,fcn,fitOPT); 
-INFO.time=toc; 

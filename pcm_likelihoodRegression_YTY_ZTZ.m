@@ -47,7 +47,7 @@ noiseParam = theta(nComp+1:end);
 % Apply the matrix inversion lemma. The following statement is the same as
 % V   = (Z*G*Z' + S.S*exp(theta(H))); % As S is not identity, matrix inversion lemma does not have big advantage here (ay)?
 % iV  = pinv(V);
-G  = exp(modelParam(comp));
+G  = exp(theta(comp));
 iG = 1./ G;
 if (isempty(S))
     iV    = (eye(N)-Z/(diag(iG)*exp(noiseParam)+Z'*Z)*Z')./exp(noiseParam); % Matrix inversion lemma

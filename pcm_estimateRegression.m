@@ -14,7 +14,7 @@ noiseParam = theta(nComp+1:end);
 [N,P] = size(Y); 
 
 % Generate the G-matrix
-G  = exp(modelParam(comp));
+G  = exp(theta(comp));
 iG = 1./ G;
 
 % WAY 1: Find the inverse of V
