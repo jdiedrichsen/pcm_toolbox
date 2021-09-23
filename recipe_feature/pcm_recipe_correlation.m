@@ -20,6 +20,11 @@ nVox  = 80; % Number of voxels
 
 % --------------------------------------
 % Generate data from a model with r =0.5 correlation 
+Mtrue = pcm_buildCorrModel('type','nonlinear','withinCov','iid','numItems',2,'r','flexible','condEffect',0);
+thetaTrue = [0 -0.5 1 ]' ; % true Theta's 
+[G,dG] = pcm_calculateGnonlinCorr(thetaTrue,Mtrue)
+keyboard;
+
 Mtrue = pcm_buildCorrModel('type','nonlinear','withinCov','individual','numItems',5,'r',0.5);
 thetaTrue = [-10 -10 -2 -2 -2 -2 -2 -3 -3 -3 -3 -3]' ; % true Theta's 
 [Y,partVec,condVec] = pcm_generateData(Mtrue,thetaTrue,'numPart',nPart,'numVox',nVox,'numSim',nSubj,'signal',1,'noise',1);
