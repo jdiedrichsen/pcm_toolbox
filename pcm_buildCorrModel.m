@@ -1,21 +1,30 @@
-function M = pcm_buildCorrModel(varargin); 
+function M = pcm_buildCorrModel(varargin)
 % function M = pcm_buildCorrModel(varargin); 
 % Builds different representational models to assess the correlation between
-% two sets of patterns. The same items are measured under two different conditions, 
-% and each item pattern is predicted to have a
-% specific correlation with the one under the the other condition
-% For fixed correlation models the
+% two sets of activity patterns. Can be used either to assess the
+% correlation between 2 activyty patterns directly (condEffect=0), or
+% between same-item patterns across different conditions (e.g., same finger
+% across planning and execution, condEffect=1).
+%
+% In this second case, the same items (e.g., patterns for index finger) are
+% measured under two different conditions (e.g., planning and execution)
+% and each item pattern is predicted to have a specific correlation with
+% the one under the the other condition. For fixed correlation models the
 % 'type' should be set to 'nonlinear'. 
 %  
-% INPUT ARGUMENT (varargin) 
+% INPUT ARGUMENTS (varargin) 
 %   'r': either fixed correlation ([-1 - 1]) or 'flexible' 
 %   'type': Either 'feature' for 'nonlinear' for specific model formulation 
-%   'numItems': How many items measured for each condition 
+%   'numItems': How many items measured for each condition
+%   'numCond': How many conditions (default is 2)
 %   'withinCov': How should the within Condition covariance structure be modelled? 
-%        'iid': Same variance + independent for all 
-%        'individual': Independnet, but with a individual scalable variances 
-%        Matrix: Arbitrary, fixed covariance structure 
-%   'condEffect': Model overall condition effect? (Default is yes) 
+%               'iid': Same variance + independent for all 
+%               'individual': Independent, but with a individual scalable variances 
+%               Matrix: Arbitrary, fixed covariance structure 
+%   'condEffect': Model overall condition effect? (Default is 1=yes)
+% OUTPUT
+%   M: structure that specifies the representational model created
+
 r     =  0.5;  % fixed correlation or 'flexible'
 type  = 'nonlinear'; 
 numItems = 6; 
