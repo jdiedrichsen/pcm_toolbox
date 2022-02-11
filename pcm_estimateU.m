@@ -1,4 +1,4 @@
-function [U,G] = pcm_estimateU(M,theta,Y,Z,X,varargin);
+function [U,varU] = pcm_estimateU(M,theta,Y,Z,X,varargin);
 % function [U,G] = pcm_estimateU(M,theta,Y,M,Z,X,varargin);
 % Returns the random effects estimate of a PCM model, using the current set
 % of parameters of the model 
@@ -24,6 +24,7 @@ function [U,G] = pcm_estimateU(M,theta,Y,Z,X,varargin);
 % OUTPUT:
 %      U:     KxP matrix   BLUP estimates of the activity patterns for the K 
 %                          experimental conditions.
+%      varU:  KxK matrix   Variance-covariance of the estimates for columns U 
 %   Joern Diedrichsen 3/2017, joern.diedrichsen@googlemail.com
 
 [N,P] = size(Y);
@@ -39,7 +40,7 @@ else
     G=M;
     M=[];
     M.numGparams=0;
-end;
+end
 
 % If Run effect is to ne modelled as a random effect - add to G and
 % design matrix
@@ -52,7 +53,7 @@ if (~isempty(runEffect))
     Z = [Z runEffect];                 % Include run effect in design matrix
 else
     numRuns = 0;                                % No run effects modelled
-end;
+end
 
 % Find the inverse of V - while dropping the zero dimensions in G
 [u,s] = eig(G);
@@ -66,7 +67,7 @@ if (isempty(S))
     iV    = (eye(N)-Zu/(diag(1./dS(idx))*exp(noiseParam)+Zu'*Zu)*Zu')./exp(noiseParam); % Matrix inversion lemma
 else
     iV    = (S.invS-S.invS*Zu/(diag(1./dS(idx))*exp(noiseParam)+Zu'*S.invS*Zu)*Zu'*S.invS)./exp(noiseParam); % Matrix inversion lemma
-end;
+end
 
 % For ReML, compute the modified inverse iVr
 if (~isempty(X))
@@ -74,10 +75,12 @@ if (~isempty(X))
     iVr   = iV - iVX*((X'*iVX)\iVX');
 else
     iVr   = iV;
-end;
+end
 
 % Compute the random effects 
 U=G*Z'*iVr*Y;
+varU = G*Z'*iVr*Z*G; 
 if (~isempty(runEffect)) 
     U=U(1:K,:); 
-end; 
+    varU=varU(1:K,1:K); 
+end

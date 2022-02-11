@@ -65,7 +65,7 @@ else
     G=M;
     M=[];
     M.numGparams=0;
-end;
+end
 
 % Preallocate arrays
 numSubj = length(YY);
@@ -190,7 +190,7 @@ for s=1:numSubj
     if (nargout>2)
         for i=1:length(indx)
             for j=i:length(indx)
-                d2L(indx(i),indx(j),s)=-P(s)/2*traceABtrans(iVdV{indx(i)},iVdV{indx(j)});
+                d2L(indx(i),indx(j),s)=-P(s)/2*traceAB(iVdV{indx(i)},iVdV{indx(j)}); % Fixed from traceABtrans
                 d2L(indx(j),indx(i),s)=d2L(indx(i),indx(j),s); 
             end;
         end;

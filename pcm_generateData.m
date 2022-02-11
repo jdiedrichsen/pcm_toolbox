@@ -1,5 +1,5 @@
 function [Y,partVec,condVec] = pcm_generateData(Model,theta,varargin);
-% function  [Y,part,conditions] =pcm_generateData(Model,theta,D,numSim,signal,noise,varargin);
+% function  [Y,part,conditions] =pcm_generateData(Model,theta,varargin);
 % pcm_generateData: Simulate multivariate data using the generative model specified in Model
 % Noise and Signal strength can be specified for each simulation and voxel
 % separately. 
@@ -11,7 +11,8 @@ function [Y,partVec,condVec] = pcm_generateData(Model,theta,varargin);
 %   'numVox', number of independent voxels (default 50)
 %   'numSim', number of simulations,all returned in cell array Y (default 1)
 %   'signal', Signal variance: scalar, <numSim x 1>, <1xnumVox>, or <numSim x numVox> (default 0.1)
-%   'noise', Noise  variance: scalar, <numSim x 1>, <1xnumVox>, or <numSim x numVox> (default 1)
+%   'noise', Noise  variance: scalar, <numSim x 1>, <1xnumVox>,<numVox x numVox>, or <numSim x numVox> (default 1)
+%            option of numVox x numVox generates correlated noise 
 %   'signalDist',fcnhnd:    Functionhandle to distribution function for signal (default normal)
 %   'noiseDist',fcnhnd:     Functionhandle to distribution function for noise
 %   'design',X:             - Design matrix (for encoding-style models) 
@@ -29,11 +30,12 @@ function [Y,partVec,condVec] = pcm_generateData(Model,theta,varargin);
 %  the true (noiseless) pattern consistent across partitions has exactly
 %  the representational structure specified by the model 
 % 2017 joern.diedrichsen@googlemail.com 
-% ToDo: 
-% - Options for adding temporal co-variance structure of the noise 
-% - Options for adding spatial co-variance structuer of the noise 
-
+% Todo: Implement partition and condition vector as input arguments as
+% default 
 % Defaults:
+
+warning('pcm_generateData is being phased out. Use pcm_makeDesign and pcm_makeDataset instead'); 
+
 numPart = 8; 
 numVox = 50; 
 numSim = 1; 
@@ -42,7 +44,7 @@ noise  = 1;
 noiseDist = @(x) norminv(x,0,1);   % Standard normal inverse for Noise generation 
 signalDist = @(x) norminv(x,0,1);  % Standard normal inverse for Signal generation 
 design = [];
-pcm_vararginoptions(varargin,{,'numPart','numVox','numSim','signal','noise','signalDist','noiseDist','design'}); 
+pcm_vararginoptions(varargin,{'numPart','numVox','numSim','signal','noise','signalDist','noiseDist','design'}); 
 
 % Make the overall generative model 
 if (size(theta,1)~=Model.numGparams)
@@ -80,15 +82,36 @@ else
     end; 
 end; 
 
+% determine signal and noise covariance 
+[signalRow,signalCol]=size(signal);
+[noiseRow,noiseCol]=size(noise);
+if (signalRow==numVox && signalCol==numVox) 
+    signalChol = cholcov(signal);     
+else 
+    signalChol = eye(numVox); 
+end; 
+
+if (noiseRow==numVox && noiseCol==numVox) 
+    noiseChol = cholcov(noise); 
+else 
+    noiseChol = eye(numVox); 
+end; 
+
 for n = 1:numSim
-    % Determine noise and signal for this simulation 
-    if (size(signal,1)>1)
+    % Determine signal for this simulation 
+    if (signalRow == numSim)
         thisSig = signal(n,:); 
+    elseif (signalRow == numVox && signalCol==numVox)
+        thisSig = 1; 
     else 
         thisSig = signal; 
     end; 
-    if (size(noise,1)>1)
+    
+    % Determine noise for this simulation     
+    if (noiseRow==numSim) 
         thisNoi = noise(n,:); 
+    elseif (noiseRow == numVox && noiseCol==numVox)
+        thisNoi = 1; 
     else 
         thisNoi = noise; 
     end; 
@@ -103,12 +126,13 @@ for n = 1:numSim
     if (size(A,2)>numVox)
         error('not enough voxels to represent G'); 
     end; 
-    trueU = A*Z(1:size(A,2),:)*sqrt(numVox); 
+    trueU = A*Z(1:size(A,2),:)*signalChol*sqrt(numVox); 
     trueU = bsxfun(@times,trueU,sqrt(thisSig));   % Multiply by (voxel-specific) signal scaling factor 
     
     % Now add the random noise 
     pNoise = unifrnd(0,1,N,numVox); 
-    Noise  = bsxfun(@times,noiseDist(pNoise),sqrt(thisNoi)); 
+    Noise  = noiseDist(pNoise)*noiseChol; 
+    Noise  = bsxfun(@times,Noise,sqrt(thisNoi)); 
     Y{n}  = Za*trueU + Noise;
 end; 
     

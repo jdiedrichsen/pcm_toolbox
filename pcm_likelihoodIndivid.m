@@ -53,7 +53,7 @@ else
     G=M;
     M=[];
     M.numGparams=0;
-end;
+end 
 
 % If Run effect is to ne modelled as a random effect - add to G and
 % design matrix
@@ -63,13 +63,13 @@ if (OPT.fitScale)
     scaleParam = theta(M.numGparams+2); 
 else 
     scaleParam = 0; 
-end; 
+end 
 Gs = G*exp(scaleParam);         % Scale the subject G matrix up by individual scale parameter
 
 if (~isempty(OPT.runEffect))
     numRuns = size(OPT.runEffect,2);
     runParam = theta(M.numGparams+2+OPT.fitScale);    % Subject run effect parameter
-    G = pcm_blockdiag(G,eye(numRuns)*exp(runParam));  % Include run effect in G
+    Gs = pcm_blockdiag(Gs,eye(numRuns)*exp(runParam));  % Include run effect in G
     Z = [Z OPT.runEffect];                 % Include run effect in design matrix
 else
     numRuns = 0;                                % No run effects modelled
@@ -77,18 +77,20 @@ end;
 
 
 % Find the inverse of V - while dropping the zero dimensions in G
-[u,s] = eig(G);
+Gs = (Gs+Gs')/2;        % Symmetrize
+[u,s] = eig(Gs);
 dS    = diag(s);
 idx   = dS>(10*eps); % Increased to 10*eps from 2*eps  
 Zu     = Z*u(:,idx);
+
 % Apply the matrix inversion lemma. The following statement is the same as
-% V   = (Z*G*Z' + S.S*exp(theta(H)));
+% V   = (Z*Gs*Z' + S.S*exp(noiseParam));
 % iV  = pinv(V);
 if (isempty(OPT.S))
     iV    = (eye(N)-Zu/(diag(1./dS(idx))*exp(noiseParam)+Zu'*Zu)*Zu')./exp(noiseParam); % Matrix inversion lemma
 else
     iV    = (OPT.S.invS-OPT.S.invS*Zu/(diag(1./dS(idx))*exp(noiseParam)+Zu'*OPT.S.invS*Zu)*Zu'*OPT.S.invS)./exp(noiseParam); % Matrix inversion lemma
-end;
+end
 iV  = real(iV); % sometimes iV gets complex
 
 % For ReML, compute the modified inverse iVr
@@ -97,14 +99,14 @@ if (~isempty(X))
     iVr   = iV - iVX*((X'*iVX)\iVX');
 else
     iVr   = iV;
-end;
+end
 
 % Computation of (restricted) likelihood
 ldet  = -2* sum(log(diag(chol(iV))));        % Safe computation of the log determinant (V) Thanks to code from D. lu
 l     = -P/2*(ldet)-0.5*traceABtrans(iVr,YY);
 if (~isempty(X)) % Correct for ReML estimates
     l = l - P*sum(log(diag(chol(X'*iV*X))));  % - P/2 log(det(X'V^-1*X));
-end;
+end
 negLogLike = -l; % Invert sign
 
 
@@ -119,7 +121,7 @@ if (nargout>1)
     end
     
     % Get the derivatives for the Noise parameters
-    i             = M.numGparams+1;  % Which number parameter is it?
+    i = M.numGparams+1;  % Which number parameter is it?
     if (isempty(OPT.S))
         dVdtheta{i}          = eye(N)*exp(noiseParam);
     else
@@ -131,8 +133,8 @@ if (nargout>1)
      % Get the derivatives for the scaling parameters
      if (OPT.fitScale)
         i = M.numGparams+2;    % Which number parameter is it?
-        iVdV{i}          = A*pcm_blockdiag(G,zeros(numRuns))*Z{s}'*exp(scaleParam);
-        dLdtheta(i,1)    = -P(s)/2*trace(iVdV{i})+1/2*traceABtrans(iVdV{i},B);
+        iVdV{i}          = A*pcm_blockdiag(G,zeros(numRuns))*Z'*exp(scaleParam);
+        dLdtheta(i,1)    = -P/2*trace(iVdV{i})+1/2*traceABtrans(iVdV{i},B);
         % dLdtheta(i,1)    = dLdtheta(i,s) - scaleParam/OPT.scalePrior; % add prior to scale parameter 
      end;
         
@@ -154,7 +156,7 @@ end;
 if (nargout>2)
     for i=1:numTheta
         for j=i:numTheta;
-            d2nl(i,j)=-P/2*traceABtrans(iVdV{i},iVdV{j});
+            d2nl(i,j)=-P/2*traceAB(iVdV{i},iVdV{j}); % Fixed 11/2020
             d2nl(j,i)=d2nl(i,j);
         end;
     end;
