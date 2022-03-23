@@ -1,4 +1,4 @@
-# Pattern Component Modelling toolbox (Python)
+# Pattern Component Modelling toolbox (Matlab)
 
 Pattern component modeling (PCM) is a likelihood approach for evaluating representational models - models that specify how complex patterns of neural activity relate to visual stimuli, motor actions, or abstract thoughts. Similar to encoding models, PCM evaluates the ability of models to predict novel brain activity patterns. In contrast to encoding models, however, the activity of individual voxels across conditions (activity profiles) is not directly fitted. Rather, PCM integrates over all possible activity profiles and computes the marginal likelihood of the data under the activity profile distribution specified by the representational model. By using an analytical expression for the marginal likelihood, PCM allows the fitting of flexible representational models, in which the relative strength and form of different feature sets can be estimated from the data.
 
