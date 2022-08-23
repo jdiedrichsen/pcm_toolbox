@@ -49,8 +49,9 @@ function [T,DD,theta_hat,theta0]=pcm_fitModelIndividCrossval(Y,M,partitionVec,co
 %                  'leaveOneOut': Leave one partition at a time out 
 %                  'leaveTwoOut': Leave two consecutive partitions out
 %                  'oddeven': Split half by odd and even runs 
-%   'evaluation':  So far implemented are only the standard encoding-model 
-%                   style evalutation criteria
+%   'evaluation':   List of evaluation criteria 
+%                   'likelihood': Using log predictive probability (pseudo
+%                   likelihood) 
 %                   'R2': Crossvalidated R^2 
 %                   'R' : Correlation between observed and predicted  
 %   'runEffect': How to deal with effects that may be specific to different
@@ -91,8 +92,8 @@ Iter            = [];
 verbose         = 1;
 S               = [];
 fitAlgorithm    = [];
-crossvalScheme  = 'leaveTwoOut'; 
-evaluation      = {'R2','R'}; 
+crossvalScheme  = 'leaveOneOut'; 
+evaluation      = {'likelihood','R2','R'}; 
 theta0          = {}; 
 pcm_vararginoptions(varargin,{'crossvalScheme','fitAlgorithm','runEffect',...
             'MaxIteration','verbose','S','evaluation','crossvalScheme','theta0'});
@@ -214,6 +215,7 @@ for s = 1:numSubj
             Xtest=reduce(X{s},testIdx);
             Ztest=Z{s}(testIdx,:);
             Btest=reduce(B{s},testIdx);
+            Ntest = size(Ztest,1); 
             
             % Perform the initial fit to the training data 
             switch (M{m}.fitAlgorithm)
@@ -223,10 +225,10 @@ for s = 1:numSubj
                     [th(:,p),fX,D.iterations(p,m)] =  minimize(x0, fcn, MaxIteration);
                     D.likelihood_fit(p,m)=-fX(end); 
                 case 'NR'
-                    fcn = @(x) pcm_likelihoodIndivid(x,Ytrain*Ytrain',M{m},Ztrain,Xtrain,P(s));
+                    fcn = @(x) pcm_likelihoodIndivid(x,Ytrain*Ytrain',M{m},Ztrain,Xtrain,P(s),OPT);
                     [th(:,p),D.likelihood_fit(p,m),D.iterations(p,m)]= pcm_NR(x0,fcn,'verbose',verbose);
             end;
-            
+            x0 = th(:,p); 
             % Record the stats from fitting
             D.SN(p,1)         = s;
             D.fold(p,1)       = p;
@@ -237,16 +239,34 @@ for s = 1:numSubj
             D.time(p,m)       = toc;
             
             % calculate prediction on 
-            estU = pcm_estimateU(M{m},th(:,p),Ytrain,Ztrain,Xtrain,'runEffect',OPT.runEffect); 
+            [estU,varU] = pcm_estimateU(M{m},th(:,p),Ytrain,Ztrain,Xtrain,'runEffect',OPT.runEffect);
             Ypred  = Ztest*estU;
             Ypredx = Ypred-Xtest*pinv(Xtest)*Ypred; 
             Ytestx = Ytest-Xtest*pinv(Xtest)*Ytest;
             for c = 1:numEval 
                 switch (evaluation{c})
                     %  Under developement 
-                    %  case 'likelihood_cond' % evaluate the prediction
-                    %     D.likelihood_cond = pcm_crossvalLikelihood(M{m},th(:,p),Y(:,p),Z,X,...
-                    %         trainI,testI,'type',evalType);
+                    case 'likelihood' % Evaluate log probability under the predictive probability
+                        R = Ytest - Ztest * estU; % Residuals after subtracting prediction 
+                        V = Ztest * varU * Ztest'+eye(Ntest)*D.noise(p,m); 
+                        if strcmp(runEffect,'random')
+                            V = V + Btest*Btest'*D.run(p,m);
+                        end
+                        iV = inv(V);
+                        if (~isempty(X))
+                            iVX   = iV * Xtest;
+                            iVr   = iV - iVX*((Xtest'*iVX)\iVX');
+                        else
+                            iVr   = iV;
+                        end
+                        
+                        % Computation of (restricted) likelihood
+                        ldet  = -2* sum(log(diag(chol(iV))));        % Safe computation of the log determinant (V) Thanks to code from D. lu
+                        l     = -P(s)/2*(ldet)-0.5*traceABtrans(iVr,R*R');
+                        if (~isempty(X)) % Correct for ReML estimates
+                            l = l - P(s)*sum(log(diag(chol(Xtest'*iV*Xtest))));  % - P/2 log(det(X'V^-1*X));
+                        end
+                        D.likelihood(p,m) = l;
                     case 'R2'              % Predictive R2 
                         D.TSS(p,m)= sum(sum(Ytestx.*Ytestx));
                         D.RSS(p,m)= sum(sum((Ytestx-Ypredx).^2)); 
@@ -273,7 +293,7 @@ for s = 1:numSubj
     T.iterations(s,:)    =  sum(D.iterations);
     for c = 1:numEval 
         switch (evaluation{c})
-            case {'likelihood_uncond','likelihood_cond'}
+            case 'likelihood'
                 T.(evaluation{c})(s,:)    =  sum(D.(evaluation{c}));
             case 'R2'
                 TSS = sum(D.TSS); 

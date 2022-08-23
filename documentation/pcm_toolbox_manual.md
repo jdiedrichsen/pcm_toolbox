@@ -80,45 +80,51 @@ These functions are higher level functions that perform fitting and crossvalidat
 | `pcm_componentPosterior`     | Inference on components by model averaging 
 
 ### Visualization functions
-| 	Function 			       | Comment  
+| 	Function 	                     		       | Comment  
 |:-----------------------------|:-----------------------------
-| `pcm_classicalMDS`           | Multidimensional scaling  
-| `pcm_estimateU`         | Estimates voxel-patterns under model M
-| `pcm_estimateW`         | Estimates  voxel-feature weights under  model M
-| `pcm_plotModelLikelihood`    | Displays marginal likelihood for different models
+| `pcm_classicalMDS`                  | Multidimensional scaling  
+| `pcm_estimateU`                         | Estimates voxel-patterns under model M
+| `pcm_estimateW`                         | Estimates  voxel-feature weights under  model M
+| `pcm_plotModelLikelihood`  | Displays marginal likelihood for different models
 
 ### Model building 
 | 	Function 			       | Comment  
 |:-----------------------------|:-----------------------------
-| `pcm_constructModelFamily`     | Makes a family of models from different components
-| `pcm_buildModelFromFeatures`     | Makes a component model from featuresets
+| `pcm_constructModelFamily`      | Makes a family of models from different components
+| `pcm_buildModelFromFeatures`  | Makes a component model from featuresets
+| `pcm_buildCorrModel`                    | Makes a feature or nonlinear correlation model
+
 
 
 ### Utility functions
 | 	Function 			       | Comment  
 |:-----------------------------|:-----------------------------
-| `pcm_addModelComp`                  | Adds a model component to model M  
-| `pcm_blockdiag`                  | Makes a blockdiagonal matrix  
-| `pcm_calculateG`                  | Determines G for models   
-| `pcm_checkderiv`                  | Checks derivate of a nonlinear model 
-| `pcm_diagonalize`                  | Decomposes G into A * A'  
-| `pcm_estGcrossval`              | Cross-validated estimate of G 
-| `pcm_generateData`                  | Generates data simulations from model M  
-| `pcm_getStartingval`               | Provides a starting value estimate for model M  
-| `pcm_indicatorMatrix`       | Generates indicator matrices 
-| `pcm_vararginoptions`	    | Deals with variable input options 
-| `pcm_getUserOptions`	    | Deals with variable input options (struct-based, faster) 
-| `pcm_makePD`    | Moves a matrix to closest semi-postive definite Matrix 
-| `pcm_optimalAlgorithm`    | Recommendation for the best optimisation algorithm
-| `pcm_prepFreeModel`         |  Sets up free model (freechol)
+| `pcm_addModelComp`                   | Adds a model component to model M  
+| `pcm_blockdiag`                          | Makes a blockdiagonal matrix  
+| `pcm_calculateG`                        | Determines G for models   
+| `pcm_calculateGnonlinCorr`    | G and derivatives for a nonlinear correlation model
+| `pcm_checkderiv`                        | Checks derivate of a nonlinear model 
+| `pcm_diagonalize`                      | Decomposes G into A * A'  
+| `pcm_estGcrossval`                    | Cross-validated estimate of G 
+| `pcm_generateData`                    | Generates data simulations from model M  
+| `pcm_getStartingval`                | Provides a starting value estimate for model M  
+| `pcm_indicatorMatrix`              | Generates indicator matrices 
+| `pcm_vararginoptions`	          | Deals with variable input options 
+| `pcm_getUserOptions`	            | Deals with variable input options (struct-based, faster) 
+| `pcm_makePD`                                | Moves a matrix to closest semi-postive definite Matrix 
+| `pcm_optimalAlgorithm`            | Recommendation for the best optimisation algorithm
+| `pcm_prepFreeModel`                  |  Sets up free model (freechol)
 
 
 ### Recipes 
 | 	Function 			       | Comment  
 |:-----------------------------|:-----------------------------
-| `pcm_recipe_finger`          | Example of a fixed and component models 
-| `pcm_recipe_correlation`     | Example of feature model   
-| `pcm_recipe_nonlinear`       | Example for non-linear model   
+| `pcm_recipe_finger`                      | Example of a fixed and component models 
+| `pcm_recipe_feature`                    | Example of a feature models   
+| `pcm_recipe_nonlinear`               | Example for non-linear scaling model   
+| `pcm_recipe_correlation`           | Example for non-linear correlation model   
+
+### 
 
 ### Currently not maintained / under developement
 | 	Function 			       | Comment  
@@ -252,7 +258,7 @@ $$
 $$
 
 #### Example 
-In the example `pcm_recipe_correlation`, we want to model the correlation between the patterns for the left hand and the corresponding fingers for the right hand. 
+In the example `pcm_recipe_feature`, we want to model the correlation between the patterns for the left hand and the corresponding fingers for the right hand. 
 
 ![*Feature model to model correlation.*](Figures/Figure_feature_corr.pdf){#fig:Fig2}
 
@@ -277,11 +283,11 @@ The most flexible way of defining a representational model is to express the sec
 For this, the user needs to define a function that takes the parameters as an input and returns **G** the partial derivatives of **G** in respect to each of these parameters. The derivates are returned as a (KxKxH) tensor, where H is the number of parameters. 
 
 ```
-[G,dGdtheta]=fcn(theta,data,…)
+[G,dGdtheta]=fcn(theta,M)
 ```
 Note that this function is repeatedly called by the optimization routine and needs to execute fast. That is, any computation that does not depend on the current value of $\theta$ should be performed outside the function and then passed to it.
 
-#### Example 
+#### Example 1: Nonlinear scaling model 
 
 In the example `pcm_recipe_nonlinear`, we define how the representational structure of single finger presses of the right hand (**G**) scales as the number of presses increases. To achieve this, we can simply allow for a scaling component ($\theta_{f}$) for each pressing speed ($f$). In the recipe, we have four pressing speeds. Therefore, we use **G** from one pressing speed to model the **G**s of the remaining three pressing speeds. For one pressing speed, **G** is a 5x5 matrix, where each dimension corresponds to one finger. To speed up the optimization routine, we set **G**$(1,1)$ to one. The parameters in **G** are then free to vary with respect to **G**$(1,1)$. 
 
@@ -292,8 +298,60 @@ M.modelpred  = @ra_modelpred_scale;
 M.numGparams = 17; 					% 14 free theta params in G because G(1,1) is set to 1, and 3 free scaling params
 M.theta0     = [Fx0; scale_vals];   % Fx0 are the 14 starting values from G, scale_vals are 3 starting scaling values 
 ```
+#### Example 2: Nonlinear correlation model 
+In the example `pcm_recipe_correlation`, we use a non-linear model to determine the correlation between two sets of 5 patterns corresponding to 5 items (e.g. motor sequences) measured under two conditions (e.g. two testing sessions). We use two approaches: 
 
-### Free model - Maximum likelihood 
+**Fixed correlation models**: We use a series of 21 models that test the likelihood of the data under a fixed correlations between -1 and 1. This approach allows us to determine how much evidence we have for one specific correlation over the other. Even though the correlation is fixed for these models, the variance structure within each of the conditions is flexibly estimated. This is done using a compent model within each condition. 
+$$
+\mathbf{G}^{(1)} = \sum_{h}{\exp(\theta^{(1)}_{h})\mathbf{G}^{(1)}_{h}}\\
+\mathbf{G}^{(2)} = \sum_{h}{\exp(\theta^{(2)}_{h})\mathbf{G}^{(2)}_{h}}\\
+$$
+
+The overall model is nonlinear, as the two components interact in the part of the **G** matrix that indicates the covariance between the patterns of the two conditions (**C**). Given a constant correlation $r$, the overall second moment matrix is calculated as:
+$$
+\mathbf{G}= \begin{bmatrix} 
+\mathbf{G}^{(1)} & r\mathbf{C} \\
+r\mathbf{C}^T & \mathbf{G}^{(2)}
+\end{bmatrix}\\
+\mathbf{C}_{i,j} = \sqrt{\mathbf{G}^{(1)}_{i,j}\mathbf{G}^{(2)}_{i,j}}
+$$
+
+The derivatives of that part of the matrix in respect to the parameters $\theta^{(1)}_{h}$ then becomes 
+
+$$
+\frac{{\partial {\mathbf{C}_{i,j}}}}{{\partial {\theta^{(1)}_h}}} =
+\frac{r}{2 \mathbf{C}_{i,j}} \mathbf{G}^{(2)}_{i,j} \frac{{\partial {\mathbf{G}^{(1)}_{i,j}}}}{{\partial {\theta^{(1)}_h}}}
+$$
+
+These derivatives are automatically calculated in the function `pcm_calculateGnonlinCorr`. From the log-likelihoods for each model, we can then obtain an approximation for the posterior distribution.  The models with a fixed correlation for our example can be generated using 
+
+```matlab
+nModel  = 21; 
+r = linspace(-1,1,nModel); 
+for i=1:nModel             
+​    M{i} = pcm_buildCorrModel('type','nonlinear','withinCov','individual','numItems',5,'r',r(i)); 
+end
+```
+
+**Flexible correlation model**: We also use a flexible correlation model, which has an additional model parameter for the correlation. To avoid bounds on the correlation, this parameter is the inverse Fisher-z transformation of the correlation, which can take values of $[-\infty,\infty]$. 
+$$
+\theta=\frac{1}{2}log\left(\frac{1+\theta}{1-\theta}\right)\\
+r=\frac{exp(2\theta)-1}{exp(2\theta)+1}\\
+$$
+The derivative of $r$ in respect to $\theta$ can be derived using the product rule: 
+
+$$
+\frac{\partial r}{\partial \theta} = 
+\frac{2 exp(2 \theta)}{exp(2\theta)+1} - \frac{\left(exp(2\theta)-1\right)\left(2 exp(2 \theta)\right)}{\left(exp(2\theta)+1\right)^2} = \\
+\frac{4 exp(2 \theta)}{\left(exp(2\theta)+1\right)^2}
+$$
+
+Again, this derivative is automatically calculated by  `pcm_calculateGnonlinCorr` if `M.r` is set to `'flexible'`. 
+```
+Mf = pcm_buildCorrModel('type','nonlinear','withinCov','individual',...
+			'numItems',5,'r','flexible'); 
+```
+### Free models 
 
 The most flexible representational model is the free model, in which the predicted second moment matrix is unconstrained. Thus, when we estimate this model, we simply derive the maximum-likelihood estimate of the second-moment matrix. This can be useful for a number of reasons. First, we may want an estimate of the second moment matrix to derive the corrected correlation between different patterns, which is less influenced by noise than the simple correlation estimate [@RN3638; @RN3033]. Furthermore, we may want to estimate the likelihood of the data under a free model to obtain a noise ceiling - i.e.\ an estimate of how well the best model should fit the data (see section Noise Ceilings). In estimating an unconstrained $\mathbf{G}$, it is important to ensure that the estimate will still be a positive definite matrix. For this purpose, we express the second moment as the square of an upper-triangular matrix, $\mathbf{G} = \mathbf{AA}^{T}$ [@RN3638; @RN3033]. The parameters are then simply all the upper-triangular entries of $\mathbf{A}$.
 
@@ -409,7 +467,7 @@ The output can be used to compare the likelihoods between different models. Alte
 
 
 ####  Example 
-In `pcm_recipe_correlation`, we fit the feature model described above and then use the fitted parameters to determine the predicted correlation. 
+In `pcm_recipe_feature`, we fit the feature model described above and then use the fitted parameters to determine the predicted correlation. 
 
 ```
 [D,theta,G_hat] = pcm_fitModelIndivid(Data,M,partVec,condVec,'runEffect','fixed');
@@ -711,12 +769,16 @@ $$
 
 To compute the likelihood we need to remove these fixed effects from the data, using the residual forming matrix
 $$
-{\bf{R}} = \bf{X}{\left( {{{\bf{X}}^T}{{\bf{V}}^{ - 1}}{\bf{X}}} \right)^{ - 1}}{{\bf{X}}^T}{{\bf{V}}^{ - 1}}\\ {\bf{r_i}} = \bf{Ry_i}
+{\bf{R}} = \bf{X}{\left( {{{\bf{X}}^T}{{\bf{V}}^{ - 1}}{\bf{X}}} \right)^{ - 1}}{{\bf{X}}^T}{{\bf{V}}^{ - 1}}
 $$
 
-For the optimization of the random effects we therefore also need to take into account the uncertainty in the fixed effects estimates. Together this leads to a modified likelihood - the restricted likelihood that we which to optimize.
 $$
-L_{ReML} =-\frac{NP}{2}\mathrm{ln}\left(2\pi \right)-\frac{P}{2}\mathrm{ln}\left(|\bf{V}|\right)-\frac{1}{2}trace\left({\bf{Y}\bf{Y}}^{T}\bf{R}^{T}{\bf{V}}^{-1}\bf{R}\right)-\frac{P}{2}\mathrm{ln}|\bf{X}^{T}\bf{V}^{-1}\bf{X}|
+{\bf{r_i}} = \bf{Ry_i}
+$$
+
+For the optimization of the random effects we therefore also need to take into account the uncertainty in the fixed effects estimates. Together this leads to a modified likelihood - the restricted likelihood. 
+$$
+L_{ReML} =-\frac{NP}{2}\mathrm{ln}\left(2\pi \right)-\frac{P}{2}\mathrm{ln}\left(|\bf{V}|\right)-\frac{1}{2}trace\left({\bf{Y}\bf{Y}}^{T}{\bf{R}}^{T}{\bf{V}}^{-1}\bf{R}\right)-\frac{P}{2}\mathrm{ln}|\bf{X}^{T}\bf{V}^{-1}\bf{X}|
 $$
 
 Note that the third term can be simplified by noting that
@@ -727,7 +789,7 @@ $$
 ## First derivatives of the log-likelihood 
 Next, we find the derivatives of *L* with respect to each hyper parameter $\theta_{i}$, which influence G. Also we need to estimate the hyper-parameters that describe the noise, at least the noise parameter $\sigma_{\epsilon}^{2}$. To take these derivatives we need to use two general rules of taking derivatives of matrices (or determinants) of matrices:
 $$
-\frac{{\partial \ln \left( {\bf{V}} \right)}}{{\partial {\theta _i}}} = trace\left( {{{\bf{V}}^{ - 1}}\frac{{\partial {\bf{V}}}}{{\partial {\theta _i}}}} \right)
+\frac{{\partial \ln \left|{\bf{V}} \right|}}{{\partial {\theta _i}}} = trace\left( {{{\bf{V}}^{ - 1}}\frac{{\partial {\bf{V}}}}{{\partial {\theta _i}}}} \right)
 $$
 
 $$

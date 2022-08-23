@@ -1,5 +1,6 @@
-function varargout=pcm_recipe_correlation
-% Example of the use of PCM to determine correspondence of activity patterns cross two conditions. 
+function varargout=pcm_recipe_feature
+% This example uses a PCM feature model to determine correspondence of activity 
+% patterns cross two conditions. 
 % The data contains patterns for movements of 5 fingers for the left and
 % right hand, respectively. 
 % The data come from the 12 hemispheres studied for the finger movements
