@@ -143,7 +143,7 @@ for m = 1:numModels
     % Get starting guess for theta if not provided
     if (~isfield(M{m},'theta0'))
         M{m}.theta0 = pcm_getStartingval(M{m},mean(G_hat,3));   
-    end;
+    end; 
     
     % Use normal linear regression to get scaling parameter for the
     % subject

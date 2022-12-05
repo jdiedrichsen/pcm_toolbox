@@ -76,7 +76,7 @@ h0=[];                      % Starting value
 
 % Variable argument otions
 %--------------------------------------------------------------------------
-vararginoptions(varargin, ...
+pcm_vararginoptions(varargin, ...
     {'num_iter','Ac','TolL','accel_method','meanS','h0','X'});
 
 % Intialize the Model structure
@@ -214,7 +214,7 @@ while (n<num_iter && diffL>TolL)
     
     % Mstep: Constrained regression: here it uses new MEX function 
     %--------------------------------------------------------------------------
-    [COV,VA]=ML_constrained_fast(rv,vv,sCc,sCcCc); 
+    [COV,VA]=pcm_ML_constrained_fast(rv,vv,sCc,sCcCc); 
     h(1:H,n+1) = VA\COV;
     
     % Based on the new h-parameters, build up C
@@ -294,56 +294,3 @@ G=A*A';
 u=G*Z'*Wr;
 
 
-
-
-function vararginoptions(options,allowed_vars,allowed_flags)
-% function vararginoptions(options,allowed_vars,allowed_flags);
-% Deals with variable argument in   
-% INPUTS
-%   options: cell array of a argument list passed to a function
-%   allowed_vars: Variables that can be set 
-%   allowed_flags: Flags that can be set 
-%  vararginoptions assigns the value of the option to a variable with the
-%  name option (in called workspace).
-%  Flags are set to one:
-% EXAMPLE:
-%   the option-string 'var1',4,'var2',10,'flag'
-%   causes the var1 and var2 to be set to 4 and 10 and flag to 1
-%   if allowedvars are not given, all variables are allowed
-% Joern Diedrichsen 
-% v1.0 9/13/05
-checkflags=1;
-checkvars=1;
-if nargin<2
-    checkvars=0;
-end;
-if nargin<3
-    checkflags=0;
-end;
-
-c=1;
-while c<=length(options)
-    a=[];
-    if ~ischar(options{c})
-        error('Options must be strings on argument %d',c);
-    end;
-    if checkflags
-        a=find(strcmp(options{c},allowed_flags), 1);
-    end;
-    if ~isempty(a)
-        assignin('caller',options{c},1);
-        c=c+1;
-    else
-        if checkvars
-            a=find(strcmp(options{c},allowed_vars), 1);
-            if (isempty(a))
-                error(['unknown option:' options{c}]);
-            end;
-        end;
-        if (c==length(options))
-            error('Option %s must be followed by a argument',options{c});
-        end;
-        assignin('caller',options{c},options{c+1});
-        c=c+2;
-    end;
-end;

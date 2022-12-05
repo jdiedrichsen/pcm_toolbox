@@ -353,9 +353,7 @@ Mf = pcm_buildCorrModel('type','nonlinear','withinCov','individual',...
 ```
 ### Free models 
 
-The most flexible representational model is the free model, in which the predicted second moment matrix is unconstrained. Thus, when we estimate this model, we would simply derive the maximum-likelihood estimate of the second-moment matrix. This can be useful for a number of reasons. First, we may want an estimate of the second moment matrix to derive the corrected correlation between different patterns, which is less influenced by noise than the simple correlation estimate [@RN3638; @RN3033]. Furthermore, we may want to estimate the likelihood of the data under a free model to obtain a noise ceiling - i.e.\ an estimate of how well the best model should fit the data (see section Noise Ceilings).
-
-In estimating an unconstrained $\mathbf{G}$, it is important to ensure that the estimate will still be a positive definite matrix. For this purpose, we express the second moment as the square of an upper-triangular matrix, $\mathbf{G} = \mathbf{AA}^{T}$ [@RN3638; @RN3033]. The parameters are then simply all the upper-triangular entries of $\mathbf{A}$.
+The most flexible representational model is the free model, in which the predicted second moment matrix is unconstrained. Thus, when we estimate this model, we simply derive the maximum-likelihood estimate of the second-moment matrix. This can be useful for a number of reasons. First, we may want an estimate of the second moment matrix to derive the corrected correlation between different patterns, which is less influenced by noise than the simple correlation estimate [@RN3638; @RN3033]. Furthermore, we may want to estimate the likelihood of the data under a free model to obtain a noise ceiling - i.e.\ an estimate of how well the best model should fit the data (see section Noise Ceilings). In estimating an unconstrained $\mathbf{G}$, it is important to ensure that the estimate will still be a positive definite matrix. For this purpose, we express the second moment as the square of an upper-triangular matrix, $\mathbf{G} = \mathbf{AA}^{T}$ [@RN3638; @RN3033]. The parameters are then simply all the upper-triangular entries of $\mathbf{A}$.
 
 #### Example 
 
@@ -368,7 +366,16 @@ M.name       = 'noiseceiling';
 M            = pcm_prepFreeModel(M); 
 ```
 
-For a quick and approximate noise ceiling, you can also set the model type to `freedirect`. In the case, the fitting algorithms simply use the crossvalidated second moment to determine the parameters - basically the starting values of the complete model. This may lead to a slightly lower noise ceiling, as full optimization is avoided in the interest of speed. 
+### Free model - direct estimation via crossvalidation
+A full maximum likelihood estimation of a  free model takes time. For a quick and approximate  noise ceiling, we can simply use the crossvalidated estimate of the group second moment matrix (see Data visualization / second momement matrices). This estimate will give you a lower estimate for the likelihood thant the 'freechol' model, but it will be very rapid. To cross-validate this model, we simply estimate G using `pcm_estGcrossval` for N-1 subjects, and then evaluate the likelihood of the Nth subject under this estimate. 
+
+#### Example
+The estimation and crossvalidation is implemented in the fitting routines, so you don't need to specify the  estimates of the G-matrix explictly. To use this feature, you specify the model type correctly: 
+
+``` 
+M.type= 'freedirect'; 
+M.name='noiseceiling';
+``` 
 
 ## Noise assumptions 
 
