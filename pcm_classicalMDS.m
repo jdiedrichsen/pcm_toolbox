@@ -47,6 +47,3 @@ end;
 indx = find(l<eps); 
 Y(:,indx)=0;                % Kill superflous dimensions 
 Y=real(Y); 
-V(:,indx)=0;
-V=real(V);
- 
