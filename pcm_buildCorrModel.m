@@ -14,7 +14,8 @@ function M = pcm_buildCorrModel(varargin);
 %   'withinCov': How should the within Condition covariance structure be modelled? 
 %        'iid': Same variance + independent for all 
 %        'individual': Independnet, but with a individual scalable variances 
-%        Matrix: Arbitrary, fixed covariance structure 
+%        Matrix: Arbitrary, fixed covariance structure - needs to be a
+%        numItems x numItems covariance matrix 
 %   'condEffect': Model overall condition effect? (Default is yes) 
 r     =  0.5;  % fixed correlation or 'flexible'
 type  = 'nonlinear'; 
