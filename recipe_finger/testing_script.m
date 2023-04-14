@@ -1,3 +1,4 @@
+% Testing script for the finger example 
 load data_recipe_finger7T.mat
 M{1}.type       = 'component';
 M{1}.numGparams = 1;
