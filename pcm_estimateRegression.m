@@ -42,12 +42,20 @@ iG = 1./ G;
 
 % WAY 1: Find the inverse of V
 % Apply the matrix inversion lemma. The following statement is the same as
-% V   = (Z*G*Z' + S.S*exp(theta(H))); % As S is not identity, matrix inversion lemma does not have big advantage here (ay)?
+% V   = (Z*diag(G)*Z' + eye(N)*exp(noiseParam)); % As S is not identity, matrix inversion lemma does not have big advantage here (ay)?
 % iV  = pinv(V);
-if (isempty(S))
-    iV    = (eye(N)-Z/(diag(iG)*exp(noiseParam)+Z'*Z)*Z')./exp(noiseParam); % Matrix inversion lemma
+if (isempty(S))  
+    if min(theta(comp))<-20
+        iV = pinv((Z*diag(G)*Z' + eye(N)*exp(noiseParam)));
+    else
+        iV    = (eye(N)-Z/(diag(iG)*exp(noiseParam)+Z'*Z)*Z')./exp(noiseParam); % Matrix inversion lemma
+    end
 else
-    iV    = (S.invS-S.invS*Z/(diag(diag(iG)*exp(noiseParam)+Z'*S.invS*Z)*Z'*S.invS))./exp(noiseParam); % Matrix inversion lemma
+    if min(theta(comp))<-20
+        iV = pinv((Z*diag(G)*Z' + S.S*exp(noiseParam)))
+    else
+        iV    = (S.invS-S.invS*Z/(diag(diag(iG)*exp(noiseParam)+Z'*S.invS*Z)*Z'*S.invS))./exp(noiseParam); % Matrix inversion lemma
+    end
 end
 
 % For ReML, compute the modified inverse iVr
