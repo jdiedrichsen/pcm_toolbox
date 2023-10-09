@@ -17,7 +17,7 @@ function varargout=pcm_recipe_feature
 %                   patterns 
 %           0<r<1: Ipsilateral patterns are related, but have distinct own
 %                  component 
-load data_recipe_correlation.mat
+load ../recipe_correlation/data_recipe_correlation.mat
 runEffect  = 'fixed';
 alg = 'NR'; 
 

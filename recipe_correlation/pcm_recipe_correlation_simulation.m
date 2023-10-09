@@ -1,26 +1,14 @@
-function varargout=pcm_recipe_correlation
-% This example uses a nonlinear correlation model to test for the correspondence of activity 
-% patterns cross two conditions. 
-% The data contains patterns for movements of 5 fingers for the left and
-% right hand, respectively. 
-% The data come from the 12 hemispheres studied for the finger movements
-% of contralateral and ipsilateral hand (see Diedrichsen et al. 2013).
-% Note that the strength of encoding for the contralateral fingers is much larger
-% than for the ipsilateral fingers.
-% The main variable of interest is the finger-to-finger correspondence between
-% activity patterns for ipsi- and contralateral patterns. 
+function varargout=pcm_recipe_correlation_simulation
+% This example simulates data and then fits it with a set of 
+% of correlation models 
 % We will test: 
 %     a) 21 models, equally spaced from -1 to 1 correlation 
 %     b) A flexible correlation model, that is functionally equivalent to
 %     the feature model in pcm_recipe_feature
-runEffect  = 'fixed';
-nPart = 8; % Number of partitions 
-nSubj = 10; % Number of subjects / simulations 
-nVox  = 80; % Number of voxels
 
 % --------------------------------------
 % Generate data from a model with r =0.5 correlation 
-Mtrue = pcm_buildCorrModel('type','nonlinear','withinCov','iid','numItems',2,'r','flexible','condEffect',0);
+Mtrue = pcm_buildCorrModel('type','nonlinear','withinCov','iid','numItems',5,'r','flexible','condEffect',0);
 thetaTrue = [0 -0.5 1 ]' ; % true Theta's 
 [G,dG] = pcm_calculateGnonlinCorr(thetaTrue,Mtrue)
 keyboard;
@@ -74,4 +62,5 @@ r=(exp(2.*z)-1)./(exp(2.*z)+1);      % Take inverse Fisherz transform
 x=[r;r];
 ylim = get(gca,'YLim'); 
 y=repmat(ylim',1,numel(r)); 
-line(x,y);                           
+line(x,y);                  
+
